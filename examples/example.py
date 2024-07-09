@@ -27,6 +27,8 @@ chemical_formula = 'CH'
 x_min = 280
 x_max = 320
 
+data = np.genfromtxt(filename, skip_header=4)
+
 ## Calculate the full scattering factor spectra
 output = kk.kk_calculate_real(filename,
                               chemical_formula,
@@ -48,6 +50,9 @@ plt.figure()
 plt.plot(output[:, 0], output[:, 1], label='f1 kkcalc')
 plt.plot(output[:, 0], output[:, 2], label='f2 kkcalc')
 plt.plot(ASF_E, ASF_Data2, label='Henke f2')
+
+plt.plot(data[:,0], data[:,1], label='Raw Data')
+
 plt.legend()
 plt.xlim(x_min, x_max)
 plt.title(material_name)
