@@ -11,12 +11,12 @@
 import sys, os
 try:
     ## This should work if you properly installed the kkcalc module
-    import kkcalc as kk
+    import kkcalc_old as kk
 except ModuleNotFoundError:
     ## This could happen if you simply downloaded the code from the repository.
     ## We will assume that the module is in the parent directory of this file.
     sys.path.append(os.path.split(os.path.split(__file__)[0])[0]) ## Append to PYTHONPATH
-    import kkcalc as kk
+    import kkcalc_old as kk
 import numpy as np
 import matplotlib.pyplot as plt
 

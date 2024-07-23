@@ -290,11 +290,21 @@ class conversions:
         npt.NDArray
             An array of `N-1` Atomic scattering polynomial coefficients.
         """
+        # Ensure no duplicate energies and ordered.
+        diffs = np.diff(energies)
+        monotonic = np.all(diffs > 0)
+        if not monotonic:
+            raise ValueError(
+                "Energies must be ordered and unique."
+                + f" Negative differences: {np.where(diffs <= 0)}."
+                )
+        
+        # Calculate the coefficients: setup array.
         coefs = np.zeros((len(energies)-1, N))
         # Calculate coefficient #0
-        coefs[:-1, 0] = (factors[1:] - factors[:-1]) / (energies[1:] - energies[:-1])
+        coefs[:, 0] = (factors[1:] - factors[:-1]) / (energies[1:] - energies[:-1])
         # Calculate coefficient #1
-        coefs[:-1, 1] = factors[:-1] - coefs[:-1, 0] * energies[:-1]
+        coefs[:, 1] = factors[:-1] - coefs[:, 0] * energies[:-1]
         return coefs
     
     @staticmethod
@@ -319,8 +329,8 @@ class conversions:
             An array of `N` or `N+1` atomic scattering factors, matching the input `energies` length.
             If `energies` has length `N+1`, the last ASF value will be calculated using the last ASP coefficient.
         """
-        energies = np.asarray(energies)
-        coefs = np.asarray(coefs)
+        energies = np.asarray(energies, dtype=float)
+        coefs = np.asarray(coefs, dtype=float)
         # Check dimensions:
         if energies.ndim == 0:
             # Boost to 1D
@@ -330,15 +340,15 @@ class conversions:
             coefs = np.array([coefs])
         
         # Check shapes:
-        if (coefs.shape[0] != energies.shape[0]-1) or (coefs.shape[0] != energies.shape[0]):
+        if (coefs.shape[0] != energies.shape[0]-1) and (coefs.shape[0] != energies.shape[0]):
             raise ValueError(
                 f"Number of coefficients sets ({len(coefs)}) "
-                + f"does not match the number of energies ({len(energies)} or {len(energies)+1}).")
+                + f"does not match the number of energies ({len(energies)-1} or {len(energies)}).")
         
         # Create an array of energy powers for each coefficient.
         powers = np.c_[*[energies**(1-i) for i in range(5)]]
         # Do energies match the number of coefficient sets?
         if energies.shape[0] == coefs.shape[0]+1:
             # Duplicate the final polynomial to define the final boundary.
-            coefs = np.r_[coefs, coefs[-1,:]] # Duplicate the last row.
-        return np.dot(coefs, powers)
+            coefs = np.r_[coefs, coefs[-1:,:]] # Duplicate the last row.
+        return np.sum(coefs * powers, axis=1)

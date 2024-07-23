@@ -84,7 +84,7 @@ class asp:
     @property
     def atomic_scattering_factors(self) -> npt.NDArray:
         """
-        Returns the atomic scattering factors calculated from the piecewise polynomial coefficients.
+        Returns `N+1` atomic scattering factors calculated from the `N` piecewise polynomial coefficients.
         
         Returns
         -------
@@ -92,6 +92,14 @@ class asp:
             The atomic scattering factors calculated from the polynomial coefficients.
         """
         return self.coefs_to_atomic_scattering_factors(self.energies, self.coefs)
+    
+    @property
+    @doc_copy(atomic_scattering_factors)
+    def asf(self) -> npt.NDArray:
+        """
+        Alias for `atomic_scattering_factors`.
+        """
+        return self.atomic_scattering_factors
     
     @property
     @doc_copy(atomic_scattering_factors)
@@ -110,8 +118,7 @@ class asp:
         asf
             An atomic scattering factor object with the same polynomial coefficients as the piecewise polynomial.
         """
-        if not "asf" in locals():
-            from kkcalc.models.factors import asf as asf_type
+        from kkcalc.models.factors import asf as asf_type
         return asf_type(energies=self.energies,
                    factors=self.atomic_scattering_factors)
         
@@ -121,6 +128,38 @@ class asp:
         Alias for `to_atomic_scattering_factors`.
         """
         return self.to_atomic_scattering_factors()
+    
+    @staticmethod
+    def evaluate_energies_on_coefs(
+        target_energies: npt.NDArray,
+        energies: npt.NDArray,
+        coefs: npt.NDArray) -> npt.NDArray:
+        
+        # Find where the energies are located in the object's energies.
+        indices = np.searchsorted(energies, target_energies) - 1 # subtract to transfer from spans (N+1) to coefficients (N).
+        if -1 in indices or len(energies)-1 in indices:
+            # Check if all searchsorted invalid indexes are defined.
+            invalid = np.where((indices < 0) | (indices == len(energies)-1))
+            inval_energies = target_energies[invalid]
+            for inv_e in inval_energies:
+                if inv_e == target_energies[0]:
+                    indices[invalid] = 0 # First defined polynomial.
+                elif inv_e == target_energies[-1]:
+                    indices[invalid] = len(energies)-2 # Last defined polynomial.
+                else:
+                    raise ValueError(
+                        f"Some energies {target_energies[invalid]}"
+                        + f"are outside the defined energy range ({energies.min()}, {energies.max()})."
+                    )
+            
+        # Collate coefficients corresponding to the energies.
+        target_coefs = coefs[indices]
+        # Calculate the ASF values at the given energies.
+        factors = asp.coefs_to_atomic_scattering_factors(
+            energies=target_energies,
+            coefs=target_coefs
+        )
+        return factors
     
     def evaluate_energies(self, 
             target_energies:npt.NDArray | float | None = None
@@ -133,48 +172,37 @@ class asp:
         Parameters
         ----------
         energies : array_like | float, optional
-            1D array (or singular) of `M` energies in eV, if None then the energies defined in the object are used.
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
 
         Returns
         -------
-        npt.NDArray
+        npt.NDArray | float
             The magnitude of the atomic scattering factors at energy (or energies) `energies`.
-            Dimensions are `M` if `energies` is an array, or 1 if `energies` is a singular value.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
 
         """
         # Type check
-        if target_energies is not None:
-            if not isinstance(target_energies, (int, float)):
-                target_energies = np.asarray(target_energies)
-            else:
-                target_energies = np.array([target_energies])
-        
-        # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
         if target_energies is None:
-            return self.evaluate_energies(self.energies, self.coefs)
-        # If energies are provided, but not coefficients, use the object's coefficients to calculate the ASF values at the given energies.
-        else: #target_energies is not None:
-            # Find where the energies are located in the object's energies.
-            indices = np.searchsorted(self.energies, target_energies) - 1 # subtract to transfer from spans (N+1) to coefficients (N).
-            if -1 in indices or len(self.energies)-1 in indices:
-                # Check if all searchsorted invalid indexes are defined.
-                invalid = np.where((indices < 0) | (indices == len(self.energies)-1))
-                inval_energies = target_energies[invalid]
-                for inv_e in inval_energies:
-                    if inv_e == target_energies[0]:
-                        indices[invalid] = 0 # First defined polynomial.
-                    elif inv_e == target_energies[-1]:
-                        indices[invalid] = len(self.energies)-2 # Last defined polynomial.
-                    else:
-                        raise ValueError(
-                            f"Some energies {target_energies[invalid]}"
-                            + f"are outside the defined energy range ({self.energies.min()}, {self.energies.max()})."
-                        )
-                
-            # Collate coefficients corresponding to the energies.
-            target_coefs = self.coefs[indices]
-            # Calculate the ASF values at the given energies.
-            return self.coefs_to_atomic_scattering_factors(target_energies, target_coefs)
+            # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
+            return self.evaluate_energies(self.energies)
+        
+        if not isinstance(target_energies, (int, float)):
+            target_energies = np.asarray(target_energies)
+            factors = self.evaluate_energies_on_coefs(
+                target_energies=target_energies,
+                energies=self.energies,
+                coefs=self.coefs
+            )
+        else:
+            target_energies = np.array([target_energies])
+            # Remove the singleton dimension from the output.
+            factors = self.evaluate_energies_on_coefs(
+                target_energies=target_energies,
+                energies=self.energies,
+                coefs=self.coefs
+            )[0]
+        return factors
 
     @doc_copy(evaluate_energies)
     def __call__(self, target_energies:npt.NDArray | float | None = None) -> npt.NDArray:
