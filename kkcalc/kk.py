@@ -9,7 +9,7 @@ from typing import Any
 from .stoich import stoichiometry
 from enum import Enum
 from .models.factors import KK_Datatype, asf
-from kkcalc.asf_db.asf_spectra import asp_db, asf_db_extended
+from kkcalc.asf_database.asf_spectra import asp_db, asp_db_extended
         
 def KK_General_PP(eval_energies: npt.NDArray, 
                 energies: npt.NDArray, 
@@ -131,16 +131,20 @@ def kk_calculate_real(
     rc = stoich.relativistic_correction
     db_poly: asp_db = stoich.asp_im() #database
     
-    
     # Load the NEXAFS data.
     data_asf = asf(energies, intensities)
     
     # Combine the data with the database.
+    merge_data_asp = asp_db_extended(
+            data_asf=data_asf,
+            asp_db = db_poly,
+            merge_domain=None,
+            fix_distortions=False
+    )
     
-    
-    
-    
-    
+    if curve_tolerance is not None and False:
+        # output_data = 
+        pass    
     
     Relativistic_Correction = calc_relativistic_correction(Stoichiometry)
     Full_E, Imaginary_Spectrum = data.calculate_asf(Stoichiometry)

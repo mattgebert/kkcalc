@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
+import warnings
 
 from kkcalc.stoich import stoichiometry
 from kkcalc.models.poly import asp
@@ -33,8 +34,11 @@ class asp_db(asp):
     asf_db : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
     """
     def __init__(self, stoich: stoichiometry):
+        # Store the stoichiometry
+        self.stoichiometry: stoichiometry = stoich
+        """The reference stoichiometry used to compose the summed atomic scattering factors."""
         
-        # Get stoichiometry
+        # Get composition
         comp = stoich.composition
         
         # Get unique energy points for all elements
@@ -61,13 +65,21 @@ class asp_db(asp):
                         
         # Setup properties
         super().__init__(energies, im_coefs)
-  
         
 class asp_db_extended(asp):
     """
-    Class for extending an `asf` object with database scattering factor data.
+    Class for extending an `asp` object with database scattering factor data.
     
     Merges scattering factor polynomials with the user-provided near-edge data.
+    
+    Attributes
+    ----------
+    dataset_asf : asf
+        The original `asf` (atomic scattering factor) object containing the user data,
+        used to generate the extended `asp` object.
+    dataset_asp : asp_db
+        The original `asp_db` (atomic scattering polynomial) object containing the database data,
+        used to extend the data contained in the `asf` object.
 
     Parameters
     ----------
@@ -200,16 +212,37 @@ class asp_db_extended(asp):
         scaled_data_y = (data_y-data_merge_range[0]) * scale + db_asp_merge_range[0]
         
         if fix_distortions:
-            # TODO: Implement later
-            # Perform a fit
-            # db_y = db_asp.asf
-            # db_e = db_asp.energies
+            # TODO: Fix final value correlation
+            warnings.warn("Distortion correction is experimental and may not work as expected.")
+            # Perform a fit along the domain
+            db_y = asp_db.evaluate_energies_on_coefs(target_energies=data_e[data_merge_lb_idx:data_merge_ub_idx],
+                                                     energies=db_e,
+                                                     coefs=db_coefs) # Find equivalent values of the db_asp energies to the data energies 
             guess_grad = - (data_merge_range[1] - data_merge_range[0]) / (db_asp_merge_range[1] - db_asp_merge_range[0]) / data_y[-1]
+            fit_func = asp_db_extended.grad_min
+            fit_x = data_e[data_merge_lb_idx:data_merge_ub_idx] # essential to only use domain data to perform fit.
+            fit_y = scaled_data_y[data_merge_lb_idx:data_merge_ub_idx] # essential to only use domain data to perform fit.
+            (grad, ), _ = opt.leastsq(
+                func=fit_func,
+                x0=guess_grad,
+                args=(fit_x, fit_y, db_asp_merge_range, db_y)
+            )
             
+            # Reassign the scaled data
+            merge_data_e = fit_x
+            merge_data_y = (
+                db_asp_merge_range[0]
+                + asp_db_extended.grad_min(grad,
+                                           fit_x,
+                                           fit_y,
+                                           db_asp_merge_range, 0)
+            )
+            print(merge_data_e.shape, merge_data_y.shape)
+        else:
+            # Construct the merge data to use
+            merge_data_e = data_e[data_merge_lb_idx:data_merge_ub_idx]
+            merge_data_y = scaled_data_y[data_merge_lb_idx:data_merge_ub_idx]   
         
-        # Construct the merge data to use
-        merge_data_e = data_e[data_merge_lb_idx:data_merge_ub_idx]
-        merge_data_y = scaled_data_y[data_merge_lb_idx:data_merge_ub_idx]
         # Add merge domain to the merge data if not already present
         if merge_domain[0] != merge_data_e[0]:
             merge_data_e = np.r_[merge_domain[0], merge_data_e]
@@ -239,8 +272,10 @@ class asp_db_extended(asp):
     
     @staticmethod
     def grad_min(grad, x, y, db_merge_range, db_y):
-        """
+        r"""
         Minimum function to fit a general gradient of the data to the database.
+        
+        
         
         Parameters
         ----------
@@ -255,11 +290,11 @@ class asp_db_extended(asp):
         db_y : numpy.ndarray
             The database atomic scattering factor values (not coefs) to fit.
         """
-        data_grad_diff = (y - grad*x) - (y[0] - grad*x[0])
-        data_grad_diff_final = (y[-1] - grad*x[-1]) - (y[0] - grad*x[0])
-        norm_grad_diff = data_grad_diff / data_grad_diff_final # Shape of y
-        db_range = db_merge_range[1] - db_merge_range[0]
-        # Difference between the data scaled to the database range and the database values.
+        data_grad_diff = (y - y[0]) - grad*(x - x[0]) # 0 to some number
+        data_grad_diff_total = (y[-1] - y[0]) - grad*(x[-1] - x[0]) # some number
+        norm_grad_diff = data_grad_diff / data_grad_diff_total # Evolves from 0 to 1
+        db_range = db_merge_range[1] - db_merge_range[0] # Range of the database values
+        # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
     
     
@@ -329,15 +364,24 @@ if __name__ == "__main__":
     asp_db_PS_extended = asp_db_extended(
         data_asf=asf_PS,
         db_asp=asp_db_PS,
-        # merge_domain=(280, 320),
+        merge_domain=(280, 320),
         # fix_distortions=False
     )
     
+    asp_db_PS_extended_fixed = asp_db_extended(
+        data_asf=asf_PS,
+        db_asp=asp_db_PS,
+        merge_domain=(280, 320),
+        fix_distortions=True
+    )
+    
     extended_asf = asp_db_PS_extended.to_atomic_scattering_factors()
+    extended_asf_fixed = asp_db_PS_extended_fixed.to_atomic_scattering_factors()
     ax2.plot(extended_asf.energies, extended_asf.factors, label=f"{PS_NAME} Extended ASF")
+    ax2.plot(extended_asf_fixed.energies, extended_asf_fixed.factors, label=f"{PS_NAME} Extended ASF Fixed")
     db_asf = asp_db_PS.to_asf()
     ax2.plot(asp_db_PS.energies, db_asf.factors, label=f"{PS_NAME} DB ASF")
-    ax2.set_xlim(270, 350)
+    ax2.set_xlim(270, 330)
     # ax2.set_xscale("log")
     # ax2.set_ylim(450, 900)
     
