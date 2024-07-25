@@ -4,7 +4,7 @@ import scipy.optimize as opt
 import warnings
 
 from kkcalc.stoich import stoichiometry
-from kkcalc.models.poly import asp
+from kkcalc.models.polynomials import asp
 from kkcalc.models.factors import asf
 from kkcalc.models.conversions import conversions
 
@@ -275,7 +275,8 @@ class asp_db_extended(asp):
         r"""
         Minimum function to fit a general gradient of the data to the database.
         
-        
+        .. math::
+            SomeFunctionHere TODO
         
         Parameters
         ----------

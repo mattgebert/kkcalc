@@ -311,6 +311,7 @@ class conversions:
     def ASP_to_ASF(
         energies: npt.NDArray,
         coefs: npt.NDArray,
+        orders: npt.NDArray | None = None
     ) -> npt.NDArray:
         """
         Converts atomic scattering polynomial (ASP) coefficients to atomic scattering factors (ASF).
@@ -321,7 +322,14 @@ class conversions:
             An array of `N` or `N+1` photon energies in eV.
             using the starting energy of each interval.
         coefs : array_like
-            An array with dimension (`N`, `M`), with `N` sets of `M` atomic scattering polynomial coefficients.
+            An array with dimension (`N`, `M`), with `N` sets of `M` atomic
+            scattering polynomial coefficients.
+        orders : array_like, optional
+            An array of `M` integers defining the polynomial orders for each coefficient set.
+            Each integer corresponds to the power of the energy term multipled by 
+            the corresponding coefficient in the  polynomial, before summation to factors.
+            If None, assumes coefficients in sequential order decreasing from 1.
+            i.e: [1, 0, -1, -2, ...] etc.
             
         Returns
         -------
@@ -346,7 +354,15 @@ class conversions:
                 + f"does not match the number of energies ({len(energies)-1} or {len(energies)}).")
         
         # Create an array of energy powers for each coefficient.
-        powers = np.c_[*[energies**(1-i) for i in range(5)]]
+        if orders is not None:
+            if orders.ndim ==1 and orders.shape[0] == coefs.shape[1]:
+                powers = np.c_[*[energies**i for i in orders]]
+            else:
+                raise ValueError(
+                    f"Number of orders ({orders.shape[0]}) "
+                    + f"does not match the number of coefficients ({coefs.shape[1]}).")
+        else:    
+            powers = np.c_[*[energies**(1-i) for i in range(5)]]
         # Do energies match the number of coefficient sets?
         if energies.shape[0] == coefs.shape[0]+1:
             # Duplicate the final polynomial to define the final boundary.

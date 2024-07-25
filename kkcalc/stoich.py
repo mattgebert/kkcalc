@@ -10,7 +10,7 @@ from kkcalc.util import doc_copy
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
-    from kkcalc.asf_database.asf_spectra import asp_db
+    from kkcalc.asf_database.asf_polynomials import asp_db
 
 
 
@@ -138,7 +138,7 @@ class stoichiometry:
             An object representing the piecewise polynomial calculated from the summation of scattering factor data.
         """
         if not "asp_db" in locals():
-            from kkcalc.asf_database.asf_spectra import asp_db
+            from kkcalc.asf_database.asf_polynomials import asp_db
         return asp_db(self)
     
     @doc_copy(atomic_scattering_polynomial_im)

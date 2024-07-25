@@ -119,8 +119,7 @@ def KK_PP(Eval_Energy, Energy, imaginary_spectrum, relativistic_correction):
 	This function returns the real part of the scattering factors evaluated at photon energies specified by Eval_Energy.
 
 	"""
-	logger = logging.getLogger(__name__)
-	logger.info("Calculate Kramers-Kronig transform using (n from 1 to -3) piecewise-polynomial algorithm")
+	
 	X1 = Energy[0:-1]
 	X2 = Energy[1:]
 	E = numpy.tile(Eval_Energy, (len(Energy)-1, 1)).T
