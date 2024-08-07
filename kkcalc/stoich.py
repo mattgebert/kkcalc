@@ -10,7 +10,7 @@ from kkcalc.util import doc_copy
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
-    from kkcalc.asf_database.asf_polynomials import asp_db
+    from kkcalc.asf_database.db_models import asp_db
 
 
 
@@ -20,6 +20,29 @@ ELEMENTS: list[tuple[str, int]] = [
     (element.symbol, element.number)
     for element in pt.elements
 ]
+
+def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
+    r"""
+    Calculates the relativistic correction to the Kramers-Kronig transform owing to the elemental composition.
+    
+    Automatically calculable for a `stoichiometry` using `stoichiometry.relativistic_correction`. Each element contributes
+    (z - (z/82.5)**2.37) * n to the correction, where z is the atomic number and n is the relative stoichiometry.
+    
+    .. math::
+        \sum_i (Z_i - (Z_i/82.5)^{2.37}) \cdot n_i
+    
+    Parameters
+    ----------
+    composition : list[tuple[int, float]]
+        A list of tuples, where each tuple contains the atomic number and the counts of an element.
+        Counts may be fractional.
+
+    Returns
+    -------
+    float
+        The relativistic corection to the Kramers-Kronig transform.
+    """
+    return sum([(z - (z/82.5)**2.37) * n for z, n in composition])
 
 class stoichiometry:
     """
@@ -98,18 +121,21 @@ class stoichiometry:
     
     @property 
     def relativistic_correction(self) -> float:
-        """
+        r"""
         Calculates the relativistic correction to the Kramers-Kronig transform owing to the elemental composition.
         
-        Each element contributes (z - (z/82.5)**2.37) * n to the correction, where z is the atomic number and 
-        n is the relative stoichiometry.
+        Uses `stoich.relativistic_correction_eq`. Each element contributes (z - (z/82.5)**2.37) * n to the correction, 
+        where z is the atomic number and n is the relative stoichiometry.
+
+        .. math::
+            \sum_i (Z_i - (Z_i/82.5)^{2.37}) \cdot n_i
 
         Returns
         -------
         float
             The relativistic corection to the Kramers-Kronig transform.
         """
-        return sum([(z - (z/82.5)**2.37) * n for z, n in self.composition])
+        return relativistic_correction_eq(composition=self.composition)
     
     @property
     def formula_mass(self) -> float:
@@ -138,7 +164,7 @@ class stoichiometry:
             An object representing the piecewise polynomial calculated from the summation of scattering factor data.
         """
         if not "asp_db" in locals():
-            from kkcalc.asf_database.asf_polynomials import asp_db
+            from kkcalc.asf_database.db_models import asp_db
         return asp_db(self)
     
     @doc_copy(atomic_scattering_polynomial_im)

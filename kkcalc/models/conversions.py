@@ -11,7 +11,7 @@ from scipy.constants import (
     epsilon_0,
     electron_mass as m_e
 )
-E_RADIUS: float = 1/(4 * pi * epsilon_0) * e**2 / (m_e * c**2) #classical electron radius
+E_RADIUS: float = 1/(4 * pi * epsilon_0) * e**2 / (m_e * c**2) #classical electron radius, meters
 
 class conversions:
     """
@@ -87,7 +87,7 @@ class conversions:
         prefactor = (
             1e6 # Convert from m^3 to cm^3
             *2*pi*energies**2
-            /(number_density*E_RADIUS*(h*c)**2)
+            /(number_density*E_RADIUS*(h/e*c)**2)
         )
         if not reverse:
             # Generate factors from Beta data.
@@ -161,16 +161,18 @@ class conversions:
         part of the atomic scattering factors.
 
         """
-        prefactor = (2*E_RADIUS*h*c)
+        prefactor = (2*E_RADIUS*h/e*c)
+        
         if not reverse:
             # Convert from NEXAFS to ASF.
-            factors = prefactor*NEXAFS/energies
+            factors = NEXAFS*energies/prefactor
             return factors
         else:
             factors = NEXAFS #relabel NEXAFS as factors.
             # Convert from ASF to NEXAFS.
-            nexafs_reverse = factors*energies/prefactor
+            nexafs_reverse = prefactor*NEXAFS/energies
             return nexafs_reverse
+            
     
     @staticmethod
     def ASF_to_NEXAFS(
@@ -227,9 +229,6 @@ class conversions:
         """
         factors = conversions.betas_to_ASF(energies, betas, number_density, density, formula_mass, stoichiometry)
         return conversions.ASF_to_NEXAFS(energies, factors)
-    
-    def to_atomic_scattering_poylnomial_coefficients(self):
-        return
     
     @staticmethod
     def NEXAFS_to_betas(

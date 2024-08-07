@@ -79,21 +79,22 @@ def KK_General_PP(Eval_Energy, Energy, imaginary_spectrum, orders, relativistic_
 	
 	if numpy.any(orders<=-2): # N<=-2, ln(x) terms
 		i = [slice(None,None,None),slice(None,None,None),orders<=-2]
-		Integral += numpy.sum(C[i]*((-E[i])**N[i]+E[i]**N[i])*numpy.log(numpy.absolute((X[1:,:,orders<=-2])/(X[:-1,:,orders<=-2]))),axis=(0,2))
+		Integral += numpy.sum(C[*i]*((-E[*i])**N[*i]+E[*i]**N[*i])*numpy.log(numpy.absolute((X[1:,:,orders<=-2])/(X[:-1,:,orders<=-2]))),axis=(0,2))
 	
 	if numpy.any(orders>=0): # N>=0,  x^k terms
 		for ni in numpy.where(orders>=0)[0]:
 			i = [slice(None,None,None),slice(None,None,None),ni]
 			n = orders[ni]
 			for k in range(n,0,-2):
-				Integral += numpy.sum(C[i]/float(-k)*2*E[i]**(n-k)*(X[1:,:,ni]**k-X[:-1,:,ni]**k),axis=0)
+				Integral += numpy.sum(C[*i]/float(-k)*2*E[*i]**(n-k)*(X[1:,:,ni]**k-X[:-1,:,ni]**k),axis=0)
 	
 	if numpy.any(orders <=-3): # N<=-3, x^k terms
 		for ni in numpy.where(orders<=-3)[0]:
 			i = [slice(None,None,None),slice(None,None,None),ni]
 			n = orders[ni]
 			for k in range(n+2,0,2):
-				Integral += numpy.sum(C[i]/float(k)*((-1)**(n-k)+1)*E[i]**(n-k)*(X[1:,:,ni]**k-X[:-1,:,ni]**k),axis=0)
+				n = n.astype(float)
+				Integral += numpy.sum(C[*i]/float(k)*((-1)**(n-k)+1)*E[*i]**(n-k)*(X[1:,:,ni]**k-X[:-1,:,ni]**k),axis=0)
 	
 	logger.debug("Done!")
 	return Integral / math.pi + relativistic_correction

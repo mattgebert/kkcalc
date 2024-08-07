@@ -230,7 +230,7 @@ class asf_abstract(metaclass=abc.ABCMeta):
         NEXAFS : array_like
             NEXAFS/XANES/photoabsorption data.
         """
-        return asf(energies, conversions.NEXAFS_to_ASF(energies, NEXAFS), KK_Datatype.NEXAFS, NEXAFS)
+        return asf(energies, conversions.NEXAFS_to_ASF(energies, NEXAFS), KK_Datatype.NEXAFS, np.c_[energies, NEXAFS])
 
     @staticmethod
     @doc_copy(conversions.ASF_to_ASP)
@@ -570,14 +570,14 @@ class asf_complex(asf_abstract):
             self._im.factors = factors.imag
     
     @property
-    def re(self) -> asf_re:
+    def re(self) -> "asf_re":
         return self._re
 
     @property
-    def im(self) -> asf_im:
+    def im(self) -> "asf_im":
         return self._im
     
-    def to_atomic_scattering_polynomial(self) -> asp_complex:
+    def to_atomic_scattering_polynomial(self) -> "asp_complex":
         """
         Converts `asf_complex` object to `asp_complex` object.
         

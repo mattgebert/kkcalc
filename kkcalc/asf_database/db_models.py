@@ -4,14 +4,69 @@ import scipy.optimize as opt
 import warnings
 
 from kkcalc.stoich import stoichiometry
-from kkcalc.models.polynomials import asp
-from kkcalc.models.factors import asf
+from kkcalc.models.polynomials import asp_im
+from kkcalc.models.factors import asf, asf_re
 from kkcalc.models.conversions import conversions
 
 # Load the real/imag scattering factors as they vary with energy
 from kkcalc.asf_database import ASF_DATABASE
 
-class asp_db(asp):
+class asf_db(asf_re):
+    """
+    Uses stochiometry to calculate a real-component piecewise polynomial representation from Henke, Briggs and Lighthill data.
+    
+    Generates a summation of scattering factor data given the chemical stoichiometry.
+    
+    Parameters
+    ----------
+    stoich : stoichiometry
+        The stoichiometry of the compound, i.e. the elemental composition.
+    
+    Attributes
+    -------
+    energies : numpy.ndarray
+        A 1D numpy array with length `N` listing the photon energies corresponding to `factors`.
+    factors : numpy.ndarray
+        A 1D numpy array with length `N` listing the real component of the scattering factor at the corresponding energy.
+        
+    See Also
+    --------
+    asf_database : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
+    """
+    def __init__(self, stoich: stoichiometry):
+        # Store the stoichiometry
+        self.stoichiometry: stoichiometry = stoich
+        """The reference stoichiometry used to compose the summed atomic scattering factors."""
+        
+        # Get composition
+        comp = stoich.composition
+        
+        # Get unique energy points for all elements
+        energies = np.unique(np.r_[*[ASF_DATABASE[z]['E'] for z,_ in comp]])
+        
+        # Add weighted asf data sets for KK calculation
+        factors = np.zeros((len(energies)-1, 5)) # Stores summations of real factors at each energy
+        
+        # Stores the current energy index for each element, defining factors at intermediate energies.
+        counters = np.zeros(len(comp), dtype=int) 
+        # Iterate over the unique energies
+        for i, energy in enumerate(energies[1:]): # iterate over the energies of the ASF_DATABASE
+            sum_re = 0 # Sum of the real factors at the current energy
+            # Sum the real factors at each energy
+            for j, (z, n) in enumerate(comp):
+                # Imaginary coefs at current energy
+                db_re = ASF_DATABASE[z]['Re'][counters[j]] # the factor at the current energy
+                sum_re += n * db_re  # Multiply by stoichiometry n
+                # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
+                if ASF_DATABASE[z]['E'][counters[j]+1] == energy:
+                    counters[j] += 1 # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+            # Store the sum of the elemental factors at the current energy
+            factors[i,:] = sum_re
+                        
+        # Setup properties
+        super().__init__(energies, factors)
+
+class asp_db(asp_im):
     """
     Uses stochiometry to calculate an imaginary-component piecewise polynomial representation from Henke, Briggs and Lighthill data.
     
@@ -31,7 +86,7 @@ class asp_db(asp):
         
     See Also
     --------
-    asf_db : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
+    asf_database : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
     """
     def __init__(self, stoich: stoichiometry):
         # Store the stoichiometry
@@ -66,7 +121,7 @@ class asp_db(asp):
         # Setup properties
         super().__init__(energies, im_coefs)
         
-class asp_db_extended(asp):
+class asp_db_extended(asp_im):
     """
     Class for extending an `asp` object with database scattering factor data.
     
@@ -128,7 +183,7 @@ class asp_db_extended(asp):
         used to generate the extended `asp` object.
         """
         
-        self.dataset_asp: asp = db_asp
+        self.database_asp: asp_db = db_asp
         """
         The original `asp` (atomic scattering polynomial) object containing the database data,
         used to extend the `asf` object.
@@ -187,21 +242,40 @@ class asp_db_extended(asp):
             if merge_domain[0] >= merge_domain[1]:
                 raise ValueError("Merge domain must be in increasing order")
             # Find the indices and values of the data_asf energies that are within the range of the db_asp energies
-            data_merge_lb_idx = np.argmax(data_e > merge_domain[0])
-            data_merge_ub_idx = np.argmax(data_e > merge_domain[1]) - 1
+            data_merge_lb_idx : int = np.argmax(data_e > merge_domain[0])
+            """
+            First (lower bound) index of data within the merge domain
+            """
+            
+            data_merge_ub_idx : int = np.argmax(data_e > merge_domain[1]) - 1
+            """Last (upper bound) index of data within of the merge domain"""
+            
             if data_merge_lb_idx == data_merge_ub_idx:
                 raise ValueError(f"Data within domain {merge_domain} must contain more than one energy")
             
         # Use linear interpolation to find corresponding values of the merge domain.
         data_merge_range = np.interp(merge_domain, data_e, data_y)
+        """The range of the data_asf energies within the merge domain"""
         
         # Find the indices of the spans where the db_asp energies are within the range of the data_asf energies.
         first_domain_idx = np.argmax(db_e > merge_domain[0])
+        """First index of db_asp energies within the merge domain"""
+        
         db_asp_merge_lb_idx = first_domain_idx - 1 if first_domain_idx > 0 else 0 # Find value before merge/data edge 
+        """Last index of lower-bound db_asp energies outside the merge domain"""
+        
         db_asp_merge_ub_idx = np.argmax(db_e > merge_domain[1]) # Find value after merge/data edge
+        """First index of upper-bound db_asp energies outside the merge domain"""
+        
+        # Check if the db merge ub is 0 (i.e. merge_domain[1] is always greater than the db_e)
+        if db_asp_merge_ub_idx <= db_asp_merge_lb_idx:
+            raise ValueError(
+                f"Merge domain ({merge_domain[0]},{merge_domain[1]}) must be within the" +
+                f"database energy range ({db_e.min()}, {db_e.max()})"
+            )
         
         # Calculate the corresponding y values using the polynomial coefs
-        db_asp_merge_range = asp.evaluate_energies_on_coefs(
+        db_asp_merge_range = asp_im.evaluate_energies_on_coefs(
             target_energies=merge_domain,
             energies=db_e,
             coefs=db_coefs)
@@ -212,8 +286,6 @@ class asp_db_extended(asp):
         scaled_data_y = (data_y-data_merge_range[0]) * scale + db_asp_merge_range[0]
         
         if fix_distortions:
-            # TODO: Fix final value correlation
-            warnings.warn("Distortion correction is experimental and may not work as expected.")
             # Perform a fit along the domain
             db_y = asp_db.evaluate_energies_on_coefs(target_energies=data_e[data_merge_lb_idx:data_merge_ub_idx],
                                                      energies=db_e,
@@ -237,7 +309,6 @@ class asp_db_extended(asp):
                                            fit_y,
                                            db_asp_merge_range, 0)
             )
-            print(merge_data_e.shape, merge_data_y.shape)
         else:
             # Construct the merge data to use
             merge_data_e = data_e[data_merge_lb_idx:data_merge_ub_idx]
@@ -256,17 +327,26 @@ class asp_db_extended(asp):
             energies=merge_data_e,
             factors=merge_data_y
         )
+        
         # Add the db sections to the merge data
         merge_e = merge_data_e
         merge_coefs = merge_data_coefs
+        
+        
         # Boundary already added, so finish at idx-1.
         if db_asp_merge_lb_idx > 0:
-            merge_e = np.r_[db_e[0:db_asp_merge_lb_idx-1], merge_e]
-            merge_coefs = np.r_[db_coefs[0:db_asp_merge_lb_idx-1], merge_coefs]
+            merge_e = np.r_[db_e[0:db_asp_merge_lb_idx+1], merge_e]
+            merge_coefs = np.r_[db_coefs[0:db_asp_merge_lb_idx+1], merge_coefs]
         # Boundary already added, so start at idx+1 for energies, and idx for coefs.
         if db_asp_merge_ub_idx < len(db_e):
-            merge_e = np.r_[merge_e, db_e[db_asp_merge_ub_idx+1:]]
-            merge_coefs = np.r_[merge_coefs, db_coefs[db_asp_merge_ub_idx:]]
+            merge_e = np.r_[merge_e, db_e[db_asp_merge_ub_idx:]]
+            merge_coefs = np.r_[merge_coefs, db_coefs[db_asp_merge_ub_idx-1:]]
+        
+        # import pandas as pd
+        # print(pd.DataFrame(
+        #     np.c_[merge_e[205:385], *merge_coefs[205:385].T],
+        #     columns=["Energy", "A1", "A0", "A-1", "A-2", "A-3"]
+        # ).to_string())
         
         return merge_e, merge_coefs
     
@@ -297,8 +377,7 @@ class asp_db_extended(asp):
         db_range = db_merge_range[1] - db_merge_range[0] # Range of the database values
         # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
-    
-    
+
 if __name__ == "__main__":
     ## Test various formulas
     # Setup graph

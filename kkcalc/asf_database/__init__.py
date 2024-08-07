@@ -18,7 +18,7 @@ Each element in the database is a dictionary consisting of the following keys:
         for the imaginary part of the scattering factors, corresponding to the energies intervals.
 """
 
-from kkcalc.asf_database.asf_loader import load_asf_database
+from kkcalc.asf_database.db_loader import load_asf_database
 # from kkcalc.asf_db.asf_spectra import asp_db
 ASF_DATABASE = load_asf_database() #spectral data, plus atomic masses
 

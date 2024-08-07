@@ -7,12 +7,10 @@ import numpy.typing as npt
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
-from kkcalc.models.factors import asf as asf_type, asf_im, asf_re, asf_complex, asf_abstract
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
-
 if TYPE_CHECKING:
-    from kkcalc.models.factors import asf as asf_type
+    from kkcalc.models.factors import asf as asf_type, asf_im, asf_re, asf_complex, asf_abstract
 
 class asp_abstract(metaclass=abc.ABCMeta):
     @property
@@ -65,7 +63,7 @@ class asp_abstract(metaclass=abc.ABCMeta):
         return self.atomic_scattering_factors
     
     @abc.abstractmethod
-    def to_atomic_scattering_factors(self) -> type[asf_abstract]:
+    def to_atomic_scattering_factors(self) -> type["asf_abstract"]:
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
@@ -78,7 +76,7 @@ class asp_abstract(metaclass=abc.ABCMeta):
         
     @doc_copy(to_atomic_scattering_factors)
     @abc.abstractmethod
-    def to_asf(self) -> type[asf_abstract]:
+    def to_asf(self) -> type["asf_abstract"]:
         """
         Alias for `to_atomic_scattering_factors`.
         """
@@ -267,7 +265,7 @@ class asp(asp_abstract):
         """
         return self._coefs
     
-    def to_atomic_scattering_factors(self) -> asf_type:
+    def to_atomic_scattering_factors(self) -> "asf_type":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
@@ -281,7 +279,7 @@ class asp(asp_abstract):
                    factors=self.atomic_scattering_factors)
         
     @doc_copy(to_atomic_scattering_factors)
-    def to_asf(self) -> asf_type:
+    def to_asf(self) -> "asf_type":
         """
         Alias for `to_atomic_scattering_factors`.
         """
@@ -309,7 +307,7 @@ class asp_im(asp):
         """
         return asp_im(asp.energies, asp.coefs)
     
-    def to_atomic_scattering_factors(self) -> asf_im:
+    def to_atomic_scattering_factors(self) -> "asf_im":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
@@ -318,11 +316,12 @@ class asp_im(asp):
         asf
             An atomic scattering factor object with the same polynomial coefficients as the piecewise polynomial.
         """
+        from kkcalc.models.factors import asf_im
         return asf_im(energies=self.energies,
                    factors=self.atomic_scattering_factors)
         
     @doc_copy(to_atomic_scattering_factors)
-    def to_asf(self) -> asf_im:
+    def to_asf(self) -> "asf_im":
         """
         Alias for `to_atomic_scattering_factors`.
         """
@@ -335,7 +334,7 @@ class asp_re(asp):
     """
     
     @staticmethod
-    def from_asp(asp: asp) -> asp_im:
+    def from_asp(asp: asp) -> "asp_re":
         """
         Converts an undesignated `asp` object to an `asp_re` object.
         
@@ -349,9 +348,9 @@ class asp_re(asp):
         asp_im
             The imaginary part of the atomic scattering factor.
         """
-        return asf_re(asp.energies, asp.coefs)
+        return asp_re(asp.energies, asp.coefs)
     
-    def to_atomic_scattering_factors(self) -> asf_re:
+    def to_atomic_scattering_factors(self) -> "asf_re":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
@@ -360,11 +359,12 @@ class asp_re(asp):
         asf
             An atomic scattering factor object with the same polynomial coefficients as the piecewise polynomial.
         """
+        from kkcalc.models.factors import asf_re
         return asf_re(energies=self.energies,
                    factors=self.atomic_scattering_factors)
         
     @doc_copy(to_atomic_scattering_factors)
-    def to_asf(self) -> asf_re:
+    def to_asf(self) -> "asf_re":
         """
         Alias for `to_atomic_scattering_factors`.
         """

@@ -214,7 +214,7 @@ def ParseChemicalFormula(Formula,recursion_flag=False):
     if not recursion_flag:
         logger.info("Parsing '"+Formula+"' as a chemical formula")
     Stoichiometry = []
-    m=re.search('((?P<Element>[A-Z][a-z]?)|\((?P<Paren>.*)\))(?P<Number>\d*(\.\d+)?)(?P<Remainder>.*)',Formula)
+    m=re.search(r'((?P<Element>[A-Z][a-z]?)|\((?P<Paren>.*)\))(?P<Number>\d*(\.\d+)?)(?P<Remainder>.*)',Formula)
     if len(m.group('Number')) != 0:
         Number = float(m.group('Number'))
     else:
