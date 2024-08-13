@@ -1,7 +1,8 @@
-from kkcalc.stoich import stoichiometry as kk_stoichiometry
+from kkcalc.stoich import kk_stoichiometry as kk_stoichiometry
 
 import numpy as np
 import numpy.typing as npt
+import warnings
 from scipy.constants import (
     Avogadro as N_A, 
     speed_of_light as c, 
@@ -42,9 +43,10 @@ class conversions:
         Requires some form of material density information to convert to ASF.
         As per positional argument order, the function will use the first available density information.
         This can either be:
-        - `number_density` in atoms per millilitre (cm^3),
-        - `density` in grams per millilitre (cm^3), and `formula_mass` (molecular mass),
-        - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
+        - `number_density` in atoms per millilitre (cm^3), or
+        - `density` in grams per millilitre (cm^3), and 
+            - `formula_mass` (molecular mass), or
+            - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
         
         Parameters
         ----------
@@ -54,9 +56,9 @@ class conversions:
             Imaginary part of the index of refraction.
         number_density : float, optional
             Material density in atoms per millilitre (cm^3).
-        density : float
+        density : float, optional
             Material density in grams per millilitre (cm^3).
-        formula_mass : float
+        formula_mass : float, optional
             Atomic mass sum of the materials chemical formula (molecular mass).
             Equivalent to providing a `stoichiometry`.
         stoichiometry : stoichiometry | str
@@ -113,6 +115,15 @@ class conversions:
         
         Uses `betas_to_asf` with the `reverse` flag set to `True`.
         
+        The Beta value is the imaginary part of the index of refraction, representing absorption.
+        Requires some form of material density information to convert from ASF.
+        As per positional argument order, the function will use the first available density information.
+        This can either be:
+        - `number_density` in atoms per millilitre (cm^3), or
+        - `density` in grams per millilitre (cm^3), and
+            - `formula_mass` (molecular mass), or
+            - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
+        
         Parameters
         ----------
         energies : array_like
@@ -121,9 +132,9 @@ class conversions:
             Atomic scattering factors.
         number_density : float, optional
             Material density in atoms per millilitre (cm^3).
-        density : float
+        density : float, optional
             Material density in grams per millilitre (cm^3).
-        formula_mass : float
+        formula_mass : float, optional
             Atomic mass sum of the materials chemical formula (molecular mass).
             Equivalent to providing a `stoichiometry`.
         stoichiometry : stoichiometry | str
@@ -131,7 +142,7 @@ class conversions:
         """
         return conversions.betas_to_ASF(
             energies=energies,
-            factors=factors,
+            betas=factors,
             number_density=number_density,
             density=density,
             formula_mass=formula_mass,
@@ -343,6 +354,7 @@ class conversions:
             # Boost to 1D
             energies = np.array([energies])
         if coefs.ndim == 1: 
+            warnings.warn("Single coefficient set provided, boosting to 2D.")
             # Boost to 2D
             coefs = np.array([coefs])
         

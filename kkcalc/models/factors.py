@@ -4,9 +4,12 @@
 Defines the types of data that can be used, and conversion between.
 """
 
-from kkcalc.stoich import stoichiometry as kk_stoichiometry
+from kkcalc.stoich import kk_stoichiometry as kk_stoichiometry
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
+from kkcalc.models.common import atomic_scattering_abstract, atomic_scattering
+
+# In polynomials.py, the equivalent import is only done via type checking or in functions, to prevent recursion.
 from kkcalc.models.polynomials import asp as asp_type, asp_abstract, asp_im, asp_re, asp_complex
 
 import numpy as np
@@ -25,7 +28,7 @@ class KK_Datatype(Enum):
     BETA = 2 # Index of refraction
     ASF = 3 # Atomic scattering factors
     
-class asf_abstract(metaclass=abc.ABCMeta):
+class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def energies(self) -> np.ndarray:
@@ -85,15 +88,32 @@ class asf_abstract(metaclass=abc.ABCMeta):
             raise ValueError("Data must be a tuple of two equal length arrays.")
         self.energies, self.factors = np.asarray(data[0]), np.asarray(data[1])
     
-    
     @property
-    def betas(self,
-                number_density:float=None,
-                density:float=None, 
-                formula_mass:float=None, 
-                stoichiometry:kk_stoichiometry|str=None,) -> np.ndarray:
+    def can_calc_beta(self) -> bool:
+        """
+        Returns whether the object can calculate Beta values.
+        
+        Returns
+        -------
+        bool
+            Whether the object can calculate Beta values.
+        """
+        return (self.number_density is not None
+                #Formula mass property uses stoichiometry if not provided.
+                or (self.density is not None and self.formula_mass is not None)) 
+                                                   
+    @property
+    def betas(self) -> np.ndarray:
         """
         Converts object atomic scattering factors and energies to Beta values (index of refraction).
+        
+        The Beta value is the imaginary part of the index of refraction, representing absorption.
+        Requires some form of material density information to convert to ASF.
+        This can either be:
+        - `number_density` in atoms per millilitre (cm^3),
+        - `density` in grams per millilitre (cm^3), and
+            - `formula_mass` (molecular mass), or
+            - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
         
         Parameters
         ----------
@@ -112,20 +132,34 @@ class asf_abstract(metaclass=abc.ABCMeta):
         np.ndarray
             Beta values.
         """
-        return conversions.ASF_to_betas(
+        if self.number_density is not None:
+            return conversions.ASF_to_betas(
             energies=self.energies, 
             factors=self.factors,
-            number_density=number_density,
-            density=density,
-            formula_mass=formula_mass,
-            stoichiometry=stoichiometry            
+            number_density=self.number_density,
         )
+        elif self.density is not None:
+            if self.formula_mass is not None:
+                return conversions.ASF_to_betas(
+                    energies=self.energies, 
+                    factors=self.factors,
+                    density=self.density,
+                    formula_mass=self.formula_mass,
+                )
+            elif self.stoichiometry is not None:
+                return conversions.ASF_to_betas(
+                    energies=self.energies, 
+                    factors=self.factors,
+                    density=self.density,
+                    stoichiometry=self.stoichiometry,
+                )
+        raise ValueError("Material density information is required to convert to Beta values.")
         
     def to_betas(self,
-                number_density:float=None,
-                density:float=None, 
-                formula_mass:float=None, 
-                stoichiometry:kk_stoichiometry|str=None,
+                number_density: float | None = None,
+                density: float | None = None, 
+                formula_mass: float | None = None, 
+                stoichiometry: kk_stoichiometry | str | None = None,
                 ) -> tuple[np.ndarray, np.ndarray]:
         """
         A tuple of energies and Beta (index of refraction) values.
@@ -149,16 +183,43 @@ class asf_abstract(metaclass=abc.ABCMeta):
         tuple[np.ndarray, np.ndarray]
             Tuple of energies (eV) and Beta values.
         """
-        return self.energies, self.betas(number_density, density, formula_mass, stoichiometry)
+        if number_density is None and density is None and formula_mass is None and stoichiometry is None:
+            # Attempt to use the object's density information to convert to Beta values.
+            number_density = self.number_density
+            density = self.density
+            formula_mass = self.formula_mass
+            stoichiometry = self.stoichiometry
+        else:
+            if stoichiometry is not None and isinstance(stoichiometry, str):
+                stoichiometry = kk_stoichiometry(stoichiometry)
+            
+        # Attempt to use available density information to convert to Beta values.
+        if number_density is not None:
+            return self.energies, conversions.ASF_to_betas(energies=self.energies,
+                                                            factors=self.factors,
+                                                            number_density=number_density)
+        elif density is not None:
+            if formula_mass is not None:
+                return self.energies, conversions.ASF_to_betas(energies=self.energies,
+                                                                factors=self.factors,
+                                                                density=density,
+                                                                formula_mass=formula_mass)
+            elif stoichiometry is not None:
+                return self.energies, conversions.ASF_to_betas(energies=self.energies,
+                                                                factors=self.factors,
+                                                                density=density,
+                                                                stoichiometry=stoichiometry)
+        raise ValueError("Material density information is required to convert to Beta values.")
         
-    @staticmethod
-    def from_betas(energies: npt.NDArray,
-                  beta: npt.NDArray,
-                  number_density:float=None,
-                  density:float=None, 
-                  formula_mass:float=None, 
-                  stoichiometry:kk_stoichiometry|str=None,
-                ) -> "asf":
+    @classmethod
+    def from_betas(cls: type["asf"],
+                   energies: npt.NDArray,
+                   beta: npt.NDArray,
+                   number_density:float=None,
+                   density:float=None, 
+                   formula_mass:float=None, 
+                   stoichiometry:kk_stoichiometry|str=None,
+                   ) -> type["asf"]:
         """
         Converts Beta values (index of refraction) to atomic scattering factors (ASF).
         
@@ -192,7 +253,10 @@ class asf_abstract(metaclass=abc.ABCMeta):
         # Perform conversion
         factors = conversions.betas_to_ASF(energies, beta, number_density, density, formula_mass, stoichiometry)
         # Return asf instance
-        return asf(energies, factors, KK_Datatype.BETA, beta)
+        return cls(energies, factors, KK_Datatype.BETA, np.c_[energies, beta], 
+                   number_density=number_density, 
+                   density=density, 
+                   formula_mass=formula_mass, stoich=stoichiometry)
 
     @property
     def NEXAFS(self) -> np.ndarray:
@@ -217,9 +281,11 @@ class asf_abstract(metaclass=abc.ABCMeta):
         """
         return self.energies, self.NEXAFS
     
-    @staticmethod
-    def from_NEXAFS(energies: npt.NDArray, 
-                    NEXAFS: npt.NDArray) -> "asf":
+    @classmethod
+    def from_NEXAFS(cls: type["asf"],
+                    energies: npt.NDArray, 
+                    NEXAFS: npt.NDArray,
+                    **kwargs) -> "asf":
         """
         Converts NEXAFS photoabsorption data to atomic scattering factors (ASF).
         
@@ -229,8 +295,14 @@ class asf_abstract(metaclass=abc.ABCMeta):
             Photon energies in eV.
         NEXAFS : array_like
             NEXAFS/XANES/photoabsorption data.
+        kwargs : dict
+            Additional keyword arguments for the ASF object, such as:
+            - `number_density` : float
+            - `density` : float
+            - `formula_mass` : float
+            - `stoichiometry` : stoichiometry | str
         """
-        return asf(energies, conversions.NEXAFS_to_ASF(energies, NEXAFS), KK_Datatype.NEXAFS, np.c_[energies, NEXAFS])
+        return cls(energies, conversions.NEXAFS_to_ASF(energies, NEXAFS), KK_Datatype.NEXAFS, np.c_[energies, NEXAFS], **kwargs)
 
     @staticmethod
     @doc_copy(conversions.ASF_to_ASP)
@@ -291,7 +363,7 @@ class asf_abstract(metaclass=abc.ABCMeta):
         """
         return self.to_atomic_scattering_polynomial()
     
-class asf(asf_abstract):
+class asf(asf_abstract, atomic_scattering):
     """
     Generic class for handling atomic scattering factors.
     
@@ -310,15 +382,29 @@ class asf(asf_abstract):
     origin_data : np.ndarray, optional
         Original data of the atomic scattering factors.
         If not provided, the original data is assumed to be the same as the input data.
+    **kwargs
+        Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+        - `number_density` : float
+        - `density` : float
+        - `stoich` : stoichiometry
+        - `formula_mass` : float
+        - `name` : str
+    
+    See Also
+    --------
+    kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
     """
     def __init__(self,
                  energies: npt.NDArray,
                  factors: npt.NDArray,
                  origin_dtype: KK_Datatype | None = None,
-                 origin_data: npt.NDArray | None = None
+                 origin_data: npt.NDArray | None = None,
+                 **kwargs
                  ) -> None:
-        self._energies = energies = np.asarray(energies)
-        self._factors = factors = np.asarray(factors)
+        atomic_scattering.__init__(self, **kwargs)
+        
+        self.energies = energies = np.asarray(energies)
+        self.factors = factors = np.asarray(factors)
         if origin_dtype is None:
             # If no original data type is provided, assume the input data is the original data.
             self._origin_dtype = KK_Datatype.ASF
@@ -333,8 +419,23 @@ class asf(asf_abstract):
             self._origin_data = origin_data
         elif origin_dtype is None:
             # If no original data is provided, assume the input data is the original data.
-            self._origin_data = np.c_[energies, factors].copy()
-            
+            self._origin_data = np.c_[energies, factors] # already creates copies
+        
+    def __copy(self, cls: type["asf"] = None) -> type["asf"]:
+        # Use the class of the object if no class is provided.
+        cls = type(self) if cls is None else cls
+        # Return a new instance of the class with the same attributes
+        return cls(
+            energies=self.energies,
+            factors=self.factors,
+            origin_dtype=self.origin_dtype,
+            origin_data=self.origin_data,
+            number_density=self.number_density,
+            density=self.density,
+            formula_mass=self.formula_mass,
+            stoich=self.stoichiometry,
+        )
+    
     @property
     def energies(self) -> np.ndarray:
         """
@@ -423,7 +524,6 @@ class asf(asf_abstract):
         """
         return self.to_atomic_scattering_polynomial()
     
-    
 class asf_re(asf):
     """
     Identical to `asf`, but reserved for real component factors.
@@ -469,6 +569,69 @@ class asf_re(asf):
         Alias for `to_atomic_scattering_polynomial`.
         """
         return self.to_atomic_scattering_polynomial()
+    
+    def kk_transform_inv(self, 
+                         target_energies: npt.NDArray | None,
+                         improve_accuracy: bool = True,
+                         stoich: kk_stoichiometry | None = None,
+                         relativistic_correction: float | None = None,
+                         tolerance: float | None = None,
+                         max_iter: int | None = None,
+                         ) -> "asf_im":
+        """
+        Inverse Kramers-Kronig transform for the real part of the atomic scattering factors.
+        
+        Converts `asf_re` to `asp_re` and uses the `KK_PP` method to calculate the inverse transform.
+       
+        Parameters
+        ----------
+        target_energies : npt.NDArray
+            The energies at which to calculate the inverse transform.
+        improve_accuracy : bool, optional
+            Whether to add extra data points to increase resolution.
+        stoich : stoichiometry, optional
+            The stoichiometry of the material.
+        relativistic_correction : float, optional
+            The relativistic correction to apply.
+            
+        Returns
+        -------
+        asf_im
+            Atomic scattering factors object with imaginary components.
+        """
+        asp_re = self.to_atomic_scattering_polynomial()
+        return asp_re.kk_transform_inv(target_energies=target_energies,
+                                       improve_accuracy=improve_accuracy,
+                                       stoich=stoich,
+                                       relativistic_correction=relativistic_correction,
+                                       max_iter=max_iter,
+                                       tolerance=tolerance)
+    
+    def calculate_complex_polynomial(self) -> "asp_complex":
+        """
+        Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
+        to form a complex polynomial representation.
+        
+        Returns
+        -------
+        asp_complex
+            An atomic scattering polynomial object.
+        """
+        return self.calculate_complex_factors().to_ASP()
+        
+    def calculate_complex_factors(self) -> "asf_complex":
+        """
+        Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
+        to form a complex representation.
+        
+        Returns
+        -------
+        asf_complex
+            A complex atomic scattering factor object.
+        """
+        im: asf_im = self.kk_transform_inv()
+        return asf_complex(re=self,
+                           im=im)
         
 class asf_im(asf):
     """
@@ -515,7 +678,66 @@ class asf_im(asf):
         Alias for `to_atomic_scattering_polynomial`.
         """
         return self.to_atomic_scattering_polynomial()
+    
+    def kk_transform(self,
+                     target_energies: npt.NDArray | None,
+                     improve_accuracy: bool = True,
+                     stoich: kk_stoichiometry | None = None,
+                     relativistic_correction: float | None = None,
+                     ) -> "asf_re":
+        """
+        Kramers-Kronig transform for the imaginary part of the atomic scattering factors.
+
+        Converts `asf_im` to `asp_im` and uses the `KK_PP` method to calculate the transform.
         
+        Parameters
+        ----------
+        target_energies : npt.NDArray, optional
+            The energies at which to calculate the transform.
+        improve_accuracy : bool, optional
+            Whether to add extra data points to increase resolution.
+        stoich : stoichiometry, optional
+            The stoichiometry of the material.
+        relativistic_correction : float, optional
+            The relativistic correction to apply.
+
+        Returns
+        -------
+        asf_re
+            Atomic scattering factors object with real components.
+        """ 
+        asp_im = self.to_atomic_scattering_polynomial()
+        return asp_im.kk_transform(target_energies=target_energies,
+                                   improve_accuracy=improve_accuracy,
+                                   stoich=stoich,
+                                   relativistic_correction=relativistic_correction)
+        
+    def calculate_complex_polynomial(self) -> "asp_complex":
+        """
+        Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
+        to form a complex polynomial representation.
+        
+        Returns
+        -------
+        asp_complex
+            An atomic scattering polynomial object.
+        """
+        return self.calculate_complex_factors().to_ASP()
+        
+    def calculate_complex_factors(self) -> "asf_complex":
+        """
+        Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
+        to form a complex representation.
+        
+        Returns
+        -------
+        asf_complex
+            A complex atomic scattering factor object.
+        """
+        re: asf_re = self.kk_transform()
+        return asf_complex(re=re,
+                           im=self)
+    
 class asf_complex(asf_abstract):
     """
     Container for a pair of atomic scattering factors, reflecting
@@ -546,6 +768,25 @@ class asf_complex(asf_abstract):
         self._im : asf_im = im
     
     @property
+    def stoichiometry(self) -> kk_stoichiometry | None:
+        """
+        Returns the `stoichiometry` of the material associated with the scattering factors.
+        
+        Attempts to return the stoichiometry of the real part, then the imaginary part.
+        If neither have a stoichiometry, returns `None`.
+        
+        Returns
+        -------
+        stoichiometry | None
+            Stoichiometry of the material.
+        """
+        if self.re.stoichiometry is not None:
+            return self.re.stoichiometry
+        elif self.im.stoichiometry is not None:
+            return self.im.stoichiometry
+        return None
+    
+    @property
     def energies(self) -> npt.NDArray:
         return self._re.energies
     
@@ -555,8 +796,8 @@ class asf_complex(asf_abstract):
         self._im.energies = energies
     
     @property
-    def factors(self) -> tuple[npt.NDArray, npt.NDArray]:
-        return self._re.factors, self._im.factors
+    def factors(self) -> npt.NDArray[np.complex_]:
+        return self._re.factors +  1j*self._im.factors
     
     @factors.setter
     def factors(self, 
@@ -570,11 +811,51 @@ class asf_complex(asf_abstract):
             self._im.factors = factors.imag
     
     @property
+    def abs(self) -> npt.NDArray:
+        """
+        Absolute values of the atomic scattering factors.
+        
+        Returns
+        -------
+        np.ndarray
+            Absolute values of the atomic scattering factors.
+        """
+        return np.abs(self.factors)
+    
+    @property
+    def phase(self) -> npt.NDArray:
+        """
+        Phase of the atomic scattering factors.
+        
+        Returns
+        -------
+        np.ndarray
+            Phase of the atomic scattering factors.
+        """
+        return np.angle(self.factors)
+    
+    @property
     def re(self) -> "asf_re":
+        """
+        Real part object of the atomic scattering factors.
+        
+        Returns
+        -------
+        asf_re
+            Real part of the atomic scattering factors.
+        """
         return self._re
 
     @property
     def im(self) -> "asf_im":
+        """
+        Imaginary part object of the atomic scattering factors.
+        
+        Returns
+        -------
+        asf_im
+            Imaginary part of the atomic scattering factors.
+        """
         return self._im
     
     def to_atomic_scattering_polynomial(self) -> "asp_complex":

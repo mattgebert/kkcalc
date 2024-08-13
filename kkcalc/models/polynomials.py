@@ -4,35 +4,84 @@
 import abc
 import numpy as np
 import numpy.typing as npt
+from scipy.constants import N_A
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
+from kkcalc.models.common import atomic_scattering, atomic_scattering_abstract
+from kkcalc import kk_transforms
+from kkcalc.stoich import kk_stoichiometry
+
 if TYPE_CHECKING:
     from kkcalc.models.factors import asf as asf_type, asf_im, asf_re, asf_complex, asf_abstract
 
-class asp_abstract(metaclass=abc.ABCMeta):
+class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
+    """
+    Abstract class for a piecewise polynomial representation of atomic scattering factors.
+    
+    See Also
+    --------
+    kkcalc.models.common.atomic_scattering_abstract : Base interface for atomic scattering
+    """
+    
     @property
     @abc.abstractmethod
     def coefs(self) -> npt.NDArray:
+        """
+        Abstract property for the polynomial coefficients defining scattering factors between energy intervals.
+
+        Returns
+        -------
+        npt.NDArray | None
+            The polynomial coefficients for the scattering factors, with shape `(N, M)`, 
+            where N is the number of segments and `M` is the number of polynomial coefficients.
+        """
         return
     
     @property
     @abc.abstractmethod
     def energies(self) -> npt.NDArray:
+        """
+        Abstract property for the energy intervals defining the polynomial coefficients.
+
+        Returns
+        -------
+        npt.NDArray
+            The energy values defining the intervals for the polynomial coefficients.
+            Has length `N+1`, where `N` is the number of segments.
+        """
+        return
+    
+    @property
+    @abc.abstractmethod
+    def orders(self) -> npt.NDArray | None:
+        """
+        Abstract property for the polynomial orders of the scattering factors.
+
+        Returns
+        -------
+        npt.NDArray | None
+            The polynomial orders for the scattering factors, with length `M`. If None, 
+            then kkcalc internally assumes the polynomial orders are by default [1, 0, -1, -2, -3].
+        """
         return
     
     @staticmethod
     @doc_copy(conversions.ASP_to_ASF)
     def coefs_to_atomic_scattering_factors(
         energies:npt.NDArray, 
-        coefs:npt.NDArray) -> npt.NDArray:
+        coefs:npt.NDArray,
+        orders:npt.NDArray | None = None) -> npt.NDArray:
         r"""
         Alias for `conversions.ASP_to_ASF` to calculate the atomic scattering factors from
         polynomial `coefs` defined between `energies`.
         """
-        return conversions.ASP_to_ASF(energies, coefs)
+        return conversions.ASP_to_ASF(
+            energies=energies,
+            coefs=coefs,
+            orders=orders)
     
     @property
     def atomic_scattering_factors(self) -> npt.NDArray:
@@ -44,15 +93,11 @@ class asp_abstract(metaclass=abc.ABCMeta):
         npt.NDArray
             The atomic scattering factors calculated from the polynomial coefficients.
         """
-        return self.coefs_to_atomic_scattering_factors(self.energies, self.coefs)
-    
-    @property
-    @doc_copy(atomic_scattering_factors)
-    def asf(self) -> npt.NDArray:
-        """
-        Alias for `atomic_scattering_factors`.
-        """
-        return self.atomic_scattering_factors
+        return self.coefs_to_atomic_scattering_factors(
+            energies=self.energies,
+            coefs=self.coefs,
+            orders=self.orders
+        )
     
     @property
     @doc_copy(atomic_scattering_factors)
@@ -86,10 +131,44 @@ class asp_abstract(metaclass=abc.ABCMeta):
     def evaluate_energies_on_coefs(
         target_energies: npt.NDArray,
         energies: npt.NDArray,
-        coefs: npt.NDArray) -> npt.NDArray:
+        coefs: npt.NDArray,
+        orders: npt.NDArray | None = None) -> npt.NDArray:
+        """
+        Calculate the atomic scattering factors at the `target_energies`.
         
+        Uses the provided polynomial `coefs` defined over `energies` intervals.
+        Can also provide the polynomial orders for the coefficients.
+
+        Parameters
+        ----------
+        target_energies : npt.NDArray
+            The energies of length `L` at which to calculate the atomic scattering factors.
+        energies : npt.NDArray
+            The energy intervals of length `N` defining the polynomial coefficients.
+        coefs : npt.NDArray
+            The coefficients of shape `(N, M)` the polynomial defining the scattering factors,
+            where `M` is the number of polynomial coefficients.
+        orders : npt.NDArray | None
+            The polynomial orders for the scattering factors, with length `M`. If None,
+            coefficients are assumed to be in the order [1, 0, -1, -2, -3]. By default None.
+
+        Returns
+        -------
+        npt.NDArray
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+
+        Raises
+        ------
+        ValueError
+            If the target energies are outside the defined energy domain.
+        """
+        assert np.all(energies[:-1] <= energies[1:]), "Energies must be in increasing order."
         # Find where the energies are located in the object's energies.
         indices = np.searchsorted(energies, target_energies) - 1 # subtract to transfer from spans (N+1) to coefficients (N).
+        # print(f"Tar: {target_energies}")
+        # print(f"Eng: {energies}")
+        # print(f"Ind: {indices}")
+        
         if -1 in indices or len(energies)-1 in indices:
             # Check if all searchsorted invalid indexes are defined.
             invalid = np.where((indices < 0) | (indices == len(energies)-1))
@@ -101,7 +180,7 @@ class asp_abstract(metaclass=abc.ABCMeta):
                     indices[invalid] = len(energies)-2 # Last defined polynomial.
                 else:
                     raise ValueError(
-                        f"Some energies {target_energies[invalid]}"
+                        f"Some energies {target_energies[invalid]} "
                         + f"are outside the defined energy range ({energies.min()}, {energies.max()})."
                     )
             
@@ -110,7 +189,8 @@ class asp_abstract(metaclass=abc.ABCMeta):
         # Calculate the ASF values at the given energies.
         factors = asp_abstract.coefs_to_atomic_scattering_factors(
             energies=target_energies,
-            coefs=target_coefs
+            coefs=target_coefs,
+            orders=orders
         )
         return factors
     
@@ -145,7 +225,8 @@ class asp_abstract(metaclass=abc.ABCMeta):
             factors = self.evaluate_energies_on_coefs(
                 target_energies=target_energies,
                 energies=self.energies,
-                coefs=self.coefs
+                coefs=self.coefs,
+                orders=self.orders
             )
         else:
             target_energies = np.array([target_energies])
@@ -153,7 +234,8 @@ class asp_abstract(metaclass=abc.ABCMeta):
             factors = self.evaluate_energies_on_coefs(
                 target_energies=target_energies,
                 energies=self.energies,
-                coefs=self.coefs
+                coefs=self.coefs,
+                orders=self.orders
             )[0]
         return factors
 
@@ -207,7 +289,7 @@ class asp_abstract(metaclass=abc.ABCMeta):
     def __len__(self) -> int:
         return len(self.coefs)
     
-class asp(asp_abstract):
+class asp(asp_abstract, atomic_scattering):
     """
     A generic container for a piecewise polynomial representation of scattering factors
     (atomic scattering polynomial). 
@@ -215,9 +297,43 @@ class asp(asp_abstract):
     Allows the evaluation of the scattering factors at specified energies, by calling 
     the object or using the `evaluate_energies` method.
     
-    Attributes
+    Parameters
+    ----------
+    energies : npt.ArrayLike
+        The energy values of length `N+1` defining the `N` intervals for the polynomial coefficients.
+    coefs : npt.ArrayLike
+        The polynomial coefficients of shape `(N, M)` for the scattering factors,
+        defined on the intervals of `energies` where `M` is the number of coefficients.
+    orders : npt.ArrayLike | None, optional
+        The polynomial orders for the scattering factors. If None, then kkcalc internally
+        assumes the polynomial orders are by default [1, 0, -1, -2, -3]. By default None.
+        Must have length `M` if provided.
+    **kwargs
+        Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+        - `number_density` : float
+        - `density` : float
+        - `stoich` : stoichiometry
+        - `formula_mass` : float
+        - `name` : str
+        
+    Raises
+    ------
+    ValueError
+        If the energies are not in increasing order, the dimensions of `energies` and `coefs` do not match,
+        or the dimensions of `orders` do not match the number of coefficients.
+        
+    See Also
+    --------
+    kkcalc.models.common.atomic_scattering : Base class for atomic scattering factors.
     """
-    def __init__(self, energies, coefs):
+    def __init__(self, 
+                 energies: npt.ArrayLike, 
+                 coefs:npt.ArrayLike, 
+                 orders:npt.ArrayLike|None=None,
+                 **kwargs):
+        # Initialise atomic scattering object
+        atomic_scattering.__init__(self, **kwargs)
+        
         # Convert inputs to numpy arrays is not already
         energies = np.asarray(energies)
         coefs = np.asarray(coefs)
@@ -236,10 +352,19 @@ class asp(asp_abstract):
             raise ValueError(
                 f"Pairs of energies define the intervals for each set of polynomial coefficients." +
                 f"Number of coefficients ({len(coefs)}) does not match the number of energies ({len(energies)})+1.")
+        
+        # Check orders if provided
+        if orders is not None:
+            orders = np.asarray(orders)
+            if orders.ndim != 1:
+                raise ValueError("Orders must be a 1D array.")
+            if len(orders) != coefs.shape[1]:
+                raise ValueError("Number of orders must match the number of coefficients.") 
             
-        # Set properties
+        # Store attributes
         self._energies = energies
         self._coefs = coefs
+        self._orders = orders
         
     @property
     def energies(self) -> npt.NDArray:
@@ -265,6 +390,19 @@ class asp(asp_abstract):
         """
         return self._coefs
     
+    @property
+    def orders(self) -> npt.NDArray | None:
+        """
+        Returns the polynomial orders for the scattering factors, if provided, otherwise `None`.
+
+        Returns
+        -------
+        npt.NDArray | None
+            A 1D array of polynomial orders, with length M, where M is the number of coefficients.
+            If None, then kkcalc internally assumes the polynomial orders are by default [1, 0, -1, -2, -3].
+        """
+        return self._orders
+    
     def to_atomic_scattering_factors(self) -> "asf_type":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
@@ -288,12 +426,14 @@ class asp(asp_abstract):
 class asp_im(asp):
     """
     Identical to `asp`, but reserved for the imaginary component.
+    
+    Enables kk algorithms to convert to real and complex representations of the atomic scattering factors.
     """
     
-    @staticmethod
-    def from_asp(asp: asp) -> "asp_im":
+    @classmethod
+    def from_asp(cls: type["asp_im"],asp: asp) -> type["asp_im"]:
         """
-        Converts an undesignated `asp` object to an `asp_im` object.
+        Converts an undesignated `asp` object to a type of `asp_im` object.
         
         Parameters
         ----------
@@ -302,10 +442,10 @@ class asp_im(asp):
         
         Returns
         -------
-        asp_im
+        type[asp_im]
             An imaginary-part designated atomic scattering polynomial object.
         """
-        return asp_im(asp.energies, asp.coefs)
+        return cls(energies=asp.energies, coefs=asp.coefs)
     
     def to_atomic_scattering_factors(self) -> "asf_im":
         """
@@ -318,7 +458,7 @@ class asp_im(asp):
         """
         from kkcalc.models.factors import asf_im
         return asf_im(energies=self.energies,
-                   factors=self.atomic_scattering_factors)
+                      factors=self.atomic_scattering_factors)
         
     @doc_copy(to_atomic_scattering_factors)
     def to_asf(self) -> "asf_im":
@@ -327,6 +467,118 @@ class asp_im(asp):
         """
         return self.to_atomic_scattering_factors()
     
+    def kk_transform(self,
+                    target_energies: npt.ArrayLike | None = None,
+                    improve_accuracy: bool = True,
+                    stoich: kk_stoichiometry | None = None,
+                    relativistic_correction: float | None = None,
+                    tolerance: float = 1e-2,
+                    max_iter: int = 50,
+                    ) -> "asf_re":
+        """
+        Generates the real part of the atomic scattering factors
+        by using the Kramers Kronig transform from the imaginary part.
+        
+        Uses `kk_algorithms.KK_PP` to calculate the real part of the atomic scattering factors.
+        Can only provide the `stoich` parameter or the `relativistic_correction` parameter, not both.
+
+        Parameters
+        ----------
+        target_energies : npt.ArrayLike | None, optional
+            The energies at which to calculate the real part of the atomic scattering factors.
+            If None, then the object's energies are used, by default None.
+        improve_accuracy : bool, optional
+            If True, then the algorithm will attempt to improve the accuracy of the calculation, by default True.
+            This uses the `kk_algorithms.improve_accuracy` algorithm.
+        stoich : stoichiometry | None, optional
+            The stoichiometry object for the material, by default None
+            Used to calcualte the relativistic correction.
+        relativistic_correction : float, optional
+            The relativistic correction factor to apply to the calculation, by default False.
+            Can also be calculated by providing the `stoich` parameter.
+        tolerance : float, optional
+            Used if `improve_accuracy` is enabled. The tolerance for the accuracy improvement algorithm, by default 1e-2.
+        max_iter : int, optional
+            Used if `improve_accuracy` is enabled. The maximum number of iterations for the accuracy improvement algorithm, by default 50.
+
+        Returns
+        -------
+        asp_real
+            An `asf_re` object that represents the real part of the atomic scattering factors.
+        """
+        
+        # Check parameters for/to-define relativistic correction
+        if stoich is not None and relativistic_correction is not None:
+            raise ValueError("Cannot provide both stoichiometry and relativistic correction.")
+        elif stoich is None and relativistic_correction is None and self.stoichiometry is None:
+            raise ValueError("Must provide either stoichiometry or relativistic correction.")
+        elif self.stoichiometry is not None:
+            stoich = self.stoichiometry
+            relativistic_correction = self.stoichiometry.relativistic_correction
+        elif stoich is not None:
+            relativistic_correction = stoich.relativistic_correction
+        
+        # Calculate the real part of the atomic scattering factors
+        real_factors = kk_transforms.KK_PP(
+            target_energies = target_energies if target_energies is not None else self.energies,
+            energies = self.energies,
+            imag_coefs = self.coefs,
+            relativistic_correction = relativistic_correction
+        )
+        
+        # Collate data
+        imp_energies = target_energies if target_energies is not None else self.energies
+        imp_real_factors = real_factors
+        
+        # Perform accuracy improvement if requested
+        if improve_accuracy and max_iter > 0:
+            imp_energies, imp_real_factors = kk_transforms.improve_accuracy(
+                energies = imp_energies,
+                real_asf = imp_real_factors,
+                imag_coefs = self.coefs,
+                relativistic_correction=relativistic_correction,
+                tolerance=tolerance,
+                max_iter=max_iter
+            )
+        
+        # Import asf_re and create object
+        from kkcalc.models.factors import asf_re
+        kwargs = {
+            "name": self.name,
+            "stoich": stoich,
+            "density": self.density,
+            "number_density": self.number_density,
+            "formula_mass": self.formula_mass
+        }
+        return asf_re(energies=imp_energies, factors=imp_real_factors, **kwargs)
+    
+    def calculate_complex_polynomial(self) -> "asp_complex":
+        """
+        Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
+        to form a complex representation.
+        
+        Returns
+        -------
+        asp_complex
+            An atomic scattering polynomial object.
+        """
+        from kkcalc.models.polynomials import asp_complex
+        return asp_complex(re=self.kk_transform().to_ASP(),
+                           im=self)
+        
+    def calculate_complex_factors(self) -> "asf_complex":
+        """
+        Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
+        to form a complex representation.
+        
+        Returns
+        -------
+        asf_complex
+            A complex atomic scattering factor object.
+        """
+        from kkcalc.models.factors import asf_complex
+        return asf_complex(re=self.kk_transform(),
+                           im=self.to_asf())
 
 class asp_re(asp):
     """
@@ -369,6 +621,110 @@ class asp_re(asp):
         Alias for `to_atomic_scattering_factors`.
         """
         return self.to_atomic_scattering_factors()
+    
+    def kk_transform_inv(self,
+                         target_energies: npt.ArrayLike | None = None,
+                         improve_accuracy: bool = True,
+                         stoich: kk_stoichiometry | None = None,
+                         relativistic_correction: float | None = None,
+                         tolerance: float = 1e-2,
+                         max_iter: int = 50,
+                         ) -> "asf_im":
+        """
+        Generates the imaginary part of the atomic scattering factors
+        by using the inverse Kramers Kronig transform from the real part.
+        
+        Uses `kk_transforms.KK_PP_inv` to calculate the imaginary part of the atomic scattering factors.
+        Can only provide the `stoich` parameter or the `relativistic_correction` parameter, not both.
+        
+        Parameters
+        ----------
+        target_energies : npt.ArrayLike | None, optional
+            The energies at which to calculate the imaginary part of the atomic scattering factors.
+            If None, then the object's energies are used, by default None.
+        improve_accuracy : bool, optional
+            If True, then the algorithm will attempt to improve the accuracy of the calculation, by default True.
+            This uses the `kk_algorithms.improve_accuracy` algorithm.
+        stoich : stoichiometry | None, optional
+            The stoichiometry object for the material, by default None
+            Used to calcualte the relativistic correction.
+        relativistic_correction : float, optional
+            The relativistic correction factor to apply to the calculation, by default False.
+            Can also be calculated by providing the `stoich` parameter.
+        tolerance : float, optional
+            Used if `improve_accuracy` is enabled. The tolerance for the accuracy improvement algorithm, by default 1e-2.
+        max_iter : int, optional
+            Used if `improve_accuracy` is enabled. The maximum number of iterations for the accuracy improvement algorithm, by default 50.
+        
+        Returns
+        -------
+        asf_im
+            An `asf_im` object that represents the imaginary part of the atomic scattering factors.
+        """
+        # Check parameters for/to-define relativistic correction
+        if stoich is not None and relativistic_correction is not None:
+            raise ValueError("Cannot provide both stoichiometry and relativistic correction.")
+        elif stoich is None and relativistic_correction is None:
+            raise ValueError("Must provide either stoichiometry or relativistic correction.")
+        elif stoich is not None:
+            relativistic_correction = stoich.relativistic_correction
+        
+        # Calculate the imaginary part of the atomic scattering factors
+        imag_factors = kk_transforms.KK_PP_inv(
+            target_energies = target_energies if target_energies is not None else self.energies,
+            energies = self.energies,
+            real_coefs = self.coefs,
+            relativistic_correction = relativistic_correction,
+            tolerance = tolerance,
+            max_iter = max_iter
+        )
+        
+        # Collate "improved" data
+        imp_energies = target_energies if target_energies is not None else self.energies
+        imp_imag_factors = imag_factors
+        imp_real_coefs = self.coefs
+        
+        # Perform accuracy improvement if requested
+        if improve_accuracy:
+            imp_energies, imp_imag_factors, imp_real_coefs = kk_transforms.improve_accuracy_inv(
+                energies = imp_energies,
+                real_coefs = imp_real_coefs,
+                imag_asf = imp_imag_factors,
+                relativistic_correction=relativistic_correction
+            )
+            
+        # Import asf_im and create object
+        from kkcalc.models.factors import asf_im
+        return asf_im(energies=imp_energies,
+                      factors=imp_imag_factors)
+
+    def calculate_complex_polynomial(self) -> "asp_complex":
+        """
+        Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
+        to form a complex representation.
+        
+        Returns
+        -------
+        asp_complex
+            An atomic scattering polynomial object.
+        """
+        from kkcalc.models.polynomials import asp_complex
+        return asp_complex(re=self,
+                           im=self.kk_transform_inv().to_ASP())
+        
+    def calculate_complex_factors(self) -> "asf_complex":
+        """
+        Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
+        to form a complex representation.
+        
+        Returns
+        -------
+        asf_complex
+            A complex atomic scattering factor object.
+        """
+        from kkcalc.models.factors import asf_complex
+        return asf_complex(re=self.to_asf(),
+                           im=self.kk_transform_inv())
 
 class asp_complex(asp_abstract):
     """
@@ -400,17 +756,89 @@ class asp_complex(asp_abstract):
         self._im : asp_im = im
     
     @property
+    def stoichiometry(self) -> kk_stoichiometry | None:
+        """
+        Returns the stoichiometry object for the material.
+        
+        Attempts to return non-`None` values for the stoichiometry, 
+        first from the real part, then the imaginary part.
+        
+        Returns
+        -------
+        stoichiometry | None
+            The stoichiometry object for the material, if provided, otherwise `None`.
+        """
+        if self._re.stoichiometry is not None:
+            return self._re.stoichiometry
+        elif self._im.stoichiometry is not None:
+            return self._im.stoichiometry
+        return None
+    
+    @property
     def energies(self) -> npt.NDArray:
+        """
+        Returns the energy intervals for the polynomial coefficients.
+
+        Returns
+        -------
+        npt.NDArray
+            The energy values defining the intervals for the polynomial coefficients.
+            Has length `N+1`, where `N` is the number of segments
+        """
         return self._re.energies
     
     @property
     def coefs(self) -> npt.NDArray:
+        """
+        Returns the complex polynomial coefficients for the scattering factors.
+        
+        Returns
+        -------
+        npt.NDArray
+            A complex 2D array of shape `(N, M)`, where `N` is the number of segments and `M` is the number of polynomial coefficients.
+        """
         return self._re.coefs + 1j*self._im.coefs
     
     @property
     def re(self) -> asp_re:
+        """
+        The real part object of the atomic scattering polynomial.
+        
+        Returns
+        -------
+        asp_re
+            The real part component of the atomic scattering polynomial.
+        """
         return self._re
 
     @property
     def im(self) -> asp_im:
+        """
+        The imaginary part object of the atomic scattering polynomial.
+        
+        Returns
+        -------
+        asp_im
+            The imaginary part component of the atomic scattering polynomial.
+        """
         return self._im 
+    
+    def to_atomic_scattering_factors(self) -> "asf_complex":
+        """
+        Converts the piecewise polynomial representation to an atomic scattering factor object.
+        
+        Returns
+        -------
+        asf
+            An atomic scattering factor object with the same polynomial coefficients as the piecewise polynomial.
+        """
+        from kkcalc.models.factors import asf_complex
+        return asf_complex(re=self.re.to_atomic_scattering_factors(),
+                           im=self.im.to_atomic_scattering_factors())
+    
+    @doc_copy(to_atomic_scattering_factors)
+    def to_asf(self) -> "asf_complex":
+        """
+        Alias for `to_atomic_scattering_factors`.
+        """
+        return self.to_atomic_scattering_factors()
