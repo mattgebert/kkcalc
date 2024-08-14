@@ -5,7 +5,7 @@ This module contains all the neccessary ingredients needed to calculate the Kram
 """
 
 from kkcalc.models.factors import KK_Datatype
-from kkcalc.stoich import kk_stoichiometry
+from kkcalc.stoich import stoichiometry
 from kkcalc.util import doc_copy
 from kkcalc import kk_transforms
 

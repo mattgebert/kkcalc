@@ -44,7 +44,7 @@ def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
     """
     return sum([(z - (z/82.5)**2.37) * n for z, n in composition])
 
-class kk_stoichiometry:
+class stoichiometry:
     """
     Defines the stoichiometry of a chemical compound.
     
@@ -72,8 +72,8 @@ class kk_stoichiometry:
             self._composition = composition
         elif isinstance(composition, str):
             # Convert string to composition.
-            c = kk_stoichiometry.__parse_chemical_formula(composition)
-            c = kk_stoichiometry.__consolidate_elements(c)
+            c = stoichiometry.__parse_chemical_formula(composition)
+            c = stoichiometry.__consolidate_elements(c)
             self._composition = c
         elif hasattr(composition, "__iter__"):
             # Check validity of composition.
@@ -233,17 +233,17 @@ class kk_stoichiometry:
         else:
             Number = 1.0
         if m.group('Element') is not None:
-            Z = kk_stoichiometry._element_to_atomic_number(m.group('Element'))
+            Z = stoichiometry._element_to_atomic_number(m.group('Element'))
             if Z != 0:
                 composition.append((Z,Number))
         elif len(m.group('Paren')) > 0:
-            composition += [(x[0],x[1]*Number) for x in kk_stoichiometry.__parse_chemical_formula(m.group('Paren'), recursion=recursion)]
+            composition += [(x[0],x[1]*Number) for x in stoichiometry.__parse_chemical_formula(m.group('Paren'), recursion=recursion)]
         if len(m.group('Remainder')) != 0:
-            composition += kk_stoichiometry.__parse_chemical_formula(m.group('Remainder'), recursion=recursion)
+            composition += stoichiometry.__parse_chemical_formula(m.group('Remainder'), recursion=recursion)
         return composition
     
     @staticmethod
-    def from_chemical_formula(formula: str, recursion: bool = True, use_peroidictable: bool = True) -> "kk_stoichiometry":
+    def from_chemical_formula(formula: str, recursion: bool = True, use_peroidictable: bool = True) -> "stoichiometry":
         """Parse a chemical formula string to obtain a stoichiometry.
 
         Parameters
@@ -261,17 +261,17 @@ class kk_stoichiometry:
             A stoichiometry object representing the composition of the formula.
         """
         if use_peroidictable:
-            return kk_stoichiometry(pt.formula(formula))
+            return stoichiometry(pt.formula(formula))
         else:
             # Parse the formula string
-            composition = kk_stoichiometry.__parse_chemical_formula(
+            composition = stoichiometry.__parse_chemical_formula(
                 formula=formula,
                 recursion=recursion
             )
             # Consolidate the elements
-            composition = kk_stoichiometry.__consolidate_elements(composition)
+            composition = stoichiometry.__consolidate_elements(composition)
             # Create the stoichiometry object
-            return kk_stoichiometry(composition)
+            return stoichiometry(composition)
     
     @staticmethod
     def _element_to_atomic_number(SymbolString: str) -> int:
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     data = []
     
     for compound in compounds:
-        stoich = kk_stoichiometry(compound)
+        stoich = stoichiometry(compound)
         comp = stoich.composition
         for i, (atom, count) in enumerate(comp):
             if type(count) is float and int(count) != count:

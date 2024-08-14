@@ -2,8 +2,9 @@
 Classes for common attributes between atomic scattering factor and polynomial models.
 """
 import abc
-from kkcalc.stoich import kk_stoichiometry
+from kkcalc.stoich import stoichiometry as kk_stoichiometry
 from scipy.constants import N_A
+from typing import Literal
 
 class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     """
@@ -78,7 +79,51 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
             Material/sample name.
         """
         pass
-
+    
+    @property
+    def _properties_dict(self) -> dict[Literal['name', 'stoichiometry', 'density', 'number_density', 'formula_mass'], str | kk_stoichiometry | float | None]:
+        """
+        Returns a dictionary of the material class properties.
+        
+        Returns
+        -------
+        dict
+            Dictionary of class properties.
+        """
+        return {
+            'name': self.name,
+            'stoichiometry': self.stoichiometry,
+            'density': self.density,
+            'number_density': self.number_density,
+            'formula_mass': self.formula_mass,
+        }
+        
+    @_properties_dict.setter
+    def _properties_dict(self, properties: dict[Literal['name', 'stoichiometry', 'density', 'number_density', 'formula_mass'], str | kk_stoichiometry | float | None]) -> None:
+        """
+        Uses keywords to update values for the material class properties.
+        `None` values are ignored.
+        
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments for class properties.
+        """
+        for key, value in properties.items():
+            match key:
+                case 'name':
+                    self.name = value
+                case 'stoichiometry':
+                    self.stoichiometry = value
+                case 'density':
+                    self.density = value
+                case 'number_density':
+                    self.number_density = value
+                case 'formula_mass':
+                    self.formula_mass = value
+                case _:
+                    raise ValueError(f"Invalid property: {key}")
+        return
 
 class atomic_scattering(atomic_scattering_abstract):
     """
@@ -93,7 +138,7 @@ class atomic_scattering(atomic_scattering_abstract):
         Equivalent to providing a density, with a stoichiometry or formula mass.
     density : float, optional
         Material density in grams per millilitre (cm^3).
-    stoich : stoichiometry | str, optional
+    stoichiometry : stoichiometry | str, optional
         Stoichiometry of the material.
     """
     
@@ -101,7 +146,7 @@ class atomic_scattering(atomic_scattering_abstract):
                  name: str | None = None,
                  number_density: float | None = None,
                  density: float | None = None,
-                 stoich: kk_stoichiometry | str | None = None,
+                 stoichiometry: kk_stoichiometry | str | None = None,
                  formula_mass: float | None = None,
                  ) -> None:
         """
@@ -131,7 +176,7 @@ class atomic_scattering(atomic_scattering_abstract):
         self._formula_mass = None        
         
         # Assign in reverse order of importance.        
-        self.stoichiometry = stoich # can infer a formula mass
+        self.stoichiometry = stoichiometry # can infer a formula mass
         self.formula_mass = formula_mass
         self.density = density
         self.number_density = number_density

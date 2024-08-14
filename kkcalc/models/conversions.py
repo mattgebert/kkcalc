@@ -1,4 +1,4 @@
-from kkcalc.stoich import kk_stoichiometry as kk_stoichiometry
+from kkcalc.stoich import stoichiometry as kk_stoichiometry
 
 import numpy as np
 import numpy.typing as npt

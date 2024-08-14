@@ -3,7 +3,7 @@ import numpy.typing as npt
 import scipy.optimize as opt
 import warnings
 
-from kkcalc.stoich import kk_stoichiometry
+from kkcalc.stoich import stoichiometry as kk_stoichiometry
 from kkcalc.models.polynomials import asp_im
 from kkcalc.models.factors import asf, asf_re, asf_im
 from kkcalc.models.conversions import conversions
@@ -93,11 +93,11 @@ class asp_db(asp_im):
     kkcalc.models.polynomials.asp_im : The atomic scattering polynomial object for the imaginary component of the scattering factor.
     kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
     """
-    def __init__(self, stoich: kk_stoichiometry | str, **kwargs):
+    def __init__(self, stoichiometry: kk_stoichiometry | str, **kwargs):
         # Get composition
-        if isinstance(stoich, str):
-            stoich = kk_stoichiometry(stoich)
-        comp = stoich.composition
+        if isinstance(stoichiometry, str):
+            stoichiometry = kk_stoichiometry(stoichiometry)
+        comp = stoichiometry.composition
         
         # Get unique energy points for all elements
         energies = np.unique(np.r_[*[ASF_DATABASE[z]['E'] for z,_ in comp]])
@@ -122,7 +122,7 @@ class asp_db(asp_im):
             im_coefs[i,:] = sum_im
                         
         # Setup properties
-        kwargs["stoich"] = stoich # Also store the stoichiometry
+        kwargs["stoichiometry"] = stoichiometry # Also store the stoichiometry
         super().__init__(energies=energies, coefs=im_coefs, **kwargs)
         
 class asp_db_extended(asp_im):
@@ -166,7 +166,8 @@ class asp_db_extended(asp_im):
                  data_asf: asf,
                  db_asp: asp_db,
                  merge_domain: tuple[float, float] | None = None,
-                 fix_distortions: bool = False
+                 fix_distortions: bool = False,
+                 **kwargs
                  ) -> None:
         # Check sorted
         if not np.all(np.diff(data_asf.energies) > 0):
@@ -188,13 +189,17 @@ class asp_db_extended(asp_im):
         )
         
         # Copy the kwargs from the data_asf / asp objects if not None.
-        kwargs = {
-            "name": data_asf.name if data_asf.name is not None else db_asp.name,
-            "number_density": data_asf.number_density if data_asf.number_density is not None else db_asp.number_density,
-            "density": data_asf.density if data_asf.density is not None else db_asp.density,
-            "stoich": data_asf.stoichiometry if data_asf.stoichiometry is not None else db_asp.stoichiometry,
-            "formula_mass": data_asf.formula_mass if data_asf.formula_mass is not None else db_asp.formula_mass,
-        }
+        extra_kwargs = data_asf._properties_dict
+        # Replace `None` values with the db_asp values
+        for key in extra_kwargs:
+            if extra_kwargs[key] is None:
+                # Update using the db values.
+                extra_kwargs[key] = db_asp._properties_dict[key]
+        
+        # Add to the kwargs if not already present
+        for key in extra_kwargs.keys():
+            if key not in kwargs:
+                kwargs[key] = extra_kwargs[key]
         
         super().__init__(energies = merge_e, coefs = merge_coefs, **kwargs)
         
@@ -217,7 +222,8 @@ class asp_db_extended(asp_im):
         data_asf: type[asf_im],
         data_stoich: kk_stoichiometry | str | None,
         merge_domain: tuple[float, float] | None = None,
-        fix_distortions: bool = False
+        fix_distortions: bool = False,
+        **kwargs
     ) -> "asp_db_extended":
         """
         Create an `asp_db_extended` object from an `asf` data object.
@@ -233,19 +239,28 @@ class asp_db_extended(asp_im):
             By default None, using full data domain.
         fix_distortions : bool, optional
             Flag to fix distortions in the user data_asf.
+        **kwargs
+            Additional keyword arguments to pass to `asp_im` and `atomic_scattering` parent classes.
             
         Returns
         -------
         asp_db_extended
             The extended atomic scattering potential object.
+            
+        See Also
+        --------
+        asf_database : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
+        asp_db : The atomic scattering polynomial object for the imaginary component of the scattering factor for a given stoichiometry.
+        kkcalc.models.polynomials.asp_im : The atomic scattering polynomial object for the imaginary component of the scattering factor.
+        kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
         """
         return asp_db_extended(
             data_asf=data_asf,
             db_asp=asp_db(data_stoich),
             merge_domain=merge_domain,
-            fix_distortions=fix_distortions
-        )
-            
+            fix_distortions=fix_distortions,
+            **kwargs
+        )        
     
     @staticmethod
     def extend_data_with_db(
