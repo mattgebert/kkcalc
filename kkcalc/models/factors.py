@@ -882,25 +882,6 @@ class asf_complex(asf_abstract, atomic_scattering):
         atomic_scattering.__init__(self, **common_kwargs)
     
     @property
-    def stoichiometry(self) -> kk_stoichiometry | None:
-        """
-        Returns the `stoichiometry` of the material associated with the scattering factors.
-        
-        Attempts to return the stoichiometry of the real part, then the imaginary part.
-        If neither have a stoichiometry, returns `None`.
-        
-        Returns
-        -------
-        stoichiometry | None
-            Stoichiometry of the material.
-        """
-        if self.re.stoichiometry is not None:
-            return self.re.stoichiometry
-        elif self.im.stoichiometry is not None:
-            return self.im.stoichiometry
-        return None
-    
-    @property
     def energies(self) -> npt.NDArray:
         return self._re.energies
     

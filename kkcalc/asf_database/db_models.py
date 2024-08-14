@@ -144,9 +144,10 @@ class asp_db_extended(asp_im):
     ----------
     data_asf : asf
         The atomic scattering factor object.
-    db_asp : asp_db
-        The atomic scattering potential object, 
-        generated for a given material stoichiometry.
+    database : asp_db | kk_stoichiometry | str
+        The atomic scattering potential object, generated for a given material stoichiometry.
+        Can also be a `kk_stoichiometry` object or a string representing the stoichiometry,
+        which will be converted to an `asp_db` object.
     merge_domain : tuple[float, float] | None
         The range of energies to merge the user data_asf with the db_asp data.
     fix_distortions : bool
@@ -164,7 +165,7 @@ class asp_db_extended(asp_im):
     """
     def __init__(self,
                  data_asf: asf,
-                 db_asp: asp_db,
+                 database: asp_db | kk_stoichiometry | str,
                  merge_domain: tuple[float, float] | None = None,
                  fix_distortions: bool = False,
                  **kwargs
@@ -172,6 +173,12 @@ class asp_db_extended(asp_im):
         # Check sorted
         if not np.all(np.diff(data_asf.energies) > 0):
             raise ValueError("Data energies must be sorted")
+        
+        # Convert kk_stoichiometry or str to asp_db
+        if isinstance(database, (kk_stoichiometry, str)):
+            db_asp = asp_db(database)
+        else:
+            db_asp = database
         
         ### 1. Alignment of Energy Values:
         # Get the data pointers from the asf object
@@ -216,51 +223,6 @@ class asp_db_extended(asp_im):
         used to extend the `asf` object.
         """
         return
-    
-    @staticmethod
-    def from_asf_im(
-        data_asf: type[asf_im],
-        data_stoich: kk_stoichiometry | str | None,
-        merge_domain: tuple[float, float] | None = None,
-        fix_distortions: bool = False,
-        **kwargs
-    ) -> "asp_db_extended":
-        """
-        Create an `asp_db_extended` object from an `asf` data object.
-        
-        Parameters
-        ----------
-        data_asf : asf
-            The atomic scattering factor object.
-        data_stoich : stoichiometry | str | None
-            The stoichiometry of the material.
-        merge_domain : tuple[float, float] | None, optional
-            The range of energies to merge the user data_asf with the db_asp data.
-            By default None, using full data domain.
-        fix_distortions : bool, optional
-            Flag to fix distortions in the user data_asf.
-        **kwargs
-            Additional keyword arguments to pass to `asp_im` and `atomic_scattering` parent classes.
-            
-        Returns
-        -------
-        asp_db_extended
-            The extended atomic scattering potential object.
-            
-        See Also
-        --------
-        asf_database : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
-        asp_db : The atomic scattering polynomial object for the imaginary component of the scattering factor for a given stoichiometry.
-        kkcalc.models.polynomials.asp_im : The atomic scattering polynomial object for the imaginary component of the scattering factor.
-        kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
-        """
-        return asp_db_extended(
-            data_asf=data_asf,
-            db_asp=asp_db(data_stoich),
-            merge_domain=merge_domain,
-            fix_distortions=fix_distortions,
-            **kwargs
-        )        
     
     @staticmethod
     def extend_data_with_db(

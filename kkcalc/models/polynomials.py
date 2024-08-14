@@ -379,6 +379,41 @@ class asp(asp_abstract, atomic_scattering):
         """
         return self._energies
     
+    def extend_energies(self, new_energies: npt.NDArray) -> type["asp"]:
+        """
+        Uses existing interval to generate a new `asp` object with the same polynomial coefficients,
+        but defined on the new `energies`. 
+        
+        Existing `energies` must be a subset of `new_energies`.
+        
+        Parameters
+        ----------
+        energies : npt.NDArray
+            The new energy values to extend the intervals.
+            Existing `energies` must be a subset of `new_energies`.
+        
+        Returns
+        -------
+        asp
+            A new `asp` object with the same polynomial coefficients, but defined on the new `energies`.
+        """
+        # Check energies are a subset
+        if not np.all(np.isin(self.energies, new_energies)):
+            raise ValueError("Existing energies must be a subset of the new energies.")
+        # Get the class and creation kwargs
+        cls = type(self)
+        kwargs = self._properties_dict
+        # Find new energies not in the existing energies
+        nocoef_energies = np.setdiff1d(new_energies, self.energies)
+        # Find the indices of the existing energies in the new energies
+        indices = np.searchsorted(nocoef_energies, self.energies)
+        # Collect coefs: -1 because the coefficients are defined on the previous index interval.
+        new_coefs = np.array([self.coefs[i - 1] for i in indices])
+        # Create new energy and coefficients
+        sort_indices = np.argsort(np.r_[self.energies, nocoef_energies])
+        coefs = np.vstack((np.r_[self.coefs[:-1], new_coefs][sort_indices], self.coefs[-1]))
+        return cls(energies=new_energies, coefs=coefs, orders=self.orders, **kwargs)
+    
     @property
     def coefs(self) -> npt.NDArray:
         """
@@ -470,12 +505,14 @@ class asp_im(asp):
         common_kwargs.update(kwargs)
         return cls(energies=asp.energies, coefs=asp.coefs, **common_kwargs)
     
-    def to_atomic_scattering_factors(self, **kwargs) -> "asf_im":
+    def to_atomic_scattering_factors(self, energies: npt.NDArray | None = None, **kwargs) -> "asf_im":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
         Parameters
         ----------
+        energies : npt.NDArray | None, optional
+            Energy values at which to calculate the atomic scattering factors.
         **kwargs
             Additional keyword arguments for the `asf_im` or `atomic_scattering` classes.
         
@@ -489,21 +526,27 @@ class asp_im(asp):
         kkcalc.models.factors.asf_im : Atomic scattering factor object for the imaginary part.
         kkcalc.models.common.atomic_scattering : Base class for atomic scattering factors.
         """
-    
         
+        # Use kwargs
         from kkcalc.models.factors import asf_im
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return asf_im(energies=self.energies,
-                      factors=self.atomic_scattering_factors,
-                      **common_kwargs)
+        # Create the asf object
+        if energies is None:
+            return asf_im(energies=self.energies,
+                        factors=self.atomic_scattering_factors,
+                        **common_kwargs)
+        else:
+            return asf_im(energies=energies,
+                        factors=self.evaluate_energies(energies),
+                        **common_kwargs)
         
     @doc_copy(to_atomic_scattering_factors)
-    def to_asf(self, **kwargs) -> "asf_im":
+    def to_asf(self, energies: npt.NDArray | None = None, **kwargs) -> "asf_im":
         """
         Alias for `to_atomic_scattering_factors`.
         """
-        return self.to_atomic_scattering_factors(**kwargs)
+        return self.to_atomic_scattering_factors(energies, **kwargs)
     
     def kk_transform(self,
                     target_energies: npt.ArrayLike | None = None,
@@ -589,6 +632,8 @@ class asp_im(asp):
         Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
         to form a complex representation.
         
+        Uses `kk_transform` default options to perform the transform.
+        
         Parameters
         ----------
         **kwargs
@@ -603,18 +648,23 @@ class asp_im(asp):
         --------
         kkcalc.models.polynomials.asp_complex : Atomic scattering polynomial object.
         kkcalc.models.common.atomic_scattering : Base class for atomic scattering factors.
+        kkcalc.models.polynomials.asp_im.kk_transform : KK transform method.
         """
         from kkcalc.models.polynomials import asp_complex
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return asp_complex(re=self.kk_transform().to_ASP(),
-                           im=self,
+        re = self.kk_transform()
+        im = self.extend_energies(re.energies)
+        return asp_complex(re=re.to_ASP(),
+                           im=im,
                            **common_kwargs)
         
     def calculate_complex_factors(self, **kwargs) -> "asf_complex":
         """
         Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
         to form a complex representation.
+        
+        Uses `kk_transform` default options to perform the transform.
         
         Parameters
         ----------
@@ -630,12 +680,17 @@ class asp_im(asp):
         --------
         kkcalc.models.factors.asf_complex : Complex atomic scattering factor object.
         kkcalc.models.common.atomic_scattering : Base class for atomic scattering factors.
+        kkcalc.models.polynomials.asp_im.kk_transform : KK transform method.
         """
         from kkcalc.models.factors import asf_complex
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return asf_complex(re=self.kk_transform(),
-                           im=self.to_asf(),
+        # Calculate the KK transform
+        re = self.kk_transform()
+        # Evaluate the complex factors at the same energies
+        im_asf = self.to_asf(energies=re.energies)
+        return asf_complex(re=re,
+                           im=im_asf,
                            **common_kwargs)
 
 class asp_re(asp):
@@ -671,12 +726,15 @@ class asp_re(asp):
                       coefs=asp.coefs,
                       **common_kwargs)
     
-    def to_atomic_scattering_factors(self, **kwargs) -> "asf_re":
+    def to_atomic_scattering_factors(self, energies: npt.NDArray | None = None, **kwargs) -> "asf_re":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
         Parameters
         ----------
+        energies : npt.NDArray | None, optional
+            Energy values at which to calculate the atomic scattering factors.
+            By default None, then the object's energies are used.
         **kwargs
             Additional keyword arguments for the `asf_re` or `atomic_scattering` classes
         
@@ -693,16 +751,21 @@ class asp_re(asp):
         from kkcalc.models.factors import asf_re
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return asf_re(energies=self.energies,
-                   factors=self.atomic_scattering_factors
-                   **common_kwargs)
+        if energies is None:
+            return asf_re(energies=self.energies,
+                    factors=self.atomic_scattering_factors
+                    **common_kwargs)
+        else:
+            return asf_re(energies=energies,
+                          factors=self.evaluate_energies(energies),
+                          **common_kwargs)
         
     @doc_copy(to_atomic_scattering_factors)
-    def to_asf(self, **kwargs) -> "asf_re":
+    def to_asf(self, energies: npt.NDArray | None = None, **kwargs) -> "asf_re":
         """
         Alias for `to_atomic_scattering_factors`.
         """
-        return self.to_atomic_scattering_factors(**kwargs)
+        return self.to_atomic_scattering_factors(energies, **kwargs)
     
     def kk_transform_inv(self,
                          target_energies: npt.ArrayLike | None = None,
@@ -787,6 +850,8 @@ class asp_re(asp):
         Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
         to form a complex representation.
         
+        Uses `kk_transform_inv` default options to perform the transform.
+        
         Parameters
         ----------
         **kwargs
@@ -805,14 +870,20 @@ class asp_re(asp):
         from kkcalc.models.polynomials import asp_complex
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return asp_complex(re=self,
-                           im=self.kk_transform_inv().to_ASP(),
+        # Calculate the imaginary part
+        im = self.kk_transform_inv()
+        # Extend the energies
+        re = self.extend_energies(im.energies)
+        return asp_complex(re=re,
+                           im=im.to_ASP(),
                            **common_kwargs)
         
     def calculate_complex_factors(self, **kwargs) -> "asf_complex":
         """
         Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
         to form a complex representation.
+        
+        Uses `kk_transform_inv` default options to perform the transform.
         
         Parameters
         ----------
@@ -828,12 +899,16 @@ class asp_re(asp):
         --------
         kkcalc.models.factors.asf_complex : Complex atomic scattering factor object.
         kkcalc.models.common.atomic_scattering : Base class for atomic scattering factors.
+        kkcalc.models.polynomials.asp_re.kk_transform_inv : Inverse KK transform method.
         """
         from kkcalc.models.factors import asf_complex
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return asf_complex(re=self.to_asf(),
-                           im=self.kk_transform_inv(),
+        # Calculate the KK transform
+        im = self.kk_transform_inv()
+        # Evaluate the complex factors at the same energies
+        return asf_complex(re=self.to_asf(energies=im.energies),
+                           im=im,
                            **common_kwargs)
 
 class asp_complex(asp_abstract, atomic_scattering):
@@ -858,6 +933,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                  **kwargs
                  ):
         if not np.all(re.energies == im.energies):
+            # While this condition isn't essential, better to have the same energy intervals.
             raise ValueError("Real and imaginary parts must have the same energy intervals.")        
         
         # Use the real then imaginary part properties to update None values

@@ -30,7 +30,7 @@ class conversions:
     def betas_to_ASF(
         energies: npt.NDArray,
         betas: npt.NDArray,
-        number_density: float,
+        number_density: float = None,
         density: float = None,
         formula_mass: float = None,
         stoichiometry: kk_stoichiometry | str = None,
@@ -105,7 +105,7 @@ class conversions:
     def ASF_to_betas(
         energies: npt.NDArray,
         factors: npt.NDArray,
-        number_density: float,
+        number_density: float = None,
         density: float = None,
         formula_mass: float = None,
         stoichiometry: kk_stoichiometry | str = None

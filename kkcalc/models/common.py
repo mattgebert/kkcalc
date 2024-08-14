@@ -234,7 +234,7 @@ class atomic_scattering(atomic_scattering_abstract):
         if number_density is not None:
             if self.formula_mass is not None:
                 # Generate a density from the formula mass and number density.
-                self.density = number_density * self.formula_mass / N_A
+                self._density = number_density * self.formula_mass / N_A
         return
     
     @property
@@ -265,14 +265,14 @@ class atomic_scattering(atomic_scattering_abstract):
         if density is not None:
             if self.formula_mass is not None:
                 # Update / generate a number density from the formula mass and density.
-                self.number_density = density * N_A / self.formula_mass
+                self._number_density = density * N_A / self.formula_mass
             elif self.stoichiometry is not None:
                 # Generate a formula mass from the stoichiometry and density.
-                self.formula_mass = self.stoichiometry.formula_mass
-                self.number_density = density * N_A / self.formula_mass
+                self._formula_mass = self.stoichiometry.formula_mass
+                self._number_density = density * N_A / self.formula_mass
             elif self.number_density is not None:
                 # Generate a formula mass from the number density and density.
-                self.formula_mass = density * N_A / self.number_density
+                self._formula_mass = density * N_A / self.number_density
         return
         
     @property
@@ -309,10 +309,10 @@ class atomic_scattering(atomic_scattering_abstract):
         if formula_mass is not None:
             # Update / generate a number density from the formula mass and density.
             if self.density is not None:
-                self.number_density = self.density * N_A / formula_mass
+                self._number_density = self.density * N_A / formula_mass
             # Generate a density from the formula mass and number density.
             elif self.number_density is not None:
-                self.density = self.number_density * formula_mass / N_A
+                self._density = self.number_density * formula_mass / N_A
         return
     
     @property
@@ -358,8 +358,8 @@ class atomic_scattering(atomic_scattering_abstract):
             if self.density is not None:
                 # Update / generate a number density from the stoichiometry 
                 # and density, regardless of the current number density.
-                self.number_density = self.density * N_A / stoich.formula_mass
+                self._number_density = self.density * N_A / stoich.formula_mass
             elif self.number_density is not None:
                 # Generate a density from the stoichiometry and number density.
-                self.density = self.number_density * stoich.formula_mass / N_A
+                self._density = self.number_density * stoich.formula_mass / N_A
         return
