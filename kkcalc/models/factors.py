@@ -4,13 +4,13 @@
 Defines the types of data that can be used, and conversion between.
 """
 
-from kkcalc.stoich import stoichiometry as kk_stoichiometry
-from kkcalc.util import doc_copy
-from kkcalc.models.conversions import conversions
-from kkcalc.models.common import atomic_scattering_abstract, atomic_scattering
-
 # In polynomials.py, the equivalent import is only done via type checking or in functions, to prevent recursion.
 from kkcalc.models.polynomials import asp as asp_type, asp_abstract, asp_im, asp_re, asp_complex
+## ..
+from kkcalc.models.common import atomic_scattering_abstract, atomic_scattering
+from kkcalc.models.conversions import conversions
+from kkcalc.stoich import stoichiometry as kk_stoichiometry # To prevent overlap use with the `stoichiometry` argument.
+from kkcalc.util import doc_copy
 
 import numpy as np
 import numpy.typing as npt
@@ -666,7 +666,7 @@ class asf_re(asf):
         asp_re = self.to_atomic_scattering_polynomial()
         return asp_re.kk_transform_inv(target_energies=target_energies,
                                        improve_accuracy=improve_accuracy,
-                                       stoich=stoich,
+                                       stoichiometry=stoich,
                                        relativistic_correction=relativistic_correction,
                                        max_iter=max_iter,
                                        tolerance=tolerance)
@@ -795,7 +795,7 @@ class asf_im(asf):
         asp_im = self.to_atomic_scattering_polynomial()
         return asp_im.kk_transform(target_energies=target_energies,
                                    improve_accuracy=improve_accuracy,
-                                   stoich=stoich,
+                                   stoichiometry=stoich,
                                    relativistic_correction=relativistic_correction)
         
     def calculate_complex_polynomial(self) -> "asp_complex":

@@ -173,7 +173,7 @@ if __name__ == "__main__":
     )
     #2. 
     asf_real = asp_db_PS_extended.kk_transform(
-        stoich=ps_stoich,
+        stoichiometry=ps_stoich,
     )
     
     # Plot KK Results

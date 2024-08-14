@@ -1,6 +1,11 @@
+"""
+This example demonstrates how to use the `improve_accuracy` option in the `kk_transform` method
+of the `asp_db_extended` model to improve the accuracy of the Kramers-Kronig transform at a K-Edge.
+The dataset is the Polystryene Carbon K-Edge.
+"""
+
 from kkcalc.models import *
-from kkcalc.asf_database.db_models import asp_db, asp_db_extended    
-from kkcalc import kk_stoichiometry
+from kkcalc import stoichiometry
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -11,7 +16,7 @@ if __name__ == "__main__":
     # Create a merge of physical data and database data
     POLYSTYRENE = "CH"
     PS_NAME = "Polystyrene"
-    ps_stoich = kk_stoichiometry(POLYSTYRENE)
+    ps_stoich = stoichiometry(POLYSTYRENE)
     asp_db_PS = asp_db(ps_stoich)
     
     # Import Data
@@ -27,7 +32,7 @@ if __name__ == "__main__":
     # Combine the data with the database into polynomials
     PS_imag = asp_db_extended(
         data_asf=asf_PS,
-        db_asp=asp_db_PS,
+        database=asp_db_PS,
         merge_domain=(280, 320)
     )
     
@@ -58,7 +63,7 @@ if __name__ == "__main__":
         new_points = np.array([i for i, e in enumerate(PS_real.energies) if e in new_energies])
         past_points = np.concatenate((past_points, new_energies))
         
-        # Plot the unimproved data
+        # Plot a line of the unimproved data
         if i == 0:
             ax[0].plot(PS_real.energies, PS_real.factors, alpha=0.4, label=f"Real Unimproved")
             ax[1].plot(PS_real.energies, PS_imag_factors, alpha=0.4, label=f"Imag Unimproved")
@@ -71,8 +76,14 @@ if __name__ == "__main__":
     ax[0].plot(PS_real.energies, PS_real.factors, alpha=0.4, c=l1.get_facecolor(), label=f"Real Final")
     ax[1].plot(PS_real.energies, PS_imag_factors, alpha=0.4, c=l2.get_facecolor(), label=f"Imag Final")
     
+    # Set x-axis limits to the K-Edge
+    lims = [270, 330]
+    ax[0].set_xlim(*lims)
+    ax[1].set_xlim(*lims)
+    
     # Finalize UI elements
     ax[0].legend()
     ax[1].legend()
+    
     fig.tight_layout()
     plt.show()

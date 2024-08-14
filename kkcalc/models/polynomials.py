@@ -551,7 +551,7 @@ class asp_im(asp):
     def kk_transform(self,
                     target_energies: npt.ArrayLike | None = None,
                     improve_accuracy: bool = True,
-                    stoich: kk_stoichiometry | None = None,
+                    stoichiometry: kk_stoichiometry | None = None,
                     relativistic_correction: float | None = None,
                     tolerance: float = 1e-2,
                     max_iter: int = 50,
@@ -589,15 +589,15 @@ class asp_im(asp):
         """
         
         # Check parameters for/to-define relativistic correction
-        if stoich is not None and relativistic_correction is not None:
+        if stoichiometry is not None and relativistic_correction is not None:
             raise ValueError("Cannot provide both stoichiometry and relativistic correction.")
-        elif stoich is None and relativistic_correction is None and self.stoichiometry is None:
+        elif stoichiometry is None and relativistic_correction is None and self.stoichiometry is None:
             raise ValueError("Must provide either stoichiometry or relativistic correction.")
         elif self.stoichiometry is not None:
-            stoich = self.stoichiometry
+            stoichiometry = self.stoichiometry
             relativistic_correction = self.stoichiometry.relativistic_correction
-        elif stoich is not None:
-            relativistic_correction = stoich.relativistic_correction
+        elif stoichiometry is not None:
+            relativistic_correction = stoichiometry.relativistic_correction
         
         # Calculate the real part of the atomic scattering factors
         real_factors = kk_transforms.KK_PP(
@@ -770,7 +770,7 @@ class asp_re(asp):
     def kk_transform_inv(self,
                          target_energies: npt.ArrayLike | None = None,
                          improve_accuracy: bool = True,
-                         stoich: kk_stoichiometry | None = None,
+                         stoichiometry: kk_stoichiometry | None = None,
                          relativistic_correction: float | None = None,
                          tolerance: float = 1e-2,
                          max_iter: int = 50,
@@ -807,12 +807,12 @@ class asp_re(asp):
             An `asf_im` object that represents the imaginary part of the atomic scattering factors.
         """
         # Check parameters for/to-define relativistic correction
-        if stoich is not None and relativistic_correction is not None:
+        if stoichiometry is not None and relativistic_correction is not None:
             raise ValueError("Cannot provide both stoichiometry and relativistic correction.")
-        elif stoich is None and relativistic_correction is None:
+        elif stoichiometry is None and relativistic_correction is None:
             raise ValueError("Must provide either stoichiometry or relativistic correction.")
-        elif stoich is not None:
-            relativistic_correction = stoich.relativistic_correction
+        elif stoichiometry is not None:
+            relativistic_correction = stoichiometry.relativistic_correction
         
         # Calculate the imaginary part of the atomic scattering factors
         imag_factors = kk_transforms.KK_PP_inv(
