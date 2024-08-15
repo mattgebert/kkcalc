@@ -157,13 +157,13 @@ class asf_viewer(QtWidgets.QWidget):
         self.snap_x_combo.blockSignals(True)
         self.snap_x_combo.clear()
         self.snap_x_combo.addItem("") # always add a blank option, used to reset to full x-axis.
-        self.snap_x_combo.addItems([f"{type(obj)}: {obj.name}" for obj in self.scattering_objects])
+        self.snap_x_combo.addItems([f"<{type(obj).__name__}>: {obj.name}" for obj in self.scattering_objects])
         self.snap_x_combo.blockSignals(False)
         # # Update the norm y combo box with the new objects
         self.norm_y_combo.blockSignals(True)
         self.norm_y_combo.clear()
         self.norm_y_combo.addItem("") # always add a blank option, used to reset to full y-axis.
-        self.norm_y_combo.addItems([f"{type(obj)}: {obj.name}" for obj in self.scattering_objects])
+        self.norm_y_combo.addItems([f"<{type(obj).__name__}>: {obj.name}" for obj in self.scattering_objects])
         self.norm_y_combo.blockSignals(False)
         # Reset the graph
         self.reset_graph()
@@ -611,9 +611,11 @@ class asf_viewer(QtWidgets.QWidget):
 
 
 if __name__ == "__main__":
+    # Create the application
     import sys
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
+    app.setApplicationName("Atomic Scattering Factor (ASF) Viewer")
     ui = asf_viewer()
     
     # Import kkcalc functions

@@ -7,7 +7,7 @@ import numpy.typing as npt
 import warnings
 from scipy.constants import N_A
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, Self
 
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
@@ -290,6 +290,10 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     def __len__(self) -> int:
         return len(self.coefs)
     
+    @abc.abstractmethod
+    def copy(self) -> type[Self]:
+        pass
+    
 class asp(asp_abstract, atomic_scattering):
     """
     A generic container for a piecewise polynomial representation of scattering factors
@@ -370,7 +374,13 @@ class asp(asp_abstract, atomic_scattering):
     @property
     def energies(self) -> npt.NDArray:
         """
-        Returns the interval energy values, between which the `coefs` are defined.
+        Attribute for the interval energy values, between which the `coefs` are defined.
+        
+        Parameters
+        ----------
+        energies : npt.NDArray
+            The energy values of length N+1 defining the N intervals for the polynomial coefficients.
+            If `coefs` exist without shape `(N, M)`, then the coefs are discarded.
 
         Returns
         -------
@@ -378,6 +388,14 @@ class asp(asp_abstract, atomic_scattering):
             An array of energy values with length N+1, where N is the number of segments.
         """
         return self._energies
+    
+    @energies.setter
+    def energies(self, energies: npt.NDArray) -> None:
+        self._energies = energies
+        # Wipe coefficients if the energies are changed to a different length.
+        if self.coefs is not None and len(energies) != len(self.coefs) + 1:
+            warnings.warn("Energies have changed length. Coefficients set to `None`.")
+            self._coefs = None
     
     def extend_energies(self, new_energies: npt.NDArray) -> type["asp"]:
         """
@@ -412,12 +430,26 @@ class asp(asp_abstract, atomic_scattering):
         # Create new energy and coefficients
         sort_indices = np.argsort(np.r_[self.energies, nocoef_energies])
         coefs = np.vstack((np.r_[self.coefs[:-1], new_coefs][sort_indices], self.coefs[-1]))
-        return cls(energies=new_energies, coefs=coefs, orders=self.orders, **kwargs)
+        
+        # Check if class is asp_db, in which case the constructor cannot take energies.
+        from kkcalc.models import asp_db, asp_db_extended
+        if cls in [asp_db, asp_db_extended]:
+            obj = self.copy()
+            obj.energies = new_energies
+            obj.coefs = coefs
+            return obj
+        else:
+            return cls(energies=new_energies, coefs=coefs, orders=self.orders, **kwargs)
     
     @property
-    def coefs(self) -> npt.NDArray:
+    def coefs(self) -> npt.NDArray | None:
         """
         Returns the polynomial coefficients for the scattering factor, defined on the intervals of `energies`.
+
+        Parameters
+        ----------
+        coefs : npt.NDArray
+            The polynomial coefficients of shape `(N, M)` for the scattering factors,
 
         Returns
         -------
@@ -425,6 +457,12 @@ class asp(asp_abstract, atomic_scattering):
             A 2D array, where rows correspond to the segments defined by `energies`, and columns are the polynomial coefficients.
         """
         return self._coefs
+    
+    @coefs.setter
+    def coefs(self, coefs: npt.NDArray) -> None:
+        if len(self.energies) - 1 != len(coefs):
+            raise ValueError(f"Number of coefficients ({len(coefs)}) must match the number of energy intervals ({len(self.energies) - 1}).")
+        self._coefs = coefs
     
     @property
     def orders(self) -> npt.NDArray | None:
@@ -471,6 +509,27 @@ class asp(asp_abstract, atomic_scattering):
         Alias for `to_atomic_scattering_factors`.
         """
         return self.to_atomic_scattering_factors(**kwargs)
+    
+    def copy(self) -> type["asp"]:
+        """
+        Generates a copy of the `asp` object.
+
+        Returns
+        -------
+        type[asp]
+            A new `asp` object with the same polynomial coefficients, 
+            and properties, but unique memory allocation.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Create a new object
+        return self.__class__(energies=self.energies.copy(),
+                              coefs=self.coefs.copy(),
+                              orders=self.orders.copy() if self.orders is not None else None,
+                              **kwargs)
 
 class asp_im(asp):
     """
@@ -1034,3 +1093,23 @@ class asp_complex(asp_abstract, atomic_scattering):
         Alias for `to_atomic_scattering_factors`.
         """
         return self.to_atomic_scattering_factors()
+    
+    def copy(self) -> type["asp_complex"]:
+        """
+        Generates a copy of the `asp_complex` object.
+
+        Returns
+        -------
+        type[asp_complex]
+            A new `asp_complex` object with the same polynomial coefficients, 
+            and properties, but unique memory allocation.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Create a new object
+        return self.__class__(re=self.re.copy(),
+                              im=self.im.copy(),
+                              **kwargs)

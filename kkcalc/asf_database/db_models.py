@@ -65,6 +65,23 @@ class asf_db(asf_re):
                         
         # Setup properties
         super().__init__(energies, factors)
+        
+    def copy(self) -> "asf_db":
+        """
+        Create a copy of the current object.
+        
+        Returns
+        -------
+        asf_db
+            A copy of the current object.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict # includes the stoichiometry
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Copy the object
+        return asf_db(**kwargs)
 
 
 class asp_db(asp_im):
@@ -125,6 +142,23 @@ class asp_db(asp_im):
         kwargs["stoichiometry"] = stoichiometry # Also store the stoichiometry
         super().__init__(energies=energies, coefs=im_coefs, **kwargs)
         
+    def copy(self) -> "asp_db":
+        """
+        Create a copy of the current object.
+        
+        Returns
+        -------
+        asp_db
+            A copy of the current object.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict # includes the stoichiometry
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Copy the object
+        return asp_db(**kwargs)
+        
 class asp_db_extended(asp_im):
     """
     Class for extending an `asp` object with database scattering factor data.
@@ -170,6 +204,12 @@ class asp_db_extended(asp_im):
                  fix_distortions: bool = False,
                  **kwargs
                  ) -> None:
+        # Store construction parameters
+        self._merge_domain = merge_domain
+        """The merge domain used to choose which `data_asf` values are used to create the extended data."""
+        self._fix_distortions = fix_distortions
+        """The fix distortions flag used to add extra processing to the provided `data_asf`."""
+        
         # Check sorted
         if not np.all(np.diff(data_asf.energies) > 0):
             raise ValueError("Data energies must be sorted")
@@ -411,6 +451,29 @@ class asp_db_extended(asp_im):
         db_range = db_merge_range[1] - db_merge_range[0] # Range of the database values
         # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
+    
+    def copy(self) -> "asp_db_extended":
+        """
+        Create a copy of the current object.
+        
+        Returns
+        -------
+        asp_db_extended
+            A copy of the current object.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Create the copy
+        return asp_db_extended(
+            data_asf=self.dataset_asf.copy(),
+            database=self.database_asp.copy(),
+            merge_domain=self._merge_domain,
+            fix_distortions=self._fix_distortions,
+            **kwargs
+        )
 
 if __name__ == "__main__":
     ## Test various formulas

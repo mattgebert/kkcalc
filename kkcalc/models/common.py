@@ -4,7 +4,7 @@ Classes for common attributes between atomic scattering factor and polynomial mo
 import abc
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
 from scipy.constants import N_A
-from typing import Literal
+from typing import Literal, Self
 
 class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     """
@@ -124,6 +124,18 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
                 case _:
                     raise ValueError(f"Invalid property: {key}")
         return
+
+    @abc.abstractmethod
+    def copy(self) -> type[Self]:
+        """
+        Returns a copy of the class instance.
+        
+        Returns
+        -------
+        atomic_scattering_abstract
+            Copy of the class instance.
+        """
+        pass
 
 class atomic_scattering(atomic_scattering_abstract):
     """
@@ -363,3 +375,21 @@ class atomic_scattering(atomic_scattering_abstract):
                 # Generate a density from the stoichiometry and number density.
                 self._density = self.number_density * stoich.formula_mass / N_A
         return
+    
+    def copy(self) -> type[Self]:
+        """
+        Returns a copy of the class instance.
+        
+        Returns
+        -------
+        atomic_scattering
+            Copy of the class instance.
+        """
+        cls = self.__class__
+        return cls(
+            name=self.name,
+            number_density=self.number_density,
+            density=self.density,
+            stoichiometry=self.stoichiometry,
+            formula_mass=self.formula_mass,
+        )

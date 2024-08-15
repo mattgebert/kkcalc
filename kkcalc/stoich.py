@@ -86,6 +86,15 @@ class stoichiometry:
         else:
             raise ValueError("Invalid stoichiometry.")
     
+    def __eq__(self, other: Self) -> bool:
+        """
+        Compares the stoichiometry of two compounds by calling the 
+        `composition` property, rather than the `_composition` attribute.
+        """
+        if not isinstance(other, self.__class__):
+            return False
+        return self.composition == other.composition
+    
     def __str__(self) -> str:
         return "".join([
             ELEMENTS[element[0]][0]+(str(element[1]) if element[1] != 1 else "")

@@ -17,6 +17,7 @@ import numpy.typing as npt
 import abc
 import warnings
 from enum import Enum
+from typing import Self
 
 class KK_Datatype(Enum):
     """
@@ -380,6 +381,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         """
         return self.to_atomic_scattering_polynomial()
     
+    @abc.abstractmethod
+    def copy(self) -> type[Self]:
+        pass
+    
 class asf(asf_abstract, atomic_scattering):
     """
     Generic class for handling atomic scattering factors.
@@ -419,6 +424,8 @@ class asf(asf_abstract, atomic_scattering):
                  **kwargs
                  ) -> None:
         atomic_scattering.__init__(self, **kwargs)
+        self._energies = None
+        self._factors = None
         
         self.energies = energies = np.asarray(energies)
         self.factors = factors = np.asarray(factors)
@@ -473,6 +480,9 @@ class asf(asf_abstract, atomic_scattering):
     @energies.setter
     def energies(self, energies: np.ndarray) -> None:
         self._energies = np.asarray(energies)
+        if self.factors is not None and len(self._energies) != len(self.factors):
+            warnings.warn("Length of energies does not match the length of factors. Factors have been discarded.")
+            self._factors = None
 
     @property 
     def factors(self) -> np.ndarray:
@@ -493,7 +503,10 @@ class asf(asf_abstract, atomic_scattering):
     
     @factors.setter
     def factors(self, factors: np.ndarray) -> None:
-        self._factors = np.asarray(factors)
+        factors = np.asarray(factors)
+        if len(factors) != len(self.energies):
+            raise ValueError("Length of factors does not match the length of energies.")
+        self._factors = factors
     
     @property
     def origin_dtype(self) -> KK_Datatype:
@@ -508,12 +521,20 @@ class asf(asf_abstract, atomic_scattering):
         return self._origin_dtype
     
     @property
-    def origin_data(self) -> tuple[np.ndarray, np.ndarray] | None:
+    def origin_data(self) -> np.ndarray | None:
+        """
+        Returns the original data provided for the atomic scattering factors.
+
+        Returns
+        -------
+        np.ndarray | None
+            Original data of the atomic scattering factors, matching
+            the format described by the `origin_dtype` attribute.
+            Returns a copy.
+        """
         if self.origin_dtype == KK_Datatype.UNDEFINED:
             return None
-        if self.origin_dtype == KK_Datatype.ASF:
-            return self.data
-        return self.energies, self._origin_data.copy()
+        return self._origin_data.copy()
     
     def to_atomic_scattering_polynomial(self, **kwargs) -> asp_type:
         """
@@ -555,6 +576,28 @@ class asf(asf_abstract, atomic_scattering):
         Alias for `to_atomic_scattering_polynomial`.
         """
         return self.to_atomic_scattering_polynomial(**kwargs)
+    
+    def copy(self) -> type["asf"]:
+        """
+        Generates a copy of the `asp` object.
+
+        Returns
+        -------
+        type[asp]
+            A new `asp` object with the same polynomial coefficients, 
+            and properties, but unique memory allocation.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Create a new object
+        return self.__class__(energies=self.energies.copy(),
+                              coefs=self.factors.copy(),
+                              origin_dtype=self.origin_dtype.copy(),
+                              origin_data=self.origin_data.copy(),
+                              **kwargs)
     
 class asf_re(asf):
     """
@@ -634,7 +677,7 @@ class asf_re(asf):
         return self.to_atomic_scattering_polynomial(**kwargs)
     
     def kk_transform_inv(self,
-                         target_energies: npt.NDArray | None,
+                         target_energies: npt.NDArray | None = None,
                          improve_accuracy: bool = True,
                          stoich: kk_stoichiometry | None = None,
                          relativistic_correction: float | None = None,
@@ -992,3 +1035,23 @@ class asf_complex(asf_abstract, atomic_scattering):
         Alias for `to_atomic_scattering_polynomial`.
         """
         return self.to_atomic_scattering_polynomial(**kwargs)
+
+    def copy(self) -> type["asf_complex"]:
+        """
+        Generates a copy of the `asf` object.
+
+        Returns
+        -------
+        type[asf_complex]
+            A new `asf_complex` object with the same polynomial coefficients, 
+            and properties, but unique memory allocation.
+        """
+        # Copy the object properties
+        kwargs = self._properties_dict
+        for key in kwargs:
+            if hasattr(kwargs[key], "copy"):
+                kwargs[key] = kwargs[key].copy()
+        # Create a new object
+        return self.__class__(re=self.re.copy(),
+                              im=self.im.copy(),
+                              **kwargs)
