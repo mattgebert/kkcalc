@@ -10,7 +10,19 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     """
     Interface for common attributes between atomic scattering factor and polynomial models.
     
-    Depicts name, stoichiometry, density, number density, and formula mass properties.
+    Attributes
+    ----------
+    name : str
+        Material/sample name.
+    stoichiometry : stoichiometry | None
+        Stoichiometry of the material.
+    density : float | None
+        Material density in grams per millilitre (cm^3).
+    number_density : float | None
+        Material number density in atoms per millilitre (cm^3).
+    formula_mass : float | None
+        Atomic mass sum of the materials chemical formula (molecular mass).
+    
     """
     
     @property
@@ -81,6 +93,19 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         pass
     
     @property
+    @abc.abstractmethod
+    def is_extended(self) -> bool:
+        """
+        Returns `True` if the material has been extended by the KKCalc database.
+        
+        Returns
+        -------
+        bool
+            `True` if the material has been extended by the KKCalc database.
+        """
+        pass
+    
+    @property
     def _properties_dict(self) -> dict[Literal['name', 'stoichiometry', 'density', 'number_density', 'formula_mass'], str | kk_stoichiometry | float | None]:
         """
         Returns a dictionary of the material class properties.
@@ -96,6 +121,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
             'density': self.density,
             'number_density': self.number_density,
             'formula_mass': self.formula_mass,
+            'is_extended': self.is_extended,
         }
         
     @_properties_dict.setter
@@ -121,6 +147,8 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
                     self.number_density = value
                 case 'formula_mass':
                     self.formula_mass = value
+                case 'is_extended':
+                    self.is_extended = value
                 case _:
                     raise ValueError(f"Invalid property: {key}")
         return
@@ -160,6 +188,7 @@ class atomic_scattering(atomic_scattering_abstract):
                  density: float | None = None,
                  stoichiometry: kk_stoichiometry | str | None = None,
                  formula_mass: float | None = None,
+                 is_extended: bool = False,
                  ) -> None:
         """
         Class for common attributes between atomic scattering factor and polynomial models.
@@ -178,6 +207,8 @@ class atomic_scattering(atomic_scattering_abstract):
         formula_mass : float, optional
             Atomic mass sum of the materials chemical formula (molecular mass).
             Equivalent to providing a stoichiometry.
+        is_extended : bool, optional
+            `True` if the material has been extended by the KKCalc database.
         """
         super().__init__()
         # Initialize internal attributes.
@@ -185,7 +216,8 @@ class atomic_scattering(atomic_scattering_abstract):
         self._number_density = None
         self._density = None
         self._stoichiometry = None
-        self._formula_mass = None        
+        self._formula_mass = None
+        self._is_extended = is_extended
         
         # Assign in reverse order of importance.        
         self.stoichiometry = stoichiometry # can infer a formula mass
@@ -375,6 +407,27 @@ class atomic_scattering(atomic_scattering_abstract):
                 # Generate a density from the stoichiometry and number density.
                 self._density = self.number_density * stoich.formula_mass / N_A
         return
+    
+    @property
+    def is_extended(self) -> bool:
+        """
+        Property of the object if it has been extended by the KKCalc database.
+        
+        Parameters
+        ----------
+        is_extended : bool
+            `True` if the material has been extended by the KKCalc database.
+        
+        Returns
+        -------
+        bool
+            `True` if the material has been extended by the KKCalc database.
+        """
+        return self._is_extended
+    
+    @is_extended.setter
+    def is_extended(self, is_extended: bool) -> None:
+        self._is_extended = is_extended
     
     def copy(self) -> type[Self]:
         """

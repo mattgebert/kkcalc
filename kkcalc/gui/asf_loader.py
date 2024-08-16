@@ -3,7 +3,7 @@ Object loader and lister for objects that implement asf_abstract and asp_abstrac
 Allows the loading of raw data and duplication objects.
 """
 from PyQt6 import QtWidgets, QtCore
-from kkcalc.models import asf_abstract, asp_abstract
+from kkcalc.models import asf_abstract, asp_abstract, asf, asp
 
 class kk_object_list(QtWidgets.QWidget):
     """
@@ -99,6 +99,12 @@ class kk_object_list(QtWidgets.QWidget):
         obj : type[asf_abstract | asp_abstract]
             The object to add to the table.
         """
+        # Check if the object is an asf or asp base object; needs to be designated as real or imag.
+        if obj.__class__ is asf or obj.__class__ is asp:
+            # Create dialog to convert to real or imag
+            
+            pass
+            
         # Add the entry to the table
         rows = self.table.rowCount()
         self.table.setRowCount(rows + 1)

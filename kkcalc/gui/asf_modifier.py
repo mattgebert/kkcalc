@@ -4,17 +4,19 @@ Allows the modification of material properties such as name, stoichiometry, numb
 """
 
 from PyQt6 import QtWidgets, QtCore, QtGui
-from kkcalc.models import asf_abstract, asp_abstract, asf, asf_re, asf_im, asf_complex, asp_re, asp_im, asp_complex, asp
+from kkcalc.models import asf_abstract, asp_abstract, asf, asf_re, asf_im, asf_complex, asp_re, asp_im, asp_complex, asp, atomic_scattering_abstract, atomic_scattering
 from kkcalc.stoich import stoichiometry
         
 class kk_object_modifier(QtWidgets.QWidget):
     objectModified = QtCore.pyqtSignal()
-    objectCreated = QtCore.pyqtSignal(asf_abstract)
+    objectCreated = QtCore.pyqtSignal(object)
+    hasHandle = QtCore.pyqtSignal(bool)
     
     def __init__(self, parent = None, obj: type[asf_abstract | asp_abstract] | None = None):
         super().__init__(parent=parent)
         self.setWindowTitle("kkcalc Object Modifier")
-        self._layout = QtWidgets.QGridLayout()
+        # self._layout = QtWidgets.QGridLayout()
+        self._layout = QtWidgets.QVBoxLayout()
         self.setLayout(self._layout)
         
         # Setup margins if parent is provided.
@@ -28,6 +30,13 @@ class kk_object_modifier(QtWidgets.QWidget):
         name_label.setToolTip("Object name")
         self.name_edit = QtWidgets.QLineEdit()
         self.name_edit.setToolTip("The name of the object; used for graphing.")
+        
+        # Points
+        points_label = QtWidgets.QLabel("Points:")
+        points_label.setToolTip("Object energy values")
+        self.points_edit = QtWidgets.QLineEdit()
+        self.points_edit.setToolTip("The energy points of the object.")
+        self.points_edit.setDisabled(True)
         
         # Properties header and horizontal line
         properties_header = QtWidgets.QLabel("Properties")
@@ -73,28 +82,71 @@ class kk_object_modifier(QtWidgets.QWidget):
         # Transform / Conversion Header
         transform_header = QtWidgets.QLabel("Kramers Kronig Transforms / Conversions")
         
+        # Transform buttons
         self.kk_transform_btn = QtWidgets.QPushButton("KK Transform")
         self.kk_transform_to_complex_btn = QtWidgets.QPushButton("To Complex")
         
-        ### Add elements to the layout
-        self._layout.addWidget(name_label, 0, 0)
-        self._layout.addWidget(self.name_edit, 0, 1, 1, 3)
-        self._layout.addWidget(properties_header, 1, 0, 1, 4)
-        self._layout.addWidget(hline_generator(), 2, 0, 1, 4)
-        self._layout.addWidget(stoichiometry_label, 3, 0, 1, 1)
-        self._layout.addWidget(self.stoichiometry_edit, 3, 1, 1, 3)
-        self._layout.addWidget(relativistic_label, 4, 0, 1, 1)
-        self._layout.addWidget(self.relativistic_edit, 4, 1, 1, 3)
-        self._layout.addWidget(number_density_label, 5, 0, 1, 1)
-        self._layout.addWidget(self.number_density_edit, 5, 1, 1, 3)
-        self._layout.addWidget(density_label, 6, 0, 1, 1)
-        self._layout.addWidget(self.density_edit, 6, 1, 1, 3)
-        self._layout.addWidget(formula_mass_label, 7, 0, 1, 1)
-        self._layout.addWidget(self.formula_mass_edit, 7, 1, 1, 3)
-        self._layout.addWidget(transform_header, 8, 0, 1, 4)
-        self._layout.addWidget(hline_generator(), 9, 0, 1, 4)
-        self._layout.addWidget(self.kk_transform_btn, 10, 0, 1, 2)
-        self._layout.addWidget(self.kk_transform_to_complex_btn, 10, 2, 1, 2)
+        # Extension Header
+        extension_header = QtWidgets.QLabel("Database Extension")
+        self.is_extended_edit = QtWidgets.QCheckBox("Extended")
+        self.is_extended_edit.setDisabled(True)
+        # Extend Data by Stoichiometry
+        merge_dom_label = QtWidgets.QLabel("Merge Domains:")
+        self.merge_dom_lb_edit = QtWidgets.QLineEdit()
+        self.merge_dom_lb_edit.setToolTip("Lower bound for merging domains")
+        self.merge_dom_ub_edit = QtWidgets.QLineEdit()
+        self.merge_dom_ub_edit.setToolTip("Upper bound for merging domains")
+        self.merge_handle_checkbox = QtWidgets.QCheckBox("Show")
+        self.extend_data_btn = QtWidgets.QPushButton("Extend Data")
+        self.extend_data_btn.setToolTip("Extend the data by the stoichiometry database")
+        
+        ### LAYOUTS
+        # Names Layout
+        l_names = QtWidgets.QHBoxLayout()
+        l_names.addWidget(name_label)
+        l_names.addWidget(self.name_edit)
+        self._layout.addLayout(l_names)
+        # Points Layout
+        l_points = QtWidgets.QHBoxLayout()
+        l_points.addWidget(points_label)
+        l_points.addWidget(self.points_edit)
+        self._layout.addLayout(l_points)
+        
+        ## Properties layout
+        props = QtWidgets.QGridLayout()
+        props.addWidget(properties_header, 0, 0, 1, 2)
+        props.addWidget(hline_generator(), 1, 0, 1, 2)
+        props.addWidget(stoichiometry_label, 2, 0)
+        props.addWidget(self.stoichiometry_edit, 2, 1)
+        props.addWidget(relativistic_label, 3, 0)
+        props.addWidget(self.relativistic_edit, 3, 1)
+        props.addWidget(number_density_label, 4, 0)
+        props.addWidget(self.number_density_edit, 4, 1)
+        props.addWidget(density_label, 5, 0)
+        props.addWidget(self.density_edit, 5, 1)
+        props.addWidget(formula_mass_label, 6, 0)
+        props.addWidget(self.formula_mass_edit, 6, 1)
+        self._layout.addLayout(props)
+        
+        ## Transform Layout
+        trans = QtWidgets.QGridLayout()
+        trans.addWidget(transform_header, 0, 0, 1, 4)
+        trans.addWidget(hline_generator(), 1, 0, 1, 4)
+        trans.addWidget(self.kk_transform_btn, 2, 0, 1, 2)
+        trans.addWidget(self.kk_transform_to_complex_btn, 2, 2, 1, 2)
+        self._layout.addLayout(trans)
+        
+        ## Extension Layout
+        extn = QtWidgets.QGridLayout()
+        extn.addWidget(extension_header, 0, 0, 1, 2)
+        extn.addWidget(self.is_extended_edit, 0, 2, 1, 2)
+        extn.addWidget(hline_generator(), 1, 0, 1, 4)
+        extn.addWidget(merge_dom_label, 2, 0, 1, 1)
+        extn.addWidget(self.merge_dom_lb_edit, 2, 1, 1, 1)
+        extn.addWidget(self.merge_dom_ub_edit, 2, 2, 1, 1)
+        extn.addWidget(self.merge_handle_checkbox, 2, 3, 1, 1)
+        extn.addWidget(self.extend_data_btn, 3, 0, 1, 4)
+        self._layout.addLayout(extn)
         
         # Initialise internal object
         self._object = None
@@ -110,6 +162,9 @@ class kk_object_modifier(QtWidgets.QWidget):
         # For transformations
         self.kk_transform_btn.clicked.connect(self.transform)
         self.kk_transform_to_complex_btn.clicked.connect(self.to_complex)
+        
+        # Initialise UI
+        self.clear()
     
     
     @property
@@ -149,21 +204,23 @@ class kk_object_modifier(QtWidgets.QWidget):
             self._object = obj
             # Get the object properties
             name, stoich = obj.name, obj.stoichiometry
-            rc = stoich.relativistic_correction
+            rc = stoich.relativistic_correction if stoich is not None else None
             num_den, den, fm = obj.number_density, obj.density, obj.formula_mass
             # Fill the fields
-            self.name_edit.setText(obj.name if obj.name is not None else "")
+            self.name_edit.setText(name if name is not None else "")
             self.stoichiometry_edit.setText(str(stoich) if stoich is not None else "")
             self.relativistic_edit.setText(str(rc) if rc is not None else "")
             self.number_density_edit.setText(str(num_den) if num_den is not None else "")
             self.density_edit.setText(str(den) if den is not None else "")
             self.formula_mass_edit.setText(str(fm) if fm is not None else "")
+            # Set the number of points
+            self.points_edit.setText(str(len(obj.energies)))
             # Only unblock signals if an object is provided
             self.blockSignals(False)
             # Run validations
             self.run_validations()
             # Update the transform labels
-            self.switch_transform_labels()
+            self.update_class_dependent_UI()
     
     def update_object(self):
         """
@@ -175,6 +232,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         # Get the current object
         obj = self._object
         if obj is None:
+            self.clear()
             return
         
         # Get the edit values
@@ -216,8 +274,31 @@ class kk_object_modifier(QtWidgets.QWidget):
         if update:
             self.objectModified.emit()
     
+    def clear(self):
+        """
+        Removes all text and disables all buttons.
+        """
+        self.name_edit.setText("")
+        self.points_edit.setText("")
+        self.stoichiometry_edit.setText("")
+        self.relativistic_edit.setText("")
+        self.number_density_edit.setText("")
+        self.density_edit.setText("")
+        self.formula_mass_edit.setText("")
+        self.kk_transform_btn.setEnabled(False)
+        self.kk_transform_to_complex_btn.setEnabled(False)
+        self.is_extended_edit.setChecked(False)
+        self.merge_dom_lb_edit.setText("")
+        self.merge_dom_ub_edit.setText("")
+        self.merge_dom_lb_edit.setDisabled(True)
+        self.merge_dom_ub_edit.setDisabled(True)
+        self.merge_handle_checkbox.setChecked(False)
+        self.extend_data_btn.setEnabled(False)
+    
     @staticmethod
     def valid_stoichiometry(stoich: str) -> bool:
+        if stoich == "" or stoich is None:
+            return False
         try:
             stoichiometry(stoich)
         except ValueError as e:
@@ -245,12 +326,13 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.validate_stoichiometry_change()
         return
     
-            
-    def switch_transform_labels(self):
+    def update_class_dependent_UI(self):
         """
-        Updates the labels for the transform buttons depending on the selected object type.
+        Updates/enables/disables the labels for the various buttons depending on the selected object type.
         """
-        obj = self._object
+        # Get the object
+        obj: type[asf_abstract | asp_abstract] = self._object
+        
         # Change the labels depending on the object type
         if isinstance(obj, (asf_re, asp_re)):
             self.kk_transform_btn.setText("KK Transform Inv")
@@ -264,6 +346,19 @@ class kk_object_modifier(QtWidgets.QWidget):
         else:
             self.kk_transform_btn.setEnabled(True)
             self.kk_transform_to_complex_btn.setEnabled(True)
+            
+        if obj.is_extended:
+            self.is_extended_edit.setChecked(True)
+            self.merge_dom_lb_edit.setDisabled(True)
+            self.merge_dom_ub_edit.setDisabled(True)
+            self.merge_handle_checkbox.setChecked(False)
+            self.extend_data_btn.setEnabled(False)  
+        else:
+            self.is_extended_edit.setChecked(False)
+            self.merge_dom_lb_edit.setDisabled(False)
+            self.merge_dom_ub_edit.setDisabled(False)
+            self.merge_handle_checkbox.setChecked(False)
+            self.extend_data_btn.setEnabled(True)
             
     def transform(self):
         """
@@ -302,4 +397,4 @@ class kk_object_modifier(QtWidgets.QWidget):
         else:
             return
         # Send the transformed object
-        self.objectModified.emit(complex_obj)
+        self.objectCreated.emit(complex_obj)

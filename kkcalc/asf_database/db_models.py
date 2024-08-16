@@ -140,6 +140,7 @@ class asp_db(asp_im):
                         
         # Setup properties
         kwargs["stoichiometry"] = stoichiometry # Also store the stoichiometry
+        kwargs["is_extended"] = True # We have extended the data
         super().__init__(energies=energies, coefs=im_coefs, **kwargs)
         
     def copy(self) -> "asp_db":
@@ -248,6 +249,10 @@ class asp_db_extended(asp_im):
             if key not in kwargs:
                 kwargs[key] = extra_kwargs[key]
         
+        # Update the kwargs to reflect the extended data
+        kwargs["is_extended"] = True # We have extended the data
+        
+        # Initialize the asp_im object
         super().__init__(energies = merge_e, coefs = merge_coefs, **kwargs)
         
         # Store the data_asf object for reference

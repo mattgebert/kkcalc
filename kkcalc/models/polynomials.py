@@ -355,8 +355,8 @@ class asp(asp_abstract, atomic_scattering):
         # Check input dimensions match
         if len(energies) != len(coefs) + 1:
             raise ValueError(
-                f"Pairs of energies define the intervals for each set of polynomial coefficients." +
-                f"Number of coefficients ({len(coefs)}) does not match the number of energies ({len(energies)})+1.")
+                f"Pairs of energies define the intervals for each set of polynomial coefficients. " +
+                f"Number of coefficients ({len(coefs)}) does not match the number of energies ({len(energies)} - 1).")
         
         # Check orders if provided
         if orders is not None:
@@ -424,12 +424,12 @@ class asp(asp_abstract, atomic_scattering):
         # Find new energies not in the existing energies
         nocoef_energies = np.setdiff1d(new_energies, self.energies)
         # Find the indices of the existing energies in the new energies
-        indices = np.searchsorted(nocoef_energies, self.energies)
+        indices = np.searchsorted(self.energies, nocoef_energies)
         # Collect coefs: -1 because the coefficients are defined on the previous index interval.
         new_coefs = np.array([self.coefs[i - 1] for i in indices])
         # Create new energy and coefficients
-        sort_indices = np.argsort(np.r_[self.energies, nocoef_energies])
-        coefs = np.vstack((np.r_[self.coefs[:-1], new_coefs][sort_indices], self.coefs[-1]))
+        sort_indices = np.argsort(np.r_[self.energies[:-1], nocoef_energies]) # Sort the combination of old (except the last bound) and new energies
+        coefs = np.r_[self.coefs, new_coefs][sort_indices]
         
         # Check if class is asp_db, in which case the constructor cannot take energies.
         from kkcalc.models import asp_db, asp_db_extended
@@ -812,7 +812,7 @@ class asp_re(asp):
         common_kwargs.update(kwargs)
         if energies is None:
             return asf_re(energies=self.energies,
-                    factors=self.atomic_scattering_factors
+                    factors=self.atomic_scattering_factors,
                     **common_kwargs)
         else:
             return asf_re(energies=energies,
@@ -993,7 +993,10 @@ class asp_complex(asp_abstract, atomic_scattering):
                  ):
         if not np.all(re.energies == im.energies):
             # While this condition isn't essential, better to have the same energy intervals.
-            raise ValueError("Real and imaginary parts must have the same energy intervals.")        
+            raise ValueError("Real and imaginary parts must have the same energy intervals.")   
+        
+        if re.orders is not None and im.orders is not None and not np.all(re.orders == im.orders):
+            warnings.warn("Real and imaginary parts have different polynomial orders.")
         
         # Use the real then imaginary part properties to update None values
         common_kwargs = re._properties_dict
@@ -1049,6 +1052,29 @@ class asp_complex(asp_abstract, atomic_scattering):
             A complex 2D array of shape `(N, M)`, where `N` is the number of segments and `M` is the number of polynomial coefficients.
         """
         return self._re.coefs + 1j*self._im.coefs
+    
+    @property
+    def orders(self) -> npt.NDArray | None:
+        """
+        Returns the polynomial orders for the scattering factors, if provided, otherwise `None`.
+        
+        Returns
+        -------
+        npt.NDArray | None
+            A 1D array of polynomial orders, with length `M`, where `M` is the number of coefficients.
+        """
+        re_orders = self._re.orders
+        im_orders = self._im.orders
+        if re_orders is None and im_orders is None:
+            return None
+        elif re_orders is None:
+            return im_orders
+        elif im_orders is None:
+            return re_orders
+        elif re_orders == im_orders:
+            return re_orders
+        else:
+            raise ValueError("Real and imaginary parts have different polynomial orders, orders cannot be determined.")
     
     @property
     def re(self) -> asp_re:

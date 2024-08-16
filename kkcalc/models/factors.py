@@ -664,7 +664,7 @@ class asf_re(asf):
         common_kwargs.update(kwargs)
         # Return asp object
         return asp_re(
-            energies=self.energies[:-1],
+            energies=self.energies,
             coefs=self.atomic_scattering_polynomial,
             **common_kwargs
         )

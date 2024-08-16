@@ -51,10 +51,10 @@ class asf_viewer(QtWidgets.QWidget):
         
         # Create an option to switch graphing type
         self.graph_type_label = QtWidgets.QLabel("Repr:")
-        self.graph_type = QtWidgets.QComboBox()
-        self.graph_type.addItems([x.name.lower().capitalize().replace("_", " ") for x in GraphType])
+        self.graph_type_combo = QtWidgets.QComboBox()
+        self.graph_type_combo.addItems([x.name.lower().capitalize().replace("_", " ") for x in GraphType])
         # Setup hints
-        [self.graph_type.setItemData( #If __docs__ accessible on enums in future use that. 
+        [self.graph_type_combo.setItemData( #If __docs__ accessible on enums in future use that. 
             i, GRAPH_TYPE_DOCS[i], QtCore.Qt.ItemDataRole.ToolTipRole 
          ) for i, x in enumerate(GraphType)]
         
@@ -96,7 +96,7 @@ class asf_viewer(QtWidgets.QWidget):
         self.top_settings_bar.addWidget(self.y_datatype_label)
         self.top_settings_bar.addWidget(self.y_datatype_combo)
         self.top_settings_bar.addWidget(self.graph_type_label)
-        self.top_settings_bar.addWidget(self.graph_type)
+        self.top_settings_bar.addWidget(self.graph_type_combo)
         self.bottom_settings_bar.addWidget(self.snap_x_label)
         self.bottom_settings_bar.addWidget(self.snap_x_combo)
         self.bottom_settings_bar.addWidget(self.norm_y_label)
@@ -117,7 +117,7 @@ class asf_viewer(QtWidgets.QWidget):
         
         # Connect the graph type change to the switch_graph_style function
         graph_fn = lambda x: self.reset_graph()
-        self.graph_type.currentIndexChanged.connect(graph_fn)
+        self.graph_type_combo.currentIndexChanged.connect(graph_fn)
         self.x_scale_combo.currentIndexChanged.connect(graph_fn)
         self.y_datatype_combo.currentIndexChanged.connect(graph_fn)
         self.norm_y_combo.currentIndexChanged.connect(graph_fn)
@@ -169,16 +169,16 @@ class asf_viewer(QtWidgets.QWidget):
         self.reset_graph()
         
     @property
-    def graph_style(self) -> GraphType:
+    def graph_type(self) -> GraphType:
         """
-        The current graphing style
+        The current graphing type
 
         Return
         ------
         GraphType
-            The current graphing style
+            The current graphing type
         """
-        return GraphType(self.graph_type.currentIndex())
+        return GraphType(self.graph_type_combo.currentIndex())
     
     @property
     def x_scale(self) -> Literal["linear", "log"]:
@@ -357,7 +357,7 @@ class asf_viewer(QtWidgets.QWidget):
         Used to update the graph style and x scale attributes.
         """
         # Get graphing attributes
-        graph_style = self.graph_style
+        graph_style = self.graph_type
         x_scale = self.x_scale
         y_datatype = self.y_datatype
         # Clear the existing graph
@@ -505,6 +505,7 @@ class asf_viewer(QtWidgets.QWidget):
                         self.ax1.plot(obj.energies, y_re, label=obj.name, c=c1)
                         self.ax2.plot(obj.energies, y_im, label=obj.name, c=c2)
                 else:
+                    print(f"Skipped {obj.name}, {obj.__class__}")
                     # If the object doesn't satisfy the above conditions, skip it.
                     if graph_style in [GraphType.RE_IM_SEPARATE, GraphType.ABS_PHASE_SEPARATE] or not isinstance(obj, asf_complex):
                         # Undo the color index increment
@@ -532,6 +533,8 @@ class asf_viewer(QtWidgets.QWidget):
         # Draw the plot
         self.figure.tight_layout()
         self.canvas.draw()
+        
+        print("Graph Reset!")
         return
         
     def switch_legend(self, state: bool | None = None):
@@ -566,7 +569,7 @@ class asf_viewer(QtWidgets.QWidget):
             Header rows are (1) the sample names and (2) the data x/y designation.
         """
         # Get the current graph style
-        graph_style = self.graph_style
+        graph_style = self.graph_type
         graph_datatype = self.y_datatype
         
         # Get the data from the displayed lines
