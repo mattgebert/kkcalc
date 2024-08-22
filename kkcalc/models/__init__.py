@@ -18,4 +18,4 @@ from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abst
 # Import the conversions module
 from kkcalc.models import conversions
 # Import the database models
-from kkcalc.asf_database.db_models import asf_db, asp_db, asp_db_extended
+from kkcalc.asf_database.db_models import asp_db_abstract, asp_db_im, asp_db_re, asp_db_extended, asp_db_im_extended, asp_db_re_extended

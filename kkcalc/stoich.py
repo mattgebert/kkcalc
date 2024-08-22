@@ -10,7 +10,7 @@ from kkcalc.util import doc_copy
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
-    from kkcalc.asf_database.db_models import asp_db
+    from kkcalc.asf_database.db_models import asp_db_im
 
 
 
@@ -161,7 +161,7 @@ class stoichiometry:
             for element, number in self.composition
         ])
     
-    def atomic_scattering_polynomial_im(self) -> "asp_db":
+    def atomic_scattering_polynomial_im(self) -> "asp_db_im":
         """
         Generates a piecewise polynomial of the imaginary atomic scattering factors for the given stoichiometry.
         
@@ -173,11 +173,11 @@ class stoichiometry:
             An object representing the piecewise polynomial calculated from the summation of scattering factor data.
         """
         if not "asp_db" in locals():
-            from kkcalc.asf_database.db_models import asp_db
-        return asp_db(self)
+            from kkcalc.asf_database.db_models import asp_db_im
+        return asp_db_im(self)
     
     @doc_copy(atomic_scattering_polynomial_im)
-    def asp_im(self) -> "asp_db":
+    def asp_im(self) -> "asp_db_im":
         """
         Alias for `atomic_scattering_polynomial_im`.
         """

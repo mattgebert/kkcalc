@@ -6,13 +6,14 @@ import warnings
 from scipy.constants import (
     Avogadro as N_A, 
     speed_of_light as c, 
-    Planck as h,
+    Planck as h, #6.62e-34
     elementary_charge as e,
     pi,
     epsilon_0,
     electron_mass as m_e
 )
-E_RADIUS: float = 1/(4 * pi * epsilon_0) * e**2 / (m_e * c**2) #classical electron radius, meters
+E_RADIUS: float = 1/(4 * pi * epsilon_0) * e**2 / (m_e * c**2) #classical electron radius, meters, ~2.818e-15
+
 
 class conversions:
     """
@@ -156,23 +157,23 @@ class conversions:
         NEXAFS: npt.NDArray,
         reverse : bool = False
     ) -> npt.NDArray:
-        """Convert NEXAFS photoabsorption data to atomic scattering factors (ASF).
+        r"""Convert NEXAFS photoabsorption data to atomic scattering factors (ASF).
+        
+        .. math::
+            ASF_i = \frac{e c}{2 r_e h} E_i \text{NEXAFS}_i
 
         Parameters
         ----------
         raw_data : two-dimensional `numpy.array` of `float`
             The array consists of two columns: Energy and magnitude.
         reverse : boolean
-            flag to indicate the reverse conversion
+            Flag to indicate the reverse conversion
 
         Returns
         -------
-        The function returns a `numpy.array` of atomic scattering factors.
-        They are made up of the energy and the magnitude of the imaginary
-        part of the atomic scattering factors.
-
+        The function returns a `numpy.array` of atomic scattering factors (or NEXAFS).
         """
-        prefactor = (2*E_RADIUS*h/e*c)
+        prefactor = (2*E_RADIUS*h/e*c) # ~6.9876e-21
         
         if not reverse:
             # Convert from NEXAFS to ASF.
@@ -181,7 +182,7 @@ class conversions:
         else:
             factors = NEXAFS #relabel NEXAFS as factors.
             # Convert from ASF to NEXAFS.
-            nexafs_reverse = prefactor*NEXAFS/energies
+            nexafs_reverse = prefactor*factors/energies
             return nexafs_reverse
             
     

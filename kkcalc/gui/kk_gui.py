@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from kkcalc.gui.asf_viewer import asf_viewer, GraphType
 from kkcalc.gui.asf_modifier import kk_object_modifier
 from kkcalc.gui.asf_loader import kk_object_list
-from kkcalc.models import asf_abstract, asp_abstract, asp_db_extended, asp_db, asp, asp_im, asp_re, asp_complex, asf, asf_im, asf_re, asf_complex
+from kkcalc.models import asf_abstract, asp_abstract, asp_db_extended, asp_db_im, asp, asp_im, asp_re, asp_complex, asf, asf_im, asf_re, asf_complex
 from kkcalc.stoich import stoichiometry
 
 
@@ -62,6 +62,7 @@ class kk_gui(QtWidgets.QWidget):
         obj_list.selectedObjectChanged.connect(self.on_object_select)
         obj_modifier.objectModified.connect(self.on_object_modify)
         obj_modifier.objectCreated.connect(self.on_object_create)
+        obj_modifier.hasHandle.connect(self.on_has_handle)
         
         # Setup the viewer
         self.on_view_change()
@@ -70,6 +71,7 @@ class kk_gui(QtWidgets.QWidget):
         """
         Catches the signal from the modifier, for when an extended domain is to be created
         """
+        print(has_handle)
         if has_handle:
             # Get the current obj
             obj = self.obj_list.selected_object
@@ -92,8 +94,20 @@ class kk_gui(QtWidgets.QWidget):
                         handle_ax = self.viewer.ax2
                 # Create the handle
                 if handle_ax is not None:
+                    # Define functions to convert the pixel coordinates to data coordinates
+                    def pix_to_data(ax:plt.Axes, x: float, y: float) -> tuple[float, float]:
+                        # Convert pixel coordinates to data coordinates
+                        return ax.transData.transform([x,y])
+                        # return inv.transform((x, y))
+                    
+                    def handle_update(x,y):
+                        min_x, max_x = pix_to_data(handle_ax, x, y)
+                        self.on_handle_update(min_x, max_x)
+                        return
+                    
+                    # Create the handle
                     self._handle = SpanSelector(ax = handle_ax, 
-                                          onselect=self.on_handle_update, 
+                                          onselect=handle_update, 
                                           direction='horizontal', 
                                           useblit=True,
                                           interactive=True, 
@@ -104,10 +118,17 @@ class kk_gui(QtWidgets.QWidget):
             if self._has_handle:
                 # Remove the handle
                 self._handle.visible = False
+                self._handle.clear()
+                self._handle.ax.artists.remove(self._handle)
                 # Lose track of the handle
                 self._handle = None
+        self.viewer.reset_graph()
             
     def on_handle_update(self, min_x: float, max_x: float):
+        print(f"Max: {max_x}, Min: {min_x}")
+        # Update the lb and ub values
+        self.obj_modifier.merge_dom_lb_edit.setText(f"{min_x:.2f}")
+        self.obj_modifier.merge_dom_ub_edit.setText(f"{max_x:.2f}")
         return
         
     def on_view_change(self):
@@ -133,7 +154,7 @@ class kk_gui(QtWidgets.QWidget):
     def on_object_modify(self):
         """
         Catches an object update, and updates the table view of the object.
-        """
+        """        
         self.obj_list.update_kk_obj(self.obj_modifier.object)
     
     def on_object_create(self, new_obj: type[asf_abstract | asp_abstract]):
@@ -149,7 +170,7 @@ if __name__ == "__main__":
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
     
     # Generate some example data
-    from kkcalc.models import asp_db
+    from kkcalc.models import asp_db_im
     from kkcalc import stoichiometry
     PS_NAME = "Polystyrene"
     PS_STOICHIOMETRY = "CH"
@@ -162,7 +183,7 @@ if __name__ == "__main__":
     assert data_PS.shape[1] == 2, "Data file must have two columns"
     
     # Create the atomic scattering factors from NEXAFS data
-    asf_PS = asf.from_NEXAFS(energies = data_PS[:,0], 
+    asf_PS = asf_im.from_NEXAFS(energies = data_PS[:,0], 
                              NEXAFS = data_PS[:,1],
                              name = PS_NAME,
                              stoichiometry = ps_stoich)

@@ -7,12 +7,12 @@ def kkcalc_app():
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
     
     # Generate some example data
-    from kkcalc.models import asp_db
+    from kkcalc.models import asp_db_im
     from kkcalc import stoichiometry
     PS_NAME = "Polystyrene"
     PS_STOICHIOMETRY = "CH"
     ps_stoich = stoichiometry(PS_STOICHIOMETRY)
-    db_poly = asp_db(ps_stoich, name = PS_NAME)
+    db_poly = asp_db_im(ps_stoich, name = PS_NAME)
     
     # Create the main window
     window = kk_gui(objs=[db_poly], autohide_modifier=True)

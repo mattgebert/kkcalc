@@ -4,7 +4,7 @@ Allows the modification of material properties such as name, stoichiometry, numb
 """
 
 from PyQt6 import QtWidgets, QtCore, QtGui
-from kkcalc.models import asf_abstract, asp_abstract, asf, asf_re, asf_im, asf_complex, asp_re, asp_im, asp_complex, asp, atomic_scattering_abstract, atomic_scattering
+from kkcalc.models import *
 from kkcalc.stoich import stoichiometry
         
 class kk_object_modifier(QtWidgets.QWidget):
@@ -53,10 +53,10 @@ class kk_object_modifier(QtWidgets.QWidget):
         
         # Relativistic Correction
         relativistic_label = QtWidgets.QLabel("Rel Cor:")
-        relativistic_label.setToolTip("Relativistic correction")
+        relativistic_label.setToolTip("Relativistic correction, f0")
         self.relativistic_edit = QtWidgets.QLineEdit()
         self.relativistic_edit.setReadOnly(True)
-        self.relativistic_edit.setToolTip("Relativistic correction factor for the object, inferred from the stochiometry.")
+        self.relativistic_edit.setToolTip("Relativistic correction factor for the object, also known as f0. Inferred from the stochiometry.")
         
         # Number density
         number_density_label = QtWidgets.QLabel("Num. Den.:")
@@ -97,6 +97,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.merge_dom_ub_edit = QtWidgets.QLineEdit()
         self.merge_dom_ub_edit.setToolTip("Upper bound for merging domains")
         self.merge_handle_checkbox = QtWidgets.QCheckBox("Show")
+        self.merge_handle_checkbox.setDisabled(True)
         self.extend_data_btn = QtWidgets.QPushButton("Extend Data")
         self.extend_data_btn.setToolTip("Extend the data by the stoichiometry database")
         
@@ -144,7 +145,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         extn.addWidget(merge_dom_label, 2, 0, 1, 1)
         extn.addWidget(self.merge_dom_lb_edit, 2, 1, 1, 1)
         extn.addWidget(self.merge_dom_ub_edit, 2, 2, 1, 1)
-        extn.addWidget(self.merge_handle_checkbox, 2, 3, 1, 1)
+        # extn.addWidget(self.merge_handle_checkbox, 2, 3, 1, 1) # Temporarily removed, do not show on UI. TODO: Implement.
         extn.addWidget(self.extend_data_btn, 3, 0, 1, 4)
         self._layout.addLayout(extn)
         
@@ -162,6 +163,9 @@ class kk_object_modifier(QtWidgets.QWidget):
         # For transformations
         self.kk_transform_btn.clicked.connect(self.transform)
         self.kk_transform_to_complex_btn.clicked.connect(self.to_complex)
+        # For extension
+        self.extend_data_btn.clicked.connect(self.extend)
+        self.merge_handle_checkbox.stateChanged.connect(self.hasHandle.emit)
         
         # Initialise UI
         self.clear()
@@ -221,6 +225,10 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.run_validations()
             # Update the transform labels
             self.update_class_dependent_UI()
+            # If the object is not extended, set the extension bound defaults to be the min,max energies
+            if not obj.is_extended:
+                self.merge_dom_lb_edit.setText(str(obj.energies.min()))
+                self.merge_dom_ub_edit.setText(str(obj.energies.max()))
     
     def update_object(self):
         """
@@ -257,18 +265,21 @@ class kk_object_modifier(QtWidgets.QWidget):
                 update = True
             
         # Compare if the values are different and update
-        if name != obj.name:
-            obj.name = name
-            update = True
-        if num_den != obj.number_density:
-            obj.number_density = float(num_den)
-            update = True
-        if den != obj.density:
-            obj.density = float(den)
-            update = True
-        if fm != obj.formula_mass:
-            obj.formula_mass = float(fm)
-            update = True
+        try:
+            if name != obj.name:
+                obj.name = name
+                update = True
+            if num_den != obj.number_density:
+                obj.number_density = float(num_den)
+                update = True
+            if den != obj.density:
+                    obj.density = float(den)
+                    update = True
+            if fm != obj.formula_mass:
+                obj.formula_mass = float(fm)
+                update = True
+        except:
+            pass
         
         # Signal if a change has been made.
         if update:
@@ -353,12 +364,20 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.merge_dom_ub_edit.setDisabled(True)
             self.merge_handle_checkbox.setChecked(False)
             self.extend_data_btn.setEnabled(False)  
+            self.stoichiometry_edit.setDisabled(True)
+            self.formula_mass_edit.setDisabled(True)
+            self.merge_handle_checkbox.setDisabled(True)
         else:
             self.is_extended_edit.setChecked(False)
             self.merge_dom_lb_edit.setDisabled(False)
+            self.merge_dom_lb_edit.setText("")
             self.merge_dom_ub_edit.setDisabled(False)
+            self.merge_dom_ub_edit.setText("")
             self.merge_handle_checkbox.setChecked(False)
             self.extend_data_btn.setEnabled(True)
+            self.stoichiometry_edit.setDisabled(False)
+            self.formula_mass_edit.setDisabled(False)
+            self.merge_handle_checkbox.setDisabled(False)
             
     def transform(self):
         """
@@ -371,10 +390,15 @@ class kk_object_modifier(QtWidgets.QWidget):
             return
         if isinstance(obj, (asf_re, asp_re)):
             obj: asf_re | asp_re
-            transform = obj.kk_transform_inv()
+            # Don't improve accuracy if object is not extended, as accuracy will be very poor.
+            transform = obj.kk_transform_inv(improve_accuracy=True if obj.is_extended else False)
+            transform.name = obj.name + "_kk_inv"
         elif isinstance(obj, (asf_im, asp_im)):
             obj: asf_im | asp_im
-            transform = obj.kk_transform()
+            # Don't improve accuracy if object is not extended, as accuracy will be very poor.
+            transform = obj.kk_transform(improve_accuracy=True if obj.is_extended else False)
+            transform.name = obj.name + "_kk"
+        
         # Send the transformed object
         self.objectCreated.emit(transform)
         
@@ -390,11 +414,110 @@ class kk_object_modifier(QtWidgets.QWidget):
             return
         if isinstance(obj, asf_re | asf_im):
             obj: asf_re | asf_im
-            complex_obj = obj.calculate_complex_factors()
+            complex_obj = obj.calculate_complex_factors(name = obj.name + "_complex", improve_accuracy=True if obj.is_extended else False)
         elif isinstance(obj, asp_re | asp_im):
             obj: asf_im | asp_im
-            complex_obj = obj.calculate_complex_polynomial()
+            complex_obj = obj.calculate_complex_polynomial(name=obj.name + "_complex", improve_accuracy=True if obj.is_extended else False)
         else:
             return
         # Send the transformed object
         self.objectCreated.emit(complex_obj)
+        
+    def extend_obj(self) -> type[asp_db_extended] | None:
+        """
+        Extends the data by the stoichiometry database.
+        """
+        obj = self._object
+        # Ignore if no object or already extended
+        if obj is None or obj.is_extended:
+            return
+        
+        stoich = obj.stoichiometry
+        if stoich is None:
+            # Dialog to ask for stoichiometry
+            diag = QtWidgets.QDialog()
+            diag.setWindowTitle("Cannot Extend Data")
+            diag._layout = QtWidgets.QVBoxLayout()
+            diag.setLayout(diag._layout)
+            diag._layout.addWidget(QtWidgets.QLabel("No stoichiometry found."))
+            diag.exec()
+            return
+        
+        # Get the bounds
+        try:
+            lb = float(self.merge_dom_lb_edit.text())
+            ub = float(self.merge_dom_ub_edit.text())
+        except ValueError as e:
+            # Dialog to ask for bounds
+            diag = QtWidgets.QDialog()
+            diag.setWindowTitle("Cannot Extend Data")
+            diag._layout = QtWidgets.QVBoxLayout()
+            diag.setLayout(diag._layout)
+            diag._layout.addWidget(QtWidgets.QLabel("Invalid bounds."))
+            diag.exec()
+            return
+        
+        # Check the bounds
+        if lb > ub:
+            #Swap bounds
+            lb, ub = ub, lb
+        elif lb == ub:
+            # Dialog to error bounds
+            diag = QtWidgets.QDialog()
+            diag.setWindowTitle("Cannot Extend Data")
+            diag._layout = QtWidgets.QVBoxLayout()
+            diag.setLayout(diag._layout)
+            diag._layout.addWidget(QtWidgets.QLabel("Bounds are equal."))
+            diag.exec()
+            return
+        
+        # Create the merge database
+        extended: asp_db_extended
+        database_asp = asp_db_im(stoichiometry=stoich)
+        if isinstance(obj, asp_re):
+            obj: asp_re
+            obj_asf = obj.to_asf()
+            extended = asp_db_re_extended(data_asf=obj_asf,
+                                       database=database_asp,
+                                       merge_domain=(lb, ub),
+                                       fix_distortions=False,
+                                       name = obj.name + "_ext")
+            return extended
+        
+        elif isinstance(obj, asp_im):
+            obj: asp_im
+            obj_asf = obj.to_asf()
+            extended = asp_db_im_extended(data_asf=obj_asf,
+                                       database=database_asp,
+                                       merge_domain=(lb, ub),
+                                       fix_distortions=False,
+                                       name = obj.name + "_ext")
+            return extended
+        
+        elif isinstance(obj, asf_re):
+            obj: asf_re
+            extended = asp_db_re_extended(data_asf=obj,
+                                       database=database_asp,
+                                       merge_domain=(lb, ub),
+                                       fix_distortions=False,
+                                       name = obj.name + "_ext")
+            return extended
+        
+        elif isinstance(obj, asf_im):
+            obj: asf_im
+            extended = asp_db_im_extended(data_asf=obj,
+                                       database=database_asp,
+                                       merge_domain=(lb, ub),
+                                       fix_distortions=False,
+                                       name = obj.name + "_ext")
+            return extended
+        
+        return
+        
+    def extend(self) -> None:
+        """
+        Extends the data by the stoichiometry database, and emit the objectCreated signal.
+        """
+        obj = self.extend_obj()
+        if obj is not None:
+            self.objectCreated.emit(obj)

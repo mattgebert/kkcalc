@@ -6,6 +6,12 @@ import numpy as np
 import numpy.typing as npt
 from kkcalc.models.conversions import conversions
         
+DEF_ITER: int = 50
+"""The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
+DEF_TOL: float = 1e-2
+"""The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
+
+        
 def KK_General_PP(target_energies: npt.NDArray, 
                   energies: npt.NDArray, 
                   imag_coefs: npt.NDArray, 
@@ -217,6 +223,10 @@ def KK_PP(
     real_factors : np.ndarray
         The real part of the scattering factors evaluated at `target_energies`.
     """
+    target_energies = np.asarray(target_energies)
+    energies = np.asarray(energies)
+    imag_coefs = np.asarray(imag_coefs)
+    
     # if np.all(target_energies == energies):
     #     # If every target energy is already in the energy list, ... TODO
     #     raise NotImplementedError(
@@ -224,6 +234,7 @@ def KK_PP(
     #     )
     # else:
     # M is the number of polynomial energy spans, N is the number of target energies.
+    
     X1 = energies[0:-1] # M 
     X2 = energies[1:] # M
     E = np.tile(target_energies, (len(energies)-1, 1)).T # Results in a 2D of shape (N, M)
@@ -263,23 +274,25 @@ def KK_PP(
     # Sum areas for approximate integral
     Symb_B = np.sum(Symb_2 - Symb_1 - Symb_3, axis=1)
     
-    # Patch singularities
-    singularities = energies[1:-1]==E[:,0:-1]
-    E_sing = np.append(np.insert(np.any(singularities, axis=0),[0,0],False),[False,False])
-    Eval_sing = np.any(singularities, axis=1)
+    # Patch Poles
+    poles = energies[1:-1]==E[:,0:-1]
+    E_sing = np.append(np.insert(np.any(poles, axis=0),[0,0],False),[False,False])
+    Eval_sing = np.any(poles, axis=1)
+        
     X1 = energies[E_sing[2:]]
     XE = energies[E_sing[1:-1]]
     X2 = energies[E_sing[:-2]]
     # C1 = Full_coeffs[:, E_sing[2:-1]] # Not used... why?
     C2 = coefs_T[:, E_sing[1:-2]]
     Symb_singularities = np.zeros(len(target_energies))
-    Symb_singularities[Eval_sing] = (
+    val = (
         C2[0, :]*XE**2
         + C2[1, :]*XE
         + C2[2, :]
         + C2[3, :]*XE**-1
         + C2[4, :]*XE**-2
     )*np.log(np.abs((X2-XE)/(X1-XE)))
+    Symb_singularities[Eval_sing] = val
     # Finish things off
     KK_Re = (Symb_B-Symb_singularities) / (math.pi*target_energies) + relativistic_correction
     return KK_Re
@@ -334,8 +347,8 @@ def improve_accuracy(energies: npt.ArrayLike,
                         real_asf: npt.ArrayLike,
                         imag_coefs: npt.ArrayLike,
                         relativistic_correction: float,
-                        tolerance: float = 0.1,
-                        max_iter: int = 50,
+                        tolerance: float = DEF_TOL,
+                        max_iter: int = DEF_ITER,
                         orders: npt.ArrayLike | None = None
                         ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
     r"""
@@ -473,8 +486,8 @@ def improve_accuracy_inv(energies: npt.ArrayLike,
                         imag_asf: npt.ArrayLike,
                         real_coefs: npt.ArrayLike,
                         relativistic_correction: float,
-                        tolerance: float = 0.1,
-                        max_iter: int = 50,
+                        tolerance: float = DEF_TOL,
+                        max_iter: int = DEF_ITER,
                         orders: npt.ArrayLike | None = None
                         ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
     r"""

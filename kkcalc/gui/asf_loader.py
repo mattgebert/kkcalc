@@ -3,7 +3,7 @@ Object loader and lister for objects that implement asf_abstract and asp_abstrac
 Allows the loading of raw data and duplication objects.
 """
 from PyQt6 import QtWidgets, QtCore
-from kkcalc.models import asf_abstract, asp_abstract, asf, asp
+from kkcalc.models import asf_abstract, asp_abstract, asf, asp, asf_re, asf_im, asp_re, asp_im
 
 class kk_object_list(QtWidgets.QWidget):
     """
@@ -37,6 +37,9 @@ class kk_object_list(QtWidgets.QWidget):
         # Create the table
         self.table = QtWidgets.QTableWidget(0, 4, self)
         self.table.setHorizontalHeaderLabels(["Name", "Stoich.", "Type", "Vis."])
+        for i in range(4):
+            self.table.setColumnWidth(i, 50)
+        self.table.setMinimumWidth(200)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         
         # Change the table properties
@@ -67,6 +70,7 @@ class kk_object_list(QtWidgets.QWidget):
         # Setup widget properties
         self.duplicate_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
+        
             
         # Setup connections
         self.table.itemClicked.connect(self.itemViewClicked)
@@ -81,9 +85,12 @@ class kk_object_list(QtWidgets.QWidget):
         """
         for row, obj_ in self._objs.items():
             if obj_ == obj:
-                self.table.item(row, 0).setText(obj.name)
-                self.table.item(row, 1).setText(str(obj.stoichiometry))
-                self.table.item(row, 2).setText(obj.__class__.__name__)
+                items = [obj.name,  # Name
+                         str(obj.stoichiometry),  # Stoich
+                         obj.__class__.__name__] # Class type
+                for i, item in enumerate(items):
+                    self.table.item(row, i).setText(item)
+                    self.table.item(row, i).setToolTip(item)
                 return
         
         
@@ -102,16 +109,31 @@ class kk_object_list(QtWidgets.QWidget):
         # Check if the object is an asf or asp base object; needs to be designated as real or imag.
         if obj.__class__ is asf or obj.__class__ is asp:
             # Create dialog to convert to real or imag
-            
-            pass
+            from kkcalc.gui.dialogs import factor_complexity_dialog
+            dialog = factor_complexity_dialog() 
+            dialog.setWindowTitle("Select Complexity for `" + obj.__class__.__name__ + ':' + obj.name + "`")
+            dialog.show()
+            if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                if obj.__class__ is asf:
+                    obj = asf_re.from_asf(obj) if dialog.complexity == dialog.EnumComplexity.REAL else asf_im.from_asf(obj)
+                elif obj.__class__ is asp:
+                    obj = asp_re.from_asp(obj) if dialog.complexity == dialog.EnumComplexity.REAL else asp_im.from_asp(obj)
+                else:
+                    return
+            else:
+                return
             
         # Add the entry to the table
         rows = self.table.rowCount()
         self.table.setRowCount(rows + 1)
-        self.table.setItem(rows, 0, QtWidgets.QTableWidgetItem(obj.name))
-        self.table.setItem(rows, 1, QtWidgets.QTableWidgetItem(str(obj.stoichiometry)))
+        obj_name = QtWidgets.QTableWidgetItem(obj.name)
+        obj_name.setToolTip(obj.name)
+        obj_stoich = QtWidgets.QTableWidgetItem(str(obj.stoichiometry))
+        obj_stoich.setToolTip(str(obj.stoichiometry))
         obj_class = QtWidgets.QTableWidgetItem(obj.__class__.__name__)
         obj_class.setToolTip(obj.__class__.__doc__)
+        self.table.setItem(rows, 0, obj_name)
+        self.table.setItem(rows, 1, obj_stoich)
         self.table.setItem(rows, 2, obj_class)
         checkbox = QtWidgets.QTableWidgetItem()
         checkbox.setFlags(QtCore.Qt.ItemFlag.ItemIsUserCheckable |
@@ -126,7 +148,7 @@ class kk_object_list(QtWidgets.QWidget):
         self._objs[rows] = obj
         
         # Autoscale the table column widths
-        self.table.resizeColumnsToContents()
+        # self.table.resizeColumnsToContents()
         
         # Emit a signal
         self.viewSelectionChanged.emit()

@@ -4,7 +4,7 @@ import warnings
 from kkcalc import kk_transforms
 from kkcalc.stoich import kk_stoichiometry
 from kkcalc.stoich import kk_stoichiometry
-from kkcalc.asf_database.db_models import asp_db, asp_db_extended
+from kkcalc.asf_database.db_models import asp_db_im, asp_db_extended
 from kkcalc.models.factors import KK_Datatype, asf, asf_im
 
 def calc_real(
@@ -57,7 +57,7 @@ def calc_real(
     # Use the stoichiometry to get the relativistic correction and database atomic scattering polynomial
     stoich = formula if isinstance(formula, kk_stoichiometry) else kk_stoichiometry.from_chemical_formula(formula)
     rc = stoich.relativistic_correction
-    db_poly: asp_db = stoich.asp_im() #database
+    db_poly: asp_db_im = stoich.asp_im() #database
     
     # Load the NEXAFS data.
     match input_data_type:
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     POLYSTYRENE = "CH"
     PS_NAME = "Polystyrene"
     ps_stoich = kk_stoichiometry(POLYSTYRENE)
-    asp_db_PS = asp_db(ps_stoich)
+    asp_db_PS = asp_db_im(ps_stoich)
 
     # Import Data
     import os

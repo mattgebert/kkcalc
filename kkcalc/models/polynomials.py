@@ -2,6 +2,7 @@
 'Piecewise polynomial' representation models of scattering factors.
 """
 import abc
+import pandas as pd
 import numpy as np
 import numpy.typing as npt
 import warnings
@@ -163,6 +164,8 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         ValueError
             If the target energies are outside the defined energy domain.
         """
+        target_energies = np.asarray(target_energies)
+        
         assert np.all(energies[:-1] <= energies[1:]), "Energies must be in increasing order."
         # Find where the energies are located in the object's energies.
         indices = np.searchsorted(energies, target_energies) - 1 # subtract to transfer from spans (N+1) to coefficients (N).
@@ -199,7 +202,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             target_energies:npt.NDArray | float | None = None
             ) -> npt.NDArray:
         r"""
-        Calculate Henke scattering factors from object polynomial coefficients at desired `energies`.
+        Calculate scattering factors from object polynomial coefficients at desired `energies`.
         
         Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
 
@@ -261,37 +264,91 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         for i in range(len(self.energies)-1):
             yield (self.energies[i], self.energies[i+1]), self.coefs[i]
     
-    def __getitem__(self, i: int) -> tuple[tuple[float, float], np.ndarray]:
+    def __getitem__(self, key: int | slice) -> Self:
         """
-        Returns segment energies and polynomial coefficients at the indexed energy interval.
-
+        Generates a new `asp` object with the same energy spans and corresponding polynomial coefficients,
+        but sliced to the specified index.
+        
         Parameters
         ----------
-        index : int
-            The index of the segment to return.
+        key : int | slice
+            The index or slice to select the segment of the polynomial coefficients, and corresponding energy interval.
+        
+        Returns
+        -------
+        type[asp_abstract]
+            A new `asp` object with the same energy spans and corresponding polynomial coefficients,
+            but sliced to the specified index.
+        """
+        # Collect the kwargs
+        kwargs = self._properties_dict
+        
+        # Convert int index to slice
+        if isinstance(key, int):
+            key = slice(key, key+1)
+        
+        # Slice the energies and coefficients
+        start, stop, step = key.indices(len(self))
+        energies = self.energies[start:stop+1:step]
+        coefs = self.coefs[start:stop:step]
+        return self.__class__(energies=energies, coefs=coefs, orders=self.orders, **kwargs)
+    
+    def dataframe(self) -> pd.DataFrame:
+        """
+        Generates a Pandas representation of the coefficients list, useful for display.
+        """
+        orders = self.orders
+        if orders is not None:
+            return pd.DataFrame(
+                np.c_[self.energies[:-1], self.energies[1:], *self.coefs.T],
+                columns=["Energy LB", "Energy UB", *[f"A{order}" for order in orders]]
+            )
+        else:
+            return pd.DataFrame(
+                np.c_[self.energies[:-1], self.energies[1:], *self.coefs.T],
+                columns=["Energy LB", "Energy UB", "A1", "A0", "A-1", "A-2", "A-3"]
+            )
+        
+    def __str__(self, **kwargs) -> str:
+        """
+        Creates a Pandas string representation of the coefficient list.
+        
+        Rows displayed are the first and last 5 if more than 10 rows.
+        
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `pd.dataFrame.to_string` method.
 
         Returns
         -------
-        interval : tuple[float, float],
-            The energy interval for which the polynomial coefficients are valid.
-        coefficients : np.ndarray
-            The polynomial coefficients for the scattering factor in the given energy interval.
+        str
+            A string representation of the coefficients.
         """
-        if i < 0 or i >= len(self.energies)-2:
-            raise IndexError(f"Index {i} out of range for {len(self.energies)-1} segments.")
-        return (self.energies[i], self.energies[i+1]), self.coefs[i]
-    
-    def __str__(self) -> str:
-        return f"Scattering polynomial coefficients defined on {len(self.energies)-1} segments"
-    
-    def __repr__(self) -> str:
-        return f"piecewise_polynomail({self.energies}, {self.coefs})"
+        # Create a default max_rows if not provided.
+        if "max_rows" not in kwargs:
+            kwargs["max_rows"] = 10
+        return self.dataframe().to_string(**kwargs)
     
     def __len__(self) -> int:
-        return len(self.coefs)
+        return self.coefs.shape[0]
     
     @abc.abstractmethod
-    def copy(self) -> type[Self]:
+    def copy(self, **kwargs) -> type[Self]:
+        """
+        Generates a copy of the `asp` object.
+        
+        Parameters
+        ----------
+        **kwargs
+            Any keyword arguments for the constructors to update the copy properties.
+
+        Returns
+        -------
+        type[asp_abstract]
+            A new `asp` object with the same atomic scattering polynomial coefficients
+            and properties, but unique memory allocation.
+        """
         pass
     
 class asp(asp_abstract, atomic_scattering):
@@ -400,7 +457,7 @@ class asp(asp_abstract, atomic_scattering):
     def extend_energies(self, new_energies: npt.NDArray) -> type["asp"]:
         """
         Uses existing interval to generate a new `asp` object with the same polynomial coefficients,
-        but defined on the new `energies`. 
+        but defined on the new `energies`.
         
         Existing `energies` must be a subset of `new_energies`.
         
@@ -432,8 +489,8 @@ class asp(asp_abstract, atomic_scattering):
         coefs = np.r_[self.coefs, new_coefs][sort_indices]
         
         # Check if class is asp_db, in which case the constructor cannot take energies.
-        from kkcalc.models import asp_db, asp_db_extended
-        if cls in [asp_db, asp_db_extended]:
+        from kkcalc.models import asp_db_im, asp_db_extended
+        if cls in [asp_db_im, asp_db_extended]:
             obj = self.copy()
             obj.energies = new_energies
             obj.coefs = coefs
@@ -510,9 +567,14 @@ class asp(asp_abstract, atomic_scattering):
         """
         return self.to_atomic_scattering_factors(**kwargs)
     
-    def copy(self) -> type["asp"]:
+    def copy(self, **kwargs) -> type["asp"]:
         """
         Generates a copy of the `asp` object.
+        
+        Parameters
+        ----------
+        **kwargs
+            Any keyword arguments for the constructors to update the copy properties.
 
         Returns
         -------
@@ -521,15 +583,17 @@ class asp(asp_abstract, atomic_scattering):
             and properties, but unique memory allocation.
         """
         # Copy the object properties
-        kwargs = self._properties_dict
-        for key in kwargs:
-            if hasattr(kwargs[key], "copy"):
-                kwargs[key] = kwargs[key].copy()
+        common_kwargs = self._properties_dict
+        for key in common_kwargs:
+            if hasattr(common_kwargs[key], "copy"):
+                common_kwargs[key] = common_kwargs[key].copy()
+        # Update the common kwargs with provided values.
+        common_kwargs.update(kwargs)
         # Create a new object
         return self.__class__(energies=self.energies.copy(),
                               coefs=self.coefs.copy(),
                               orders=self.orders.copy() if self.orders is not None else None,
-                              **kwargs)
+                              **common_kwargs)
 
 class asp_im(asp):
     """
@@ -612,8 +676,8 @@ class asp_im(asp):
                     improve_accuracy: bool = True,
                     stoichiometry: kk_stoichiometry | None = None,
                     relativistic_correction: float | None = None,
-                    tolerance: float = 1e-2,
-                    max_iter: int = 50,
+                    tolerance: float = kk_transforms.DEF_TOL,
+                    max_iter: int = kk_transforms.DEF_ITER,
                     ) -> "asf_re":
         """
         Generates the real part of the atomic scattering factors
@@ -652,11 +716,12 @@ class asp_im(asp):
             raise ValueError("Cannot provide both stoichiometry and relativistic correction.")
         elif stoichiometry is None and relativistic_correction is None and self.stoichiometry is None:
             raise ValueError("Must provide either stoichiometry or relativistic correction.")
+        # Check argument stoichiometry before using the object's stoichiometry.
+        elif stoichiometry is not None:
+            relativistic_correction = stoichiometry.relativistic_correction
         elif self.stoichiometry is not None:
             stoichiometry = self.stoichiometry
             relativistic_correction = self.stoichiometry.relativistic_correction
-        elif stoichiometry is not None:
-            relativistic_correction = stoichiometry.relativistic_correction
         
         # Calculate the real part of the atomic scattering factors
         real_factors = kk_transforms.KK_PP(
@@ -686,7 +751,14 @@ class asp_im(asp):
         kwargs = self._properties_dict
         return asf_re(energies=imp_energies, factors=imp_real_factors, **kwargs)
     
-    def calculate_complex_polynomial(self, **kwargs) -> "asp_complex":
+    def calculate_complex_polynomial(self, 
+                                     target_energies: npt.NDArray | None = None,
+                                     improve_accuracy: bool = True,
+                                     stoichiometry: kk_stoichiometry | None = None,
+                                     relativistic_correction: float | None = None,
+                                     tolerance: float | None = kk_transforms.DEF_TOL,
+                                     max_iter: int | None = kk_transforms.DEF_ITER,
+                                     **kwargs) -> "asp_complex":
         """
         Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
         to form a complex representation.
@@ -712,13 +784,25 @@ class asp_im(asp):
         from kkcalc.models.polynomials import asp_complex
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        re = self.kk_transform()
+        re = self.kk_transform(target_energies=target_energies,
+                               improve_accuracy=improve_accuracy,
+                               stoichiometry=stoichiometry,
+                               relativistic_correction=relativistic_correction,
+                               tolerance=tolerance,
+                               max_iter=max_iter)
         im = self.extend_energies(re.energies)
         return asp_complex(re=re.to_ASP(),
                            im=im,
                            **common_kwargs)
         
-    def calculate_complex_factors(self, **kwargs) -> "asf_complex":
+    def calculate_complex_factors(self, 
+                                  target_energies: npt.NDArray | None = None,
+                                  improve_accuracy: bool = True,
+                                  stoichiometry: kk_stoichiometry | None = None,
+                                  relativistic_correction: float | None = None,
+                                  tolerance: float | None = kk_transforms.DEF_TOL,
+                                  max_iter: int | None = kk_transforms.DEF_ITER,
+                                  **kwargs) -> "asf_complex":
         """
         Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
         to form a complex representation.
@@ -745,7 +829,12 @@ class asp_im(asp):
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
         # Calculate the KK transform
-        re = self.kk_transform()
+        re = self.kk_transform(target_energies=target_energies,
+                               improve_accuracy=improve_accuracy,
+                               stoichiometry=stoichiometry,
+                               relativistic_correction=relativistic_correction,
+                               tolerance=tolerance,
+                               max_iter=max_iter)
         # Evaluate the complex factors at the same energies
         im_asf = self.to_asf(energies=re.energies)
         return asf_complex(re=re,
@@ -831,8 +920,8 @@ class asp_re(asp):
                          improve_accuracy: bool = True,
                          stoichiometry: kk_stoichiometry | None = None,
                          relativistic_correction: float | None = None,
-                         tolerance: float = 1e-2,
-                         max_iter: int = 50,
+                         tolerance: float = kk_transforms.DEF_TOL,
+                         max_iter: int = kk_transforms.DEF_ITER,
                          ) -> "asf_im":
         """
         Generates the imaginary part of the atomic scattering factors
@@ -865,13 +954,18 @@ class asp_re(asp):
         asf_im
             An `asf_im` object that represents the imaginary part of the atomic scattering factors.
         """
+        
         # Check parameters for/to-define relativistic correction
         if stoichiometry is not None and relativistic_correction is not None:
             raise ValueError("Cannot provide both stoichiometry and relativistic correction.")
-        elif stoichiometry is None and relativistic_correction is None:
-            raise ValueError("Must provide either stoichiometry or relativistic correction.")
+        elif stoichiometry is None and relativistic_correction is None and self.stoichiometry is None:
+            raise ValueError(f"Must provide either stoichiometry or relativistic correction, unless defined on {self}.")
+        # Check argument stoichiometry before using the object's stoichiometry.
         elif stoichiometry is not None:
             relativistic_correction = stoichiometry.relativistic_correction
+        elif self.stoichiometry is not None:
+            stoichiometry = self.stoichiometry
+            relativistic_correction = self.stoichiometry.relativistic_correction
         
         # Calculate the imaginary part of the atomic scattering factors
         imag_factors = kk_transforms.KK_PP_inv(
@@ -904,7 +998,14 @@ class asp_re(asp):
                       factors=imp_imag_factors,
                       **common_kwargs)
 
-    def calculate_complex_polynomial(self, **kwargs) -> "asp_complex":
+    def calculate_complex_polynomial(self, 
+                                     target_energies: npt.NDArray | None = None,
+                                     improve_accuracy: bool = True,
+                                     stoichiometry: kk_stoichiometry | None = None,
+                                     relativistic_correction: float | None = None,
+                                     tolerance: float | None = kk_transforms.DEF_TOL,
+                                     max_iter: int | None = kk_transforms.DEF_ITER,
+                                     **kwargs) -> "asp_complex":
         """
         Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
         to form a complex representation.
@@ -930,14 +1031,26 @@ class asp_re(asp):
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
         # Calculate the imaginary part
-        im = self.kk_transform_inv()
+        im = self.kk_transform_inv(target_energies=target_energies,
+                                   improve_accuracy=improve_accuracy,
+                                   stoichiometry=stoichiometry,
+                                   relativistic_correction=relativistic_correction,
+                                   tolerance=tolerance,
+                                   max_iter=max_iter)
         # Extend the energies
         re = self.extend_energies(im.energies)
         return asp_complex(re=re,
                            im=im.to_ASP(),
                            **common_kwargs)
         
-    def calculate_complex_factors(self, **kwargs) -> "asf_complex":
+    def calculate_complex_factors(self, 
+                                  target_energies: npt.NDArray | None = None,
+                                  improve_accuracy: bool = True,
+                                  stoichiometry: kk_stoichiometry | None = None,
+                                  relativistic_correction: float | None = None,
+                                  tolerance: float | None = kk_transforms.DEF_TOL,
+                                  max_iter: int | None = kk_transforms.DEF_ITER,
+                                  **kwargs) -> "asf_complex":
         """
         Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
         to form a complex representation.
@@ -964,9 +1077,14 @@ class asp_re(asp):
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
         # Calculate the KK transform
-        im = self.kk_transform_inv()
+        im = self.kk_transform_inv(target_energies=target_energies,
+                                   improve_accuracy=improve_accuracy,
+                                   stoichiometry=stoichiometry,
+                                   relativistic_correction=relativistic_correction,
+                                   tolerance=tolerance,
+                                   max_iter=max_iter)
         # Evaluate the complex factors at the same energies
-        return asf_complex(re=self.to_asf(energies=im.energies),
+        return asf_complex(re=self.to_atomic_scattering_factors(energies=im.energies),
                            im=im,
                            **common_kwargs)
 
@@ -993,7 +1111,10 @@ class asp_complex(asp_abstract, atomic_scattering):
                  ):
         if not np.all(re.energies == im.energies):
             # While this condition isn't essential, better to have the same energy intervals.
-            raise ValueError("Real and imaginary parts must have the same energy intervals.")   
+            raise ValueError("Real and imaginary parts must have the same energy intervals.")
+        
+        if not isinstance(re, asp) or not isinstance(im, asp):
+            raise ValueError(f"Real and imaginary parts must be of type {asp}.")
         
         if re.orders is not None and im.orders is not None and not np.all(re.orders == im.orders):
             warnings.warn("Real and imaginary parts have different polynomial orders.")
@@ -1120,9 +1241,85 @@ class asp_complex(asp_abstract, atomic_scattering):
         """
         return self.to_atomic_scattering_factors()
     
-    def copy(self) -> type["asp_complex"]:
+    def contrast(self, other: "asp_complex") -> tuple[npt.NDArray, npt.NDArray]:
+        r"""
+        The energy-dependent contrast magnitude of the atomic scattering polynomial,
+        which is the difference in imaginary and real parts squared.
+        
+        If the objects have different energy domains, only the common domain is considered.
+        
+        .. math::
+            contrast ~ \Delta(\delta)^2 + \Delta\beta^2
+        
+        Returns
+        -------
+        energies : np.ndarray
+            Array of energy values defined for each contrast value.
+        contrast : np.ndarray
+            The contrast between two atomic scattering polynomials.
+        """
+        energies_self, energies_other = self.energies, other.energies
+        orders_self, orders_other = self.orders, other.orders
+        same_order = (orders_self is not None
+                      and orders_other is not None
+                      and np.all(orders_self == orders_other)) or (orders_self is None and orders_other is None)
+        
+        if energies_self == energies_other:
+            # All energies are the same, no need to check. Perform a direct calculation.
+            energies = energies_self
+            contrast = np.abs(self.coefs - other.coefs)**2
+        else:
+            # Full energies
+            energies = np.sort(np.r_[energies_self, energies_other]) 
+            # Get the lowebound and upperbound
+            lower_bound = energies_self[0] if energies_self[0] < energies_other[0] else energies_other[0]
+            upper_bound = energies_self[-1] if energies_self[-1] > energies_other[-1] else energies_other[-1]
+            # Find bounds of the common energies
+            lb_idx = np.argmax(energies == lower_bound)
+            ub_idx = np.argmax(energies == upper_bound)
+            ub_idx = ub_idx + 1 if ub_idx < len(energies) - 1 else ub_idx # Include the upper bound
+            # Find the indicies of the starting energies
+            self_idx = np.argmax(energies_self > lower_bound) # larger than starting energy
+            other_idx = np.argmax(energies_other > lower_bound)
+            self_idx = self_idx - 1 if self_idx > 0 else self_idx #at or below starting energy
+            other_idx = other_idx - 1 if other_idx > 0 else other_idx
+            # Iterate over the common energies, and calculate the contrast
+            contrast = np.zeros(ub_idx - lb_idx + 1)
+            for i in range(ub_idx - lb_idx):
+                idx = lb_idx + i
+                # Get values
+                energy = energies[idx]
+                self_coefs = self.coefs[self_idx]
+                other_coefs = other.coefs[other_idx]
+                # Calculate the contrast
+                if same_order:
+                    contrast[idx] = conversions.ASP_to_ASF(energy, np.abs(self_coefs - other_coefs)**2)
+                else:
+                    # Convert to atomic scattering factors
+                    self_val = conversions.ASP_to_ASF(energy, self_coefs, orders_self)
+                    other_val = conversions.ASP_to_ASF(energy, other_coefs, orders_other)
+                    contrast[idx] = np.abs(self_val - other_val)**2
+                # Update the indices
+                if energy == energies_self[self_idx]:
+                    self_idx += 1
+                if energy == energies_other[other_idx]:
+                    other_idx += 1
+            
+            # Update energies list
+            energies = energies[lb_idx:ub_idx]
+        
+        # Convert from atomic scattering polynomials to delta/beta polynomial
+        
+        return energies, contrast
+    
+    def copy(self, **kwargs) -> type["asp_complex"]:
         """
         Generates a copy of the `asp_complex` object.
+
+        Parameters
+        ----------
+        **kwargs
+            Any keyword arguments for the constructors to update the copy properties
 
         Returns
         -------
@@ -1131,11 +1328,13 @@ class asp_complex(asp_abstract, atomic_scattering):
             and properties, but unique memory allocation.
         """
         # Copy the object properties
-        kwargs = self._properties_dict
-        for key in kwargs:
-            if hasattr(kwargs[key], "copy"):
-                kwargs[key] = kwargs[key].copy()
+        common_kwargs = self._properties_dict
+        for key in common_kwargs:
+            if hasattr(common_kwargs[key], "copy"):
+                common_kwargs[key] = common_kwargs[key].copy()
+        # Update kwargs
+        common_kwargs.update(kwargs)
         # Create a new object
         return self.__class__(re=self.re.copy(),
                               im=self.im.copy(),
-                              **kwargs)
+                              **common_kwargs)

@@ -217,13 +217,16 @@ class atomic_scattering(atomic_scattering_abstract):
         self._density = None
         self._stoichiometry = None
         self._formula_mass = None
-        self._is_extended = is_extended
+        self._is_extended = False
         
         # Assign in reverse order of importance.        
         self.stoichiometry = stoichiometry # can infer a formula mass
         self.formula_mass = formula_mass
         self.density = density
         self.number_density = number_density
+        
+        # Finally assign if the material has been extended by the KKCalc database.
+        self._is_extended = is_extended # has to be done after the other assignments, otherwise cannot set stoichiometry.
         return
     
     @property 
@@ -364,6 +367,8 @@ class atomic_scattering(atomic_scattering_abstract):
         """
         The `stoichiometry` of the material associated with the scattering factors.
         
+        Cannot be set when `is_extended` is `True`; implies the use of the existing `stoichiometry` to create the scattering data, and therefore is immutable.
+        
         When setting a value that is not `None`,
         - Generates/Updates `formula_mass` when set, using the stoichiometry.
         - Generates/Updates `number_density` if the `density` is defined.
@@ -380,6 +385,12 @@ class atomic_scattering(atomic_scattering_abstract):
             Stoichiometry of the material.
             `None` if no stoichiometry has been provided.
             
+        Raises
+        ------
+        ValueError
+            If the object property `is_extended` is True, due to the object
+            being created from data in the KKCalc database.
+            
         See Also
         --------
         kk_stoichiometry : Stoichiometry class.
@@ -392,20 +403,23 @@ class atomic_scattering(atomic_scattering_abstract):
         if isinstance(stoich, str):
             stoich = kk_stoichiometry(stoich)
         
-        # Set the stoichiometry attribute.
-        self._stoichiometry = stoich
-        
-        # Generate / update the formula mass and number density.
-        if stoich is not None:
-            # Generate a formula mass from the stoichiometry.
-            self.formula_mass = stoich.formula_mass
-            if self.density is not None:
-                # Update / generate a number density from the stoichiometry 
-                # and density, regardless of the current number density.
-                self._number_density = self.density * N_A / stoich.formula_mass
-            elif self.number_density is not None:
-                # Generate a density from the stoichiometry and number density.
-                self._density = self.number_density * stoich.formula_mass / N_A
+        if not self.is_extended:
+            # Set the stoichiometry attribute.
+            self._stoichiometry = stoich
+            
+            # Generate / update the formula mass and number density.
+            if stoich is not None:
+                # Generate a formula mass from the stoichiometry.
+                self.formula_mass = stoich.formula_mass
+                if self.density is not None:
+                    # Update / generate a number density from the stoichiometry 
+                    # and density, regardless of the current number density.
+                    self._number_density = self.density * N_A / stoich.formula_mass
+                elif self.number_density is not None:
+                    # Generate a density from the stoichiometry and number density.
+                    self._density = self.number_density * stoich.formula_mass / N_A
+        else:
+            raise ValueError("Stoichiometry is immutable for an object that has been extended by the KKCalc database.")
         return
     
     @property

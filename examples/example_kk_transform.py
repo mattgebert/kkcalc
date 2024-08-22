@@ -15,7 +15,7 @@ if __name__ == "__main__":
     POLYSTYRENE = "CH"
     PS_NAME = "Polystyrene"
     ps_stoich = stoichiometry(POLYSTYRENE)
-    asp_db_PS = asp_db(ps_stoich, name = "PS Database")
+    asp_db_PS = asp_db_im(ps_stoich, name = "PS Database")
     
     # Import Data
     data_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -24,13 +24,13 @@ if __name__ == "__main__":
     assert data_PS.shape[1] == 2, "Data file must have two columns"
     
     # Create the atomic scattering factors from NEXAFS data
-    asf_PS = asf.from_NEXAFS(energies = data_PS[:,0], 
+    asf_PS: asf_im = asf_im.from_NEXAFS(energies = data_PS[:,0], 
                              NEXAFS = data_PS[:,1],
                              stoichiometry=ps_stoich,
                              name = PS_NAME)
     
     # Combine the data with the database into polynomials
-    PS_imag = asp_db_extended(
+    PS_imag = asp_db_im_extended(
         data_asf=asf_PS,
         database=asp_db_PS,
         merge_domain=(280, 320)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # Scale the data to the same range
     idx_overlap = (PS_imag.energies >= asf_PS.energies.min()) & (PS_imag.energies <= asf_PS.energies.max())
     data_y_scaled = (PS_imag.asf.max() - PS_imag.asf.min()) / (asf_PS.factors.max() - asf_PS.factors.min()) * (asf_PS.factors - asf_PS.factors.min()) + PS_imag.asf.min()
-    l0 = ax1.plot(asf_PS.energies, data_y_scaled, marker=".", alpha=0.4, c="black", label=f"Raw, Num Points: {asf_PS.energies.shape[0]}")
+    l0 = ax1.plot(asf_PS.energies, data_y_scaled, marker=".", alpha=0.4, c="black", label=f"Imag Raw, Num Points: {asf_PS.energies.shape[0]}")
     
     # Limit the plot to the range of data
     domain = (asf_PS.energies.min(), asf_PS.energies.max())
