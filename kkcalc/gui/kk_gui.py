@@ -43,6 +43,10 @@ class kk_gui(QtWidgets.QWidget):
         self._draggable.addWidget(obj_list)
         self._draggable.addWidget(obj_modifier)
         self._draggable.addWidget(viewer)
+        # self.obj_modifier.setFixedWidth(250)
+        self._draggable.setStretchFactor(0, 10)
+        self._draggable.setStretchFactor(1, 1)
+        self._draggable.setStretchFactor(2, 10)
         
         # Modify element properties
         obj_list.setMinimumWidth(240)
@@ -186,7 +190,8 @@ if __name__ == "__main__":
     asf_PS = asf_im.from_NEXAFS(energies = data_PS[:,0], 
                              NEXAFS = data_PS[:,1],
                              name = PS_NAME,
-                             stoichiometry = ps_stoich)
+                             stoichiometry = ps_stoich,
+                             scale_to_database=True)
     
     # db_poly = asp_db(ps_stoich, name = PS_NAME)
     

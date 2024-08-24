@@ -30,6 +30,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         name_label.setToolTip("Object name")
         self.name_edit = QtWidgets.QLineEdit()
         self.name_edit.setToolTip("The name of the object; used for graphing.")
+        self.name_edit.setPlaceholderText("Object Name")
         
         # Points
         points_label = QtWidgets.QLabel("Points:")
@@ -50,6 +51,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         stoichiometry_label.setToolTip("Stoichiometry")
         self.stoichiometry_edit = QtWidgets.QLineEdit()
         self.stoichiometry_edit.setToolTip("Object stoichiometry e.g. CH, C6H12O6, (CH2)0.5(F2)0.5")
+        self.stoichiometry_edit.setPlaceholderText("e.g. CH, C6H12O6, (CH2)0.5(F2)0.5")
         
         # Relativistic Correction
         relativistic_label = QtWidgets.QLabel("Rel Cor:")
@@ -63,6 +65,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         number_density_label.setToolTip("Number density")
         self.number_density_edit = QtWidgets.QLineEdit()
         self.number_density_edit.setToolTip("Object number density in atoms/cm^3")
+        self.number_density_edit.setPlaceholderText("atoms/cm^3")
         self.number_density_edit.setValidator(QtGui.QDoubleValidator())
         
         # Density
@@ -70,6 +73,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         density_label.setToolTip("Density")
         self.density_edit = QtWidgets.QLineEdit()
         self.density_edit.setToolTip("Object density in g/cm^3")
+        self.density_edit.setPlaceholderText("g/cm^3")
         self.density_edit.setValidator(QtGui.QDoubleValidator())
 
         # Formula Mass
@@ -77,6 +81,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         formula_mass_label.setToolTip("Formula mass")
         self.formula_mass_edit = QtWidgets.QLineEdit()
         self.formula_mass_edit.setToolTip("Object formula mass in g/mol")
+        self.formula_mass_edit.setPlaceholderText("g/mol")
         self.formula_mass_edit.setValidator(QtGui.QDoubleValidator())
         
         # Transform / Conversion Header
@@ -87,7 +92,8 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.kk_transform_to_complex_btn = QtWidgets.QPushButton("To Complex")
         
         # Extension Header
-        extension_header = QtWidgets.QLabel("Database Extension")
+        extension_header = QtWidgets.QLabel("Database Scaling/Extension")
+        self.scale_to_db_btn = QtWidgets.QPushButton("Scale to DB")
         self.is_extended_edit = QtWidgets.QCheckBox("Extended")
         self.is_extended_edit.setDisabled(True)
         # Extend Data by Stoichiometry
@@ -140,13 +146,14 @@ class kk_object_modifier(QtWidgets.QWidget):
         ## Extension Layout
         extn = QtWidgets.QGridLayout()
         extn.addWidget(extension_header, 0, 0, 1, 2)
-        extn.addWidget(self.is_extended_edit, 0, 2, 1, 2)
-        extn.addWidget(hline_generator(), 1, 0, 1, 4)
-        extn.addWidget(merge_dom_label, 2, 0, 1, 1)
-        extn.addWidget(self.merge_dom_lb_edit, 2, 1, 1, 1)
-        extn.addWidget(self.merge_dom_ub_edit, 2, 2, 1, 1)
-        # extn.addWidget(self.merge_handle_checkbox, 2, 3, 1, 1) # Temporarily removed, do not show on UI. TODO: Implement.
-        extn.addWidget(self.extend_data_btn, 3, 0, 1, 4)
+        extn.addWidget(self.scale_to_db_btn, 1, 0, 1, 2)
+        extn.addWidget(self.is_extended_edit, 1, 2, 1, 2)
+        extn.addWidget(hline_generator(), 2, 0, 1, 4)
+        extn.addWidget(merge_dom_label, 3, 0, 1, 1)
+        extn.addWidget(self.merge_dom_lb_edit, 3, 1, 1, 1)
+        extn.addWidget(self.merge_dom_ub_edit, 3, 2, 1, 1)
+        # extn.addWidget(self.merge_handle_checkbox, 3, 3, 1, 1) # Temporarily removed, do not show on UI. TODO: Implement.
+        extn.addWidget(self.extend_data_btn, 4, 0, 1, 4)
         self._layout.addLayout(extn)
         
         # Initialise internal object
@@ -164,11 +171,14 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.kk_transform_btn.clicked.connect(self.transform)
         self.kk_transform_to_complex_btn.clicked.connect(self.to_complex)
         # For extension
+        self.scale_to_db_btn.clicked.connect(self.scale)
         self.extend_data_btn.clicked.connect(self.extend)
         self.merge_handle_checkbox.stateChanged.connect(self.hasHandle.emit)
         
         # Initialise UI
         self.clear()
+        # Minimize the width.
+        self.resize(self.minimumWidth(), self.height())
     
     
     @property
@@ -219,8 +229,6 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.formula_mass_edit.setText(str(fm) if fm is not None else "")
             # Set the number of points
             self.points_edit.setText(str(len(obj.energies)))
-            # Only unblock signals if an object is provided
-            self.blockSignals(False)
             # Run validations
             self.run_validations()
             # Update the transform labels
@@ -229,6 +237,9 @@ class kk_object_modifier(QtWidgets.QWidget):
             if not obj.is_extended:
                 self.merge_dom_lb_edit.setText(str(obj.energies.min()))
                 self.merge_dom_ub_edit.setText(str(obj.energies.max()))
+            
+            # Only unblock signals if an object is provided
+            self.blockSignals(False)
     
     def update_object(self):
         """
@@ -305,6 +316,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.merge_dom_ub_edit.setDisabled(True)
         self.merge_handle_checkbox.setChecked(False)
         self.extend_data_btn.setEnabled(False)
+        self.scale_to_db_btn.setEnabled(False)
     
     @staticmethod
     def valid_stoichiometry(stoich: str) -> bool:
@@ -318,17 +330,26 @@ class kk_object_modifier(QtWidgets.QWidget):
         
     def validate_stoichiometry_change(self):
         """
-        Validates the stoichiometry change, and updates the relativistic correction if valid.
+        Validates the stoichiometry change.
+        
+        If valid, updates the:
+            - relativistic correction
+            - scale button if the object is not extended
         """
         stoich = self.stoichiometry_edit.text()
         if not self.valid_stoichiometry(stoich):
             self.stoichiometry_edit.setStyleSheet("background-color: red")
+            self.extend_data_btn.setEnabled(False)
+            self.scale_to_db_btn.setEnabled(False)
             return
         else:
             stoich = stoichiometry(stoich)
             self.stoichiometry_edit.setStyleSheet("background-color: green")
             self.relativistic_edit.setText(str(stoich.relativistic_correction))
             self.update_object()
+            if self._object is not None and not self._object.is_extended:
+                self.extend_data_btn.setEnabled(True)
+                self.scale_to_db_btn.setEnabled(True)
         # Set the focus to the next field
         self.setFocus()
         
@@ -420,8 +441,39 @@ class kk_object_modifier(QtWidgets.QWidget):
             complex_obj = obj.calculate_complex_polynomial(name=obj.name + "_complex", improve_accuracy=True if obj.is_extended else False)
         else:
             return
+        
         # Send the transformed object
         self.objectCreated.emit(complex_obj)
+        
+    def scale_obj(self) -> type[asp_abstract | asf_abstract] | None:
+        """Creates a scaled object by matching endpoint amplitude to the stoichiometry database."""
+        obj: type[asf_abstract | asp_abstract] = self._object
+        # Ignore if no object or already extended
+        if obj is None or obj.is_extended:
+            return
+        
+        stoich = obj.stoichiometry
+        if stoich is None:
+            # Dialog to ask for stoichiometry
+            diag = QtWidgets.QDialog()
+            diag.setWindowTitle("Cannot Extend Data")
+            diag._layout = QtWidgets.QVBoxLayout()
+            diag.setLayout(diag._layout)
+            diag._layout.addWidget(QtWidgets.QLabel("No stoichiometry found."))
+            diag.exec()
+            return
+        
+        # Scale the object.
+        if isinstance(obj, (asf_im, asf_re)):
+            copy: type[asf_im | asf_re] = obj.copy()
+            copy.scale_to_database(stoich, name=obj.name + "_scaled")
+            return copy
+    
+    def scale(self) -> None:
+        """Creates a scaled object and emits the objectCreated signal."""
+        obj = self.scale_obj()
+        if obj is not None:
+            self.objectCreated.emit(obj)
         
     def extend_obj(self) -> type[asp_db_extended] | None:
         """
@@ -521,3 +573,9 @@ class kk_object_modifier(QtWidgets.QWidget):
         obj = self.extend_obj()
         if obj is not None:
             self.objectCreated.emit(obj)
+            
+if __name__ == "__main__":
+    app = QtWidgets.QApplication([])
+    win = kk_object_modifier()
+    win.show()
+    app.exec()

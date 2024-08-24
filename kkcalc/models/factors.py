@@ -19,7 +19,7 @@ import abc
 import warnings
 import pandas as pd
 from enum import Enum
-from typing import Self, Union, Iterator
+from typing import Self, Union, Iterator, override
 
 KK_DATATYPE_DOCS: dict[str, str] = {
     "UNDEFINED":"""For undefined data types.""",
@@ -225,7 +225,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                     stoichiometry=self.stoichiometry,
                 )
         raise ValueError("Material density information is required to convert to Beta values.")
-        
+ 
     def to_betas(self,
                 number_density: float | None = None,
                 density: float | None = None, 
@@ -281,8 +281,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                                                                 density=density,
                                                                 stoichiometry=stoichiometry)
         raise ValueError("Material density information is required to convert to Beta values.")
-        
+
+    
     @classmethod
+    @abc.abstractmethod
     def from_betas(cls: Self,
                    energies: npt.NDArray,
                    beta: npt.NDArray,
@@ -290,55 +292,9 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                    density:float=None, 
                    formula_mass:float=None, 
                    stoichiometry:kk_stoichiometry|str=None,
-                   **kwargs
-                   ) -> Union[Self, "asf_abstract"]:
-        """
-        Converts Beta values (index of refraction) to atomic scattering factors (ASF).
-        
-        The Beta value is the imaginary part of the index of refraction, representing absorption.
-        Requires some form of material density information to convert to ASF.
-        As per positional argument order, the function will use the first available density information.
-        This can either be:
-        - `number_density` in atoms per millilitre (cm^3),
-        - `density` in grams per millilitre (cm^3), and `formula_mass` (molecular mass),
-        - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
-        
-        Parameters
-        ----------
-        energies : array_like
-            Photon energies in eV.
-        beta : array_like
-            Imaginary part of the index of refraction.
-        number_density : float, optional
-            Material density in atoms per millilitre (cm^3).
-        density : float
-            Material density in grams per millilitre (cm^3).
-        formula_mass : float
-            Atomic mass sum of the materials chemical formula (molecular mass).
-            Equivalent to providing a `stoichiometry`.
-        stoichiometry : stoichiometry | str
-            Description of the combination of elements composing the material.
-        **kwargs
-            Additional keyword arguments for the `atomic_scattering` object.
-            
-        See Also
-        --------
-        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
-        """
-        # Convert energy and beta data to numpy arrays.
-        energies = np.asarray(energies)
-        beta = np.asarray(beta)
-        # Perform conversion
-        factors = conversions.betas_to_ASF(energies, beta, number_density, density, formula_mass, stoichiometry)
-        # Accumulate keyword arguments
-        kwargs.update({
-            "number_density": number_density,
-            "density": density,
-            "formula_mass": formula_mass,
-            "stoichiometry": stoichiometry
-        })
-        # Return asf instance
-        return cls(energies, factors, KK_Datatype.BETA, np.c_[energies, beta], **kwargs)
+                   scale_to_database: bool = False,):
+        """Converts Beta values (index of refraction) to atomic scattering factors (ASF)."""
+        pass
 
     @property
     def NEXAFS(self) -> np.ndarray:
@@ -364,32 +320,16 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         return self.energies, self.NEXAFS
     
     @classmethod
+    @abc.abstractmethod
     def from_NEXAFS(cls: Self,
                     energies: npt.NDArray, 
                     NEXAFS: npt.NDArray,
+                    scale_to_database: bool = False,
                     **kwargs) -> type[Self]:
         """
         Converts NEXAFS photoabsorption data to atomic scattering factors (ASF).
-        
-        Parameters
-        ----------
-        energies : array_like
-            Photon energies in eV.
-        NEXAFS : array_like
-            NEXAFS/XANES/photoabsorption data.
-        **kwargs
-            Additional keyword arguments for the `atomic_scattering` object.
-            
-        Returns
-        -------
-        type[asf]
-            Atomic scattering factors object.
-        
-        See Also
-        --------
-        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
         """
-        return cls(energies, conversions.NEXAFS_to_ASF(energies, NEXAFS), KK_Datatype.NEXAFS, np.c_[energies, NEXAFS], **kwargs)
+        pass
 
     @staticmethod
     @doc_copy(conversions.ASF_to_ASP)
@@ -742,6 +682,110 @@ class asf(asf_abstract, atomic_scattering):
         """
         return self.to_atomic_scattering_polynomial(**kwargs)
     
+    @classmethod
+    def from_NEXAFS(cls: Self,
+                    energies: npt.NDArray, 
+                    NEXAFS: npt.NDArray,
+                    scale_to_database: bool = False,
+                    **kwargs) -> type[Self]:
+        """
+        Converts NEXAFS photoabsorption data to atomic scattering factors (ASF).
+        
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        NEXAFS : array_like
+            NEXAFS/XANES/photoabsorption data.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs
+            Additional keyword arguments for the `atomic_scattering` object.
+            
+        Returns
+        -------
+        type[asf]
+            Atomic scattering factors object.
+        
+        See Also
+        --------
+        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        """
+        return cls(energies=energies,
+                   factors=conversions.NEXAFS_to_ASF(energies, NEXAFS),
+                   origin_dtype=KK_Datatype.NEXAFS, 
+                   origin_data=np.c_[energies, NEXAFS],
+                   scale_to_database=scale_to_database,
+                   **kwargs)
+    
+    @classmethod
+    def from_betas(cls: Self,
+                   energies: npt.NDArray,
+                   beta: npt.NDArray,
+                   number_density:float=None,
+                   density:float=None, 
+                   formula_mass:float=None, 
+                   stoichiometry:kk_stoichiometry|str=None,
+                   scale_to_database: bool = False,
+                   **kwargs
+                   ) -> Union[Self, "asf_abstract"]:
+        """
+        Converts Beta values (index of refraction) to atomic scattering factors (ASF).
+        
+        The Beta value is the imaginary part of the index of refraction, representing absorption.
+        Requires some form of material density information to convert to ASF.
+        As per positional argument order, the function will use the first available density information.
+        This can either be:
+        - `number_density` in atoms per millilitre (cm^3),
+        - `density` in grams per millilitre (cm^3), and `formula_mass` (molecular mass),
+        - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
+        
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        beta : array_like
+            Real/imaginary index of refraction values.
+        number_density : float, optional
+            Material density in atoms per millilitre (cm^3).
+        density : float
+            Material density in grams per millilitre (cm^3).
+        formula_mass : float
+            Atomic mass sum of the materials chemical formula (molecular mass).
+            Equivalent to providing a `stoichiometry`.
+        stoichiometry : stoichiometry | str
+            Description of the combination of elements composing the material.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs
+            Additional keyword arguments for the `atomic_scattering` object.
+            
+        See Also
+        --------
+        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        """
+        # Convert energy and beta data to numpy arrays.
+        energies = np.asarray(energies)
+        beta = np.asarray(beta)
+        # Perform conversion
+        factors = conversions.betas_to_ASF(energies, beta, number_density, density, formula_mass, stoichiometry)
+        # Accumulate keyword arguments
+        kwargs.update({
+            "number_density": number_density,
+            "density": density,
+            "formula_mass": formula_mass,
+            "stoichiometry": stoichiometry
+        })
+        # Return asf instance
+        return cls(energies=energies, 
+                   factors=factors, 
+                   origin_dtype=KK_Datatype.BETA,
+                   origin_data=np.c_[energies, beta],
+                   scale_to_database=scale_to_database,
+                   **kwargs)
+    
     def copy(self, **kwargs) -> type["asf"]:
         """
         Generates a copy of the `asp` object.
@@ -958,10 +1002,11 @@ class asf_re(asf):
                                          max_iter=max_iter)
         re_extended: asf_re = re.extend_energies(im.energies)
         # Return asf object
-        
+        common_kwargs = self._properties_dict
+        common_kwargs.update(kwargs)
         return asf_complex(re=re_extended.to_atomic_scattering_polynomial(),
                            im=im,
-                           **kwargs) # asf_complex already pulls properties from components.
+                           **common_kwargs) # asf_complex already pulls properties from components.
         
 class asf_im(asf):
     """
@@ -969,7 +1014,7 @@ class asf_im(asf):
     """
     
     @staticmethod
-    def from_asf(asf: asf, **kwargs) -> "asf_im":
+    def from_asf(asf: asf, **kwargs) -> Self:
         """
         Converts an `asf` object to an `asf_im` object.
         
@@ -1095,14 +1140,14 @@ class asf_im(asf):
         asp_complex
             An atomic scattering polynomial object.
         """
-        
-        return self.to_atomic_scattering_polynomial().calculate_complex_polynomial(target_energies=target_energies,
-                                                          improve_accuracy=improve_accuracy,
-                                                          stoichiometry=stoichiometry,
-                                                          relativistic_correction=relativistic_correction,
-                                                          tolerance=tolerance,
-                                                          max_iter=max_iter
-                                                          **kwargs)
+        im_asp = self.to_atomic_scattering_polynomial()
+        return im_asp.calculate_complex_polynomial(target_energies=target_energies,
+                                                   improve_accuracy=improve_accuracy,
+                                                   stoichiometry=stoichiometry,
+                                                   relativistic_correction=relativistic_correction,
+                                                   tolerance=tolerance,
+                                                   max_iter=max_iter
+                                                   **kwargs)
         
     def calculate_complex_factors(self,
                                   target_energies: npt.NDArray | None = None,
@@ -1152,9 +1197,11 @@ class asf_im(asf):
             # No extension required
             im_extended = im
         # Convert to complex object
+        common_kwargs = self._properties_dict
+        common_kwargs.update(kwargs)
         return asf_complex(re=re,
                            im=im_extended.to_atomic_scattering_factors(),
-                           **kwargs)
+                           **common_kwargs)
     
 class asf_complex(asf_abstract, atomic_scattering):
     """
@@ -1345,6 +1392,124 @@ class asf_complex(asf_abstract, atomic_scattering):
         contrast : np.ndarray
             The contrast between two atomic scattering polynomials.
         """
+
+    @classmethod
+    def from_NEXAFS(cls: Self,
+                    energies: npt.NDArray, 
+                    NEXAFS: npt.NDArray[np.complex_],
+                    scale_to_database: bool = False,
+                    **kwargs) -> type[Self]:
+        """
+        Converts NEXAFS photoabsorption data to atomic scattering factors (ASF).
+        
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        NEXAFS : array_like
+            NEXAFS/XANES/photoabsorption data. Infers real and imaginary parts.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs
+            Additional keyword arguments for the `atomic_scattering` object.
+            
+        Returns
+        -------
+        type[asf]
+            Atomic scattering factors object.
+        
+        See Also
+        --------
+        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        """
+        energies = np.asarray(energies)
+        if NEXAFS.dtype != np.complex_:
+            NEXAFS = NEXAFS.astype(np.complex_)
+            warnings.warn("NEXAFS data was not complex. Assuming data is real-component only.")
+        
+        re = asf_re.from_NEXAFS(energies=energies, 
+                                NEXAFS=NEXAFS.real,
+                                scale_to_database=scale_to_database)
+        im = asf_im.from_NEXAFS(energies=energies,
+                                NEXAFS=NEXAFS.imag,
+                                scale_to_database=scale_to_database)
+        return cls(re=re, im=im, **kwargs)
+    
+    @classmethod
+    def from_betas(cls: Self,
+                   energies: npt.NDArray,
+                   beta: npt.NDArray[np.complex_],
+                   number_density:float=None,
+                   density:float=None, 
+                   formula_mass:float=None, 
+                   stoichiometry:kk_stoichiometry|str=None,
+                   scale_to_database: bool = False,
+                   **kwargs
+                   ) -> Union[Self, "asf_abstract"]:
+        """
+        Converts Beta values (index of refraction) to atomic scattering factors (ASF).
+        
+        The Beta value is the imaginary part of the index of refraction, representing absorption.
+        Requires some form of material density information to convert to ASF.
+        As per positional argument order, the function will use the first available density information.
+        This can either be:
+        - `number_density` in atoms per millilitre (cm^3),
+        - `density` in grams per millilitre (cm^3), and `formula_mass` (molecular mass),
+        - `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
+        
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        beta : array_like
+            Infers real and imaginary parts of the index of refraction.
+        number_density : float, optional
+            Material density in atoms per millilitre (cm^3).
+        density : float
+            Material density in grams per millilitre (cm^3).
+        formula_mass : float
+            Atomic mass sum of the materials chemical formula (molecular mass).
+            Equivalent to providing a `stoichiometry`.
+        stoichiometry : stoichiometry | str
+            Description of the combination of elements composing the material.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs
+            Additional keyword arguments for the `atomic_scattering` object.
+            
+        See Also
+        --------
+        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        """
+        # Convert energy and beta data to numpy arrays.
+        energies = np.asarray(energies)
+        
+        if beta.dtype != np.complex_:
+            beta = beta.astype(np.complex_)
+            warnings.warn("Beta data was not complex. Assuming data is real-component only.")
+        
+        # Accumulate keyword arguments
+        kwargs.update(dict(
+            number_density=number_density,
+            density=density,
+            formula_mass=formula_mass,
+            stoichiometry=stoichiometry,
+            origin_dtype=KK_Datatype.BETA,
+            origin_data=np.c_[energies, beta]
+        ))
+        # Return asf instances
+        re = asf_re.from_betas(energies=energies,
+                               beta=beta.real,
+                               scale_to_database=scale_to_database,
+                               **kwargs)
+        im = asf_im.from_betas(energies=energies,
+                               beta=beta.imag,
+                               scale_to_database=scale_to_database,
+                               **kwargs)
+        # Create complex class.
+        return cls(re=re, im=im, **kwargs)
 
     def copy(self, **kwargs) -> type["asf_complex"]:
         """

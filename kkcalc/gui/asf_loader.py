@@ -4,6 +4,9 @@ Allows the loading of raw data and duplication objects.
 """
 from PyQt6 import QtWidgets, QtCore
 from kkcalc.models import asf_abstract, asp_abstract, asf, asp, asf_re, asf_im, asp_re, asp_im
+from kkcalc.gui.dialogs import factor_complexity_dialog, import_data_dialog, factor_dtype_dialog
+from kkcalc.models import KK_Datatype
+import warnings
 
 class kk_object_list(QtWidgets.QWidget):
     """
@@ -90,7 +93,10 @@ class kk_object_list(QtWidgets.QWidget):
                          obj.__class__.__name__] # Class type
                 for i, item in enumerate(items):
                     self.table.item(row, i).setText(item)
-                    self.table.item(row, i).setToolTip(item)
+                    if i == 2:
+                        self.table.item(row, i).setToolTip(obj.__class__.__doc__)
+                    else:
+                        self.table.item(row, i).setToolTip(item)
                 return
         
         
@@ -122,10 +128,17 @@ class kk_object_list(QtWidgets.QWidget):
                     return
             else:
                 return
-            
+        
         # Add the entry to the table
         rows = self.table.rowCount()
         self.table.setRowCount(rows + 1)
+        # Check row doesn't already exist in mappings
+        if rows in self._objs or rows in self._visible_rows:
+            raise ValueError(f"Row {rows} already exists in the object mapping.")
+        # Add the object to the mapping
+        self._visible_rows.add(rows)
+        self._objs[rows] = obj
+        # Add the object data to the table
         obj_name = QtWidgets.QTableWidgetItem(obj.name)
         obj_name.setToolTip(obj.name)
         obj_stoich = QtWidgets.QTableWidgetItem(str(obj.stoichiometry))
@@ -140,12 +153,6 @@ class kk_object_list(QtWidgets.QWidget):
                           QtCore.Qt.ItemFlag.ItemIsEnabled)
         checkbox.setCheckState(QtCore.Qt.CheckState.Checked)
         self.table.setItem(rows, 3, checkbox)
-        # Check row doesn't already exist in mappings
-        if rows in self._objs or rows in self._visible_rows:
-            raise ValueError(f"Row {rows} already exists in the object mapping.")
-        # Add the object to the mapping
-        self._visible_rows.add(rows)
-        self._objs[rows] = obj
         
         # Autoscale the table column widths
         # self.table.resizeColumnsToContents()
@@ -204,7 +211,36 @@ class kk_object_list(QtWidgets.QWidget):
         return self._objs[selected[0].row()]
     
     def import_data(self):
-        raise NotImplementedError("Importing data is not yet implemented.")
+        # Collect the raw data
+        window_data = import_data_dialog()
+        window_data.show()
+        if window_data.exec():
+            data_e, data_y = window_data.selected_data
+            # Collect the complexity
+            window_complexity = factor_complexity_dialog(name = window_data.load_filename)
+            window_complexity.show()
+            if window_complexity.exec():
+                complexity = window_complexity.complexity
+                if complexity == window_complexity.EnumComplexity.REAL:
+                    obj = asf_re(energies=data_e, factors=data_y, origin_dtype=KK_Datatype.ASF, name=window_data.load_filename)
+                    warnings.warn("Real data loaded as asf_re object, implementation required for form.")
+                    self.add_kk_obj(obj)
+                elif complexity == window_complexity.EnumComplexity.IMAGINARY:
+                    # Collect the datatype
+                    window_dtype = factor_dtype_dialog(name=window_data.load_filename)
+                    window_dtype.show()
+                    if window_dtype.exec():
+                        dtype = window_dtype.datatype
+                        match dtype:
+                            case KK_Datatype.ASF:
+                                obj = asf_im(energies=data_e, factors=data_y, origin_dtype=KK_Datatype.ASF, name=window_data.load_filename)
+                            case KK_Datatype.BETA:
+                                obj = asf_im.from_betas(energies=data_e, betas=data_y, name=window_data.load_filename)
+                            case KK_Datatype.NEXAFS:
+                                obj = asf_im.from_NEXAFS(energies=data_e, NEXAFS=data_y, name=window_data.load_filename)
+                            case _:
+                                raise ValueError("Invalid datatype selected.")
+                        self.add_kk_obj(obj)
         return
     
     def duplicate(self):
@@ -231,12 +267,10 @@ class kk_object_list(QtWidgets.QWidget):
     
     def delete(self):
         selected = self.selected_object
-        print("Objects:", self._objs.keys())
         if selected is None:
             return
         # Delete the row and the object from the mapping
         row = self.table.selectedItems()[0].row()
-        print("Deleting ", row, str(selected))
         self._objs.pop(row)
         was_visible:bool = False
         if row in self._visible_rows:
@@ -270,6 +304,3 @@ class kk_object_list(QtWidgets.QWidget):
         # Signal a change
         if was_visible:
             self.viewSelectionChanged.emit()
-            
-        print("Objects post delete:", self._objs.keys())
-        print("Visible post delete:", self._visible_rows)

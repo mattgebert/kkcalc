@@ -489,13 +489,14 @@ class asp(asp_abstract, atomic_scattering):
         coefs = np.r_[self.coefs, new_coefs][sort_indices]
         
         # Check if class is asp_db, in which case the constructor cannot take energies.
-        from kkcalc.models import asp_db_im, asp_db_extended
-        if cls in [asp_db_im, asp_db_extended]:
+        from kkcalc.models import asp_db_abstract, asp_db_extended
+        if issubclass(cls, (asp_db_abstract, asp_db_extended)):
             obj = self.copy()
             obj.energies = new_energies
             obj.coefs = coefs
             return obj
         else:
+            print(cls)
             return cls(energies=new_energies, coefs=coefs, orders=self.orders, **kwargs)
     
     @property
@@ -782,8 +783,6 @@ class asp_im(asp):
         kkcalc.models.polynomials.asp_im.kk_transform : KK transform method.
         """
         from kkcalc.models.polynomials import asp_complex
-        common_kwargs = self._properties_dict
-        common_kwargs.update(kwargs)
         re = self.kk_transform(target_energies=target_energies,
                                improve_accuracy=improve_accuracy,
                                stoichiometry=stoichiometry,
@@ -791,6 +790,9 @@ class asp_im(asp):
                                tolerance=tolerance,
                                max_iter=max_iter)
         im = self.extend_energies(re.energies)
+        # Create complex object
+        common_kwargs = self._properties_dict
+        common_kwargs.update(kwargs)
         return asp_complex(re=re.to_ASP(),
                            im=im,
                            **common_kwargs)
@@ -1221,25 +1223,33 @@ class asp_complex(asp_abstract, atomic_scattering):
         """
         return self._im 
     
-    def to_atomic_scattering_factors(self) -> "asf_complex":
+    def to_atomic_scattering_factors(self, **kwargs) -> "asf_complex":
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
+        
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `asf_complex` or `atomic_scattering` classes.
         
         Returns
         -------
         asf
             An atomic scattering factor object with the same polynomial coefficients as the piecewise polynomial.
         """
+        common_kwargs = self._properties_dict
+        common_kwargs.update(kwargs)
         from kkcalc.models.factors import asf_complex
         return asf_complex(re=self.re.to_atomic_scattering_factors(),
-                           im=self.im.to_atomic_scattering_factors())
+                           im=self.im.to_atomic_scattering_factors(),
+                           **common_kwargs)
     
     @doc_copy(to_atomic_scattering_factors)
-    def to_asf(self) -> "asf_complex":
+    def to_asf(self, **kwargs) -> "asf_complex":
         """
         Alias for `to_atomic_scattering_factors`.
         """
-        return self.to_atomic_scattering_factors()
+        return self.to_atomic_scattering_factors(**kwargs)
     
     def contrast(self, other: "asp_complex") -> tuple[npt.NDArray, npt.NDArray]:
         r"""

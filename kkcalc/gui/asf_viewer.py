@@ -404,13 +404,13 @@ class asf_viewer(QtWidgets.QWidget):
                 yl1 = r"$f_1$" # f1
                 yl2 = r"$f_2$" # f2
             case KK_Datatype.BETA:
-                title = r"Refractive Index Components ($n = 1 - \delta - i * \beta $)"
-                yl1 = r"$\delta$" # Delta
-                yl2 = r"$\beta$" # Beta
+                title = r"Refractive Index ($n = 1 - \delta - i * \beta $)"
+                yl1 = r"$\delta$ (Dispersion)" # Delta
+                yl2 = r"$\beta$ (Absorption)" # Beta
             case KK_Datatype.NEXAFS | KK_Datatype.XANES | KK_Datatype.PHOTOABSORPTION:
                 title = "Absorption intensities (A.U.)"
-                yl1 = "Re Intensity (A.U.)"
-                yl2 = "Im Intensity (A.U.)"
+                yl1 = "Real (A.U.)"
+                yl2 = "Imaginary (A.U.)"
             case KK_Datatype.ASF_DASH:
                 title = "Atomic Scattering Factors ($f = f^0 + f' + i*f{''}$)"
                 yl1 = r"$f'$" # f'
@@ -646,7 +646,6 @@ class asf_viewer(QtWidgets.QWidget):
         
         index = pd.MultiIndex.from_tuples(list(zip(samples, columns)), names=["Sample", "Data"])
         df = pd.DataFrame(values, index=index).transpose()
-        print(df.head())
         df.to_clipboard()
         return df
 
