@@ -1,0 +1,18 @@
+repos:
+# Pre-commit hooks for basic Python processing
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+# Black - for standard code formatting
+-   repo: https://github.com/psf/black
+    rev: 22.10.0
+    hooks:
+    -   id: black    
+# NumPyDoc - for docstring validation
+- repo: https://github.com/numpy/numpydoc
+  rev: v1.9.0
+  hooks:
+    - id: numpydoc-validation

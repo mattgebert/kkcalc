@@ -401,8 +401,8 @@ class asf_viewer(QtWidgets.QWidget):
         match y_datatype:
             case KK_Datatype.ASF:
                 title = "Atomic Scattering Factors (f = f1 + i*f2)"
-                yl1 = r"$f_1$" # f1
-                yl2 = r"$f_2$" # f2
+                yl1 = r"$f_1$ (electrons)" # f1
+                yl2 = r"$f_2$ (electrons)" # f2
             case KK_Datatype.BETA:
                 title = r"Refractive Index ($n = 1 - \delta - i * \beta $)"
                 yl1 = r"$\delta$ (Dispersion)" # Delta
@@ -413,8 +413,8 @@ class asf_viewer(QtWidgets.QWidget):
                 yl2 = "Imaginary (A.U.)"
             case KK_Datatype.ASF_DASH:
                 title = "Atomic Scattering Factors ($f = f^0 + f' + i*f{''}$)"
-                yl1 = r"$f'$" # f'
-                yl2 = r"$f{''}$" # f''
+                yl1 = r"$f'$ (electrons)" # f'
+                yl2 = r"$f{''}$ (electrons)" # f''
             case _:
                 raise ValueError("Invalid y datatype")    
         self.figure.suptitle(title)

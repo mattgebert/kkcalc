@@ -489,7 +489,7 @@ def improve_accuracy_inv(energies: npt.ArrayLike,
                         tolerance: float = DEF_TOL,
                         max_iter: int = DEF_ITER,
                         orders: npt.ArrayLike | None = None
-                        ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+                        ) -> tuple[npt.NDArray, npt.NDArray]:
     r"""
     Calculates extra data points so that the Kramers-Kronig transform is more accurate.
     
@@ -523,8 +523,6 @@ def improve_accuracy_inv(energies: npt.ArrayLike,
         The photon energies of length N.
     imag : npt.NDArray
         The imaginary part of the scattering factors, of length N.
-    real_coefs : npt.NDArray  
-        Real coefficients representing the scattering factors, of length N-1 for each energy segment.
         
     Notes
     -----

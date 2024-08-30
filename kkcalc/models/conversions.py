@@ -88,7 +88,7 @@ class conversions:
             raise ValueError("No material density information provided to convert Beta to ASF.")
         
         prefactor = (
-            1e6 # Convert from m^3 to cm^3
+            1e-6 # Convert from m^3 to cm^3
             *2*pi*energies**2
             /(number_density*E_RADIUS*(h/e*c)**2)
         )

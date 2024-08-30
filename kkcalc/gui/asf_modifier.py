@@ -161,12 +161,12 @@ class kk_object_modifier(QtWidgets.QWidget):
         
         ## Connect signals 
         # For updates
-        self.stoichiometry_edit.editingFinished.connect(self.validate_stoichiometry_change)
+        self.stoichiometry_edit.editingFinished.connect(self.on_stoichiomentry_change)
         self.stoichiometry_edit.textEdited.connect(lambda: self.stoichiometry_edit.setStyleSheet(""))
-        self.name_edit.textEdited.connect(self.update_object)
-        self.number_density_edit.textEdited.connect(self.update_object)
-        self.density_edit.textEdited.connect(self.update_object)
-        self.formula_mass_edit.textEdited.connect(self.update_object)
+        self.name_edit.editingFinished.connect(self.update_object)
+        self.number_density_edit.editingFinished.connect(self.update_object)
+        self.density_edit.editingFinished.connect(self.update_object)
+        self.formula_mass_edit.editingFinished.connect(self.update_object)
         # For transformations
         self.kk_transform_btn.clicked.connect(self.transform)
         self.kk_transform_to_complex_btn.clicked.connect(self.to_complex)
@@ -295,7 +295,9 @@ class kk_object_modifier(QtWidgets.QWidget):
         # Signal if a change has been made.
         if update:
             self.objectModified.emit()
-    
+            # Reset the view for any internal changes
+            self.set_object(obj)
+            
     def clear(self):
         """
         Removes all text and disables all buttons.
@@ -328,7 +330,14 @@ class kk_object_modifier(QtWidgets.QWidget):
             return False
         return True
         
-    def validate_stoichiometry_change(self):
+    def on_stoichiomentry_change(self) -> None:
+        """
+        Runs the UI validation and the object update on stoichiometry change.
+        """
+        self.validate_stoichiometry_UI()
+        self.update_object()
+        
+    def validate_stoichiometry_UI(self):
         """
         Validates the stoichiometry change.
         
@@ -346,7 +355,6 @@ class kk_object_modifier(QtWidgets.QWidget):
             stoich = stoichiometry(stoich)
             self.stoichiometry_edit.setStyleSheet("background-color: green")
             self.relativistic_edit.setText(str(stoich.relativistic_correction))
-            self.update_object()
             if self._object is not None and not self._object.is_extended:
                 self.extend_data_btn.setEnabled(True)
                 self.scale_to_db_btn.setEnabled(True)
@@ -355,7 +363,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         
     def run_validations(self) -> None:
         """Runs all validations on the object."""
-        self.validate_stoichiometry_change()
+        self.validate_stoichiometry_UI()
         return
     
     def update_class_dependent_UI(self):
@@ -388,6 +396,7 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.stoichiometry_edit.setDisabled(True)
             self.formula_mass_edit.setDisabled(True)
             self.merge_handle_checkbox.setDisabled(True)
+            self.scale_to_db_btn.setDisabled(True)
         else:
             self.is_extended_edit.setChecked(False)
             self.merge_dom_lb_edit.setDisabled(False)
@@ -399,6 +408,7 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.stoichiometry_edit.setDisabled(False)
             self.formula_mass_edit.setDisabled(False)
             self.merge_handle_checkbox.setDisabled(False)
+            self.scale_to_db_btn.setDisabled(False)
             
     def transform(self):
         """
@@ -464,9 +474,9 @@ class kk_object_modifier(QtWidgets.QWidget):
             return
         
         # Scale the object.
-        if isinstance(obj, (asf_im, asf_re)):
-            copy: type[asf_im | asf_re] = obj.copy()
-            copy.scale_to_database(stoich, name=obj.name + "_scaled")
+        if isinstance(obj, (asf_im, asf_re)) and obj.stoichiometry is not None:
+            copy: type[asf_im | asf_re] = obj.copy(name=obj.name + "_scaled")
+            copy.scale_to_database()
             return copy
     
     def scale(self) -> None:

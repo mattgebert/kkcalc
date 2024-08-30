@@ -34,20 +34,26 @@ KK_DATATYPE_DOCS: dict[str, str] = {
         n(E) = 1 - \delta(E) - i\beta(E)   
     """,
     "ASF":r"""
-    Atomic scattering factors, real `f1` & imaginary `f2` components.
-    Calculated for a set of :math:`q` elements, with number density :math:`N_q`, 
+    Atomic scattering factors, real :math:`f_1` & imaginary :math:`f_2` components.
+    Both scattering strengths are relative to the Thompson scattering of a free electron.
+    Calculated for a set of :math:`m` elements, with number density :math:`N_m`, 
     wavelength :math:`\lambda`, photon energy :math:`E` and classical electron radius :math:`r_0`.
     
     .. math::
-        n(E) = 1 - \frac{r_0}{2\pi}\lambda^2\sum_q \left(f_{1q}(E) + i f_{2q}(E)\right)
+        n(E) = 1 - \frac{r_0}{2\pi}\lambda^2\sum_m \left(f_{1m}(E) + i f_{2m}(E)\right)
     
     See Also: 
-    kkcalc.stoich.relativistic_correction_eq : The sum of relativistic corrections for a elemental composition.
-    
+    kkcalc.stoich.relativistic_correction_eq : The sum of relativistic corrections for a elemental composition.    
     """,
+    
     "ASF_DASH":r"""
     Atomic scattering factors, real :math:`f^{0}`, :math:`f^{'}` and imaginary :math:`f^{''}` components.
-    Here the relativistic correction is :math:`f^{0}`.
+    Here the relativistic correction is :math:`f^{0}`, and :math:`f^{'}` is the energy dependent real part.
+    Both scattering strengths are relative to the Thompson scattering of a free electron.
+    
+    See Also
+    --------
+    kkcalc.stoich.relativistic_correction_eq : The relativistic correction for a elemental composition.
     """,
 }
 
@@ -73,21 +79,22 @@ class KK_Datatype(Enum):
     """
     ASF = 3 # Atomic scattering factors as per the original KK Calc; f1 & f2, 
     r"""
-    Atomic scattering factors, real `f1` & imaginary `f2` components.
-    Calculated for a set of :math:`q` elements, with number density :math:`N_q`, 
+    Atomic scattering factors, real :math:`f_1` & imaginary :math:`f_2` components.
+    Both scattering strengths are relative to the Thompson scattering of a free electron.
+    Calculated for a set of :math:`m` elements, with number density :math:`N_m`, 
     wavelength :math:`\lambda`, photon energy :math:`E` and classical electron radius :math:`r_0`.
     
     .. math::
-        n(E) = 1 - \frac{r_0}{2\pi}\lambda^2\sum_q \left(f_{1q}(E) + i f_{2q}(E)\right)
+        n(E) = 1 - \frac{r_0}{2\pi}\lambda^2\sum_m \left(f_{1m}(E) + i f_{2m}(E)\right)
     
     See Also: 
     kkcalc.stoich.relativistic_correction_eq : The sum of relativistic corrections for a elemental composition.
-    
     """
     ASF_DASH = 4 # Atomic scattering factors f0, f' & f'',
     r"""
     Atomic scattering factors, real :math:`f^{0}`, :math:`f^{'}` and imaginary :math:`f^{''}` components.
-    Here the relativistic correction is :math:`f^{0}`, which is determined by the material stoichiometry.
+    Here the relativistic correction is :math:`f^{0}`, and :math:`f^{'}` is the energy dependent real part.
+    Both scattering strengths are relative to the Thompson scattering of a free electron.
     
     See Also
     --------
@@ -616,12 +623,17 @@ class asf(asf_abstract, atomic_scattering):
             return None
         return self._origin_data.copy()
     
-    def scale_to_database(self) -> None:
+    def scale_to_database(self, **kwargs) -> None:
         """
         If the object contains a stoichiometry and has an identifiable complexity (imag, real),
         this method scales the atomic scattering factors to the database scale.
         
         Origin data is preserved.
+        
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `atomic_scattering` constructor.
         
         Raises
         ------
@@ -1392,6 +1404,22 @@ class asf_complex(asf_abstract, atomic_scattering):
         contrast : np.ndarray
             The contrast between two atomic scattering polynomials.
         """
+        if self.can_calc_beta and other.can_calc_beta:
+            if (self.energies.shape == other.energies.shape) and np.all(self.energies == other.energies):
+                re_diff = self.re.betas - other.re.betas
+                im_diff = self.im.betas - other.im.betas
+                return self.energies, np.abs(re_diff)**2 + np.abs(im_diff)**2
+            else:
+                warnings.warn("Energy domains do not match. Only common energies are considered.")
+                energy_subset = np.intersect1d(self.energies, other.energies)
+                self_ind = np.searchsorted(self.energies, energy_subset)
+                other_ind = np.searchsorted(other.energies, energy_subset)
+                re_diff = self.re.betas[self_ind] - other.re.betas[other_ind]
+                im_diff = self.im.betas[self_ind] - other.im.betas[other_ind]
+                return energy_subset, np.abs(re_diff)**2 + np.abs(im_diff)**2
+        else:
+            raise ValueError("Both objects must have beta values to calculate contrast.")
+        
 
     @classmethod
     def from_NEXAFS(cls: Self,

@@ -975,8 +975,6 @@ class asp_re(asp):
             energies = self.energies,
             real_coefs = self.coefs,
             relativistic_correction = relativistic_correction,
-            tolerance = tolerance,
-            max_iter = max_iter
         )
         
         # Collate "improved" data
@@ -986,11 +984,13 @@ class asp_re(asp):
         
         # Perform accuracy improvement if requested
         if improve_accuracy:
-            imp_energies, imp_imag_factors, imp_real_coefs = kk_transforms.improve_accuracy_inv(
+            imp_energies, imp_imag_factors = kk_transforms.improve_accuracy_inv(
                 energies = imp_energies,
                 real_coefs = imp_real_coefs,
                 imag_asf = imp_imag_factors,
-                relativistic_correction=relativistic_correction
+                relativistic_correction=relativistic_correction,
+                tolerance=tolerance,
+                max_iter=max_iter
             )
             
         # Import asf_im and create object
