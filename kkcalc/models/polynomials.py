@@ -30,7 +30,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     
     @property
     @abc.abstractmethod
-    def coefs(self) -> npt.NDArray:
+    def coefs(self) -> npt.NDArray | None:
         """
         Abstract property for the polynomial coefficients defining scattering factors between energy intervals.
 
@@ -54,7 +54,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The energy values defining the intervals for the polynomial coefficients.
             Has length `N+1`, where `N` is the number of segments.
         """
-        return
+        return np.array([])
     
     @property
     @abc.abstractmethod
@@ -110,7 +110,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         return self.atomic_scattering_factors
     
     @abc.abstractmethod
-    def to_atomic_scattering_factors(self) -> type["asf_abstract"]:
+    def to_atomic_scattering_factors(self, **kwargs) -> type["asf_abstract"]:
         """
         Converts the piecewise polynomial representation to an atomic scattering factor object.
         
@@ -454,7 +454,7 @@ class asp(asp_abstract, atomic_scattering):
             warnings.warn("Energies have changed length. Coefficients set to `None`.")
             self._coefs = None
     
-    def extend_energies(self, new_energies: npt.NDArray) -> type["asp"]:
+    def extend_energies(self, new_energies: npt.NDArray) -> Self:
         """
         Uses existing interval to generate a new `asp` object with the same polynomial coefficients,
         but defined on the new `energies`.
@@ -496,7 +496,6 @@ class asp(asp_abstract, atomic_scattering):
             obj.coefs = coefs
             return obj
         else:
-            print(cls)
             return cls(energies=new_energies, coefs=coefs, orders=self.orders, **kwargs)
     
     @property
@@ -1268,61 +1267,83 @@ class asp_complex(asp_abstract, atomic_scattering):
         contrast : np.ndarray
             The contrast between two atomic scattering polynomials.
         """
-        energies_self, energies_other = self.energies, other.energies
-        orders_self, orders_other = self.orders, other.orders
-        same_order = (orders_self is not None
-                      and orders_other is not None
-                      and np.all(orders_self == orders_other)) or (orders_self is None and orders_other is None)
-        
-        if energies_self == energies_other:
-            # All energies are the same, no need to check. Perform a direct calculation.
-            energies = energies_self
-            contrast = np.abs(self.coefs - other.coefs)**2
-        else:
-            # Full energies
-            energies = np.sort(np.r_[energies_self, energies_other]) 
-            # Get the lowebound and upperbound
-            lower_bound = energies_self[0] if energies_self[0] < energies_other[0] else energies_other[0]
-            upper_bound = energies_self[-1] if energies_self[-1] > energies_other[-1] else energies_other[-1]
-            # Find bounds of the common energies
-            lb_idx = np.argmax(energies == lower_bound)
-            ub_idx = np.argmax(energies == upper_bound)
-            ub_idx = ub_idx + 1 if ub_idx < len(energies) - 1 else ub_idx # Include the upper bound
-            # Find the indicies of the starting energies
-            self_idx = np.argmax(energies_self > lower_bound) # larger than starting energy
-            other_idx = np.argmax(energies_other > lower_bound)
-            self_idx = self_idx - 1 if self_idx > 0 else self_idx #at or below starting energy
-            other_idx = other_idx - 1 if other_idx > 0 else other_idx
-            # Iterate over the common energies, and calculate the contrast
-            contrast = np.zeros(ub_idx - lb_idx + 1)
-            for i in range(ub_idx - lb_idx):
-                idx = lb_idx + i
-                # Get values
-                energy = energies[idx]
-                self_coefs = self.coefs[self_idx]
-                other_coefs = other.coefs[other_idx]
-                # Calculate the contrast
-                if same_order:
-                    contrast[idx] = conversions.ASP_to_ASF(energy, np.abs(self_coefs - other_coefs)**2)
-                else:
-                    # Convert to atomic scattering factors
-                    self_val = conversions.ASP_to_ASF(energy, self_coefs, orders_self)
-                    other_val = conversions.ASP_to_ASF(energy, other_coefs, orders_other)
-                    contrast[idx] = np.abs(self_val - other_val)**2
-                # Update the indices
-                if energy == energies_self[self_idx]:
-                    self_idx += 1
-                if energy == energies_other[other_idx]:
-                    other_idx += 1
+        if self.can_calc_beta and other.can_calc_beta:
+            energies_self, energies_other = self.energies, other.energies
             
-            # Update energies list
-            energies = energies[lb_idx:ub_idx]
-        
-        # Convert from atomic scattering polynomials to delta/beta polynomial
-        
-        return energies, contrast
+            if energies_self.shape == energies_other.shape and np.all(energies_self == energies_other):
+                # All energies are the same, no need to check. Perform a direct calculation.
+                energies = energies_self
+                betas_self = conversions.ASF_to_betas(
+                    energies=energies,
+                    factors=conversions.ASP_to_ASF(energies, self.coefs), 
+                    number_density=self.number_density,
+                )
+                betas_other = conversions.ASF_to_betas(
+                    energies=energies, 
+                    factors=conversions.ASP_to_ASF(energies, other.coefs),
+                    number_density=other.number_density
+                )
+                contrast_real = (betas_self.real - betas_other.real)**2
+                contrast_imag = (betas_self.imag - betas_other.imag)**2
+                contrast = contrast_real + contrast_imag 
+                common_energies = energies
+            else:
+                # Full energies
+                energies = np.sort(np.unique(np.r_[energies_self, energies_other]))
+                # Get the common lowebound and upperbound
+                lower_bound = energies_other[0] if energies_self[0] < energies_other[0] else energies_self[0]
+                upper_bound = energies_other[-1] if energies_self[-1] > energies_other[-1] else energies_self[-1]
+                # Find bounds of the common energies
+                lb_idx = np.argmax(energies == lower_bound)
+                ub_idx = np.argmax(energies == upper_bound)
+                ub_idx = ub_idx + 1 if ub_idx < len(energies) - 1 else ub_idx # Include the upper bound
+                
+                # Get the common energies
+                common_energies = energies[lb_idx:ub_idx]
+                
+                # Find the indicies of the starting energies
+                self_idx = np.argmax(energies_self > lower_bound) # larger than starting energy
+                other_idx = np.argmax(energies_other > lower_bound)
+                self_idx = self_idx - 1 if self_idx > 0 else self_idx #at or below starting energy
+                other_idx = other_idx - 1 if other_idx > 0 else other_idx
+                # Iterate over the common energies, and calculate the contrast
+                contrast = np.zeros(ub_idx - lb_idx)
+                for i in range(ub_idx - lb_idx):
+                    # Get values
+                    energy = common_energies[i]
+                    # Collect the beta values
+                    betas_self = conversions.ASF_to_betas(
+                        energies=energy,
+                        factors=conversions.ASP_to_ASF(energy, self.coefs[self_idx], orders=self.orders),
+                        number_density=self.number_density,
+                        density=self.density,
+                        formula_mass=self.formula_mass,
+                        stoichiometry=self.stoichiometry
+                    )
+                    betas_other = conversions.ASF_to_betas(
+                        energies=energy, 
+                        factors=conversions.ASP_to_ASF(energy, other.coefs[other_idx], orders=other.orders),
+                        number_density=other.number_density,
+                        density=other.density,
+                        formula_mass=other.formula_mass,
+                        stoichiometry=other.stoichiometry
+                    )
+                    # Calculate the contrast
+                    contrast_real = (betas_self.real - betas_other.real)**2
+                    contrast_imag = (betas_self.imag - betas_other.imag)**2
+                    contrast[i] = contrast_real + contrast_imag
+                    
+                    # Update the indices, if next energy is reached
+                    if energy >= energies_self[self_idx + 1]:
+                        self_idx += 1
+                    if energy >= energies_other[other_idx + 1]:
+                        other_idx += 1
+            return common_energies, contrast
+        else:
+            raise ValueError("Both objects must have beta values to calculate contrast.")
     
-    def copy(self, **kwargs) -> type["asp_complex"]:
+    
+    def copy(self, **kwargs) -> Self:
         """
         Generates a copy of the `asp_complex` object.
 
@@ -1348,3 +1369,20 @@ class asp_complex(asp_abstract, atomic_scattering):
         return self.__class__(re=self.re.copy(),
                               im=self.im.copy(),
                               **common_kwargs)
+        
+    def extend_energies(self, energies: npt.NDArray, **kwargs) -> Self:
+        """
+        Extends the atomic scattering polynomial to new energy values.
+        
+        Parameters
+        ----------
+        energies : npt.NDArray
+            The new energy values to extend the atomic scattering polynomial.
+        **kwargs
+            Additional keyword arguments for the `asp_complex` or `atomic_scattering` classes.
+        """
+        im_extend = self.im.extend_energies(energies)
+        re_extend = self.re.extend_energies(energies)
+        common_kwargs = self._properties_dict
+        common_kwargs.update(kwargs)
+        return self.__class__(re=re_extend, im=im_extend, **common_kwargs)

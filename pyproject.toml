@@ -1,4 +1,10 @@
+# What system to build the project with? I.e. Setuptools, Wheel, Poetry, etc.
 [build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = ""
 
 
 

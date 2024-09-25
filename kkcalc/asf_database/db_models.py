@@ -7,8 +7,8 @@ from typing import Self, override
 import abc
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
 # Import from submodules of models, as models.py will also call these classes.
-from kkcalc.models.polynomials import asp, asp_im, asp_re
-from kkcalc.models.factors import asf
+from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex
+from kkcalc.models.factors import asf, asf_complex
 from kkcalc.models.conversions import conversions
 
 # Load the real/imag scattering factors as they vary with energy
@@ -283,6 +283,50 @@ class asp_db_im(asp_db_abstract, asp_im):
         kwargs["stoichiometry"] = stoichiometry # Also store the stoichiometry
         kwargs["is_extended"] = True # We have extended the data
         asp_im.__init__(self, energies=energies, coefs=im_coefs, **kwargs)
+
+class asp_db_complex(asp_db_abstract, asp_complex):
+    """
+    Uses stochiometry to calculate a complex-component piecewise polynomial representation from Henke, Briggs and Lighthill data.
+    
+    Summation of scattering factor data given the chemical stoichiometry.
+    
+    Parameters
+    ----------
+    stoich : stoichiometry | str
+        The stoichiometry of the compound, i.e. the elemental composition.
+    **kwargs
+        Additional keyword arguments to pass to `asp_complex` and `atomic_scattering` parent classes.
+    
+    Attributes
+    -------
+    energies : numpy.ndarray
+        An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
+    coefs : numpy.ndarray
+        An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the shape of the imaginary spectrum in that segment.
+        
+    See Also
+    --------
+    asf_database : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
+    kkcalc.models.polynomials.asp_complex : The atomic scattering polynomial object for the complex component of the scattering factor.
+    kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
+    """
+    def __init__(self, stoichiometry: kk_stoichiometry | str, **kwargs):
+        # Run init
+        asp_db_abstract.__init__(self, stoichiometry)
+        
+        # Get composition
+        if isinstance(stoichiometry, str):
+            stoichiometry = kk_stoichiometry(stoichiometry)
+        
+        # Use asp_re and asp_im to generate the complex component
+        re_db = asp_db_re(stoichiometry)
+        im_db = asp_db_im(stoichiometry)
+        
+        # Setup properties
+        kwargs["stoichiometry"] = stoichiometry # Also store the stoichiometry
+        kwargs["is_extended"] = True # We have extended the data
+        asp_complex.__init__(self, re=re_db, im=im_db, **kwargs)
+    
 
 class asp_db_extended(asp):
     """
@@ -654,6 +698,34 @@ class asp_db_re_extended(asp_db_extended, asp_re):
                          fix_distortions,
                          **kwargs)
 
+class asp_db_complex_extended(asp_db_extended, asp_complex):
+    """
+    The extended complex-component atomic scattering polynomial object.
+    
+    Forms a complex part extension of atomic scattering factor data, using the database data.
+    """
+    def __init__(self,
+                 data_asf: asf_complex, 
+                 database: asp_db_complex | kk_stoichiometry | str, 
+                 merge_domain: tuple[float, float] | None = None, 
+                 fix_distortions: bool = False, **kwargs) -> None:
+        
+        # Convert the database to an asp_db_complex object
+        if isinstance(database, str):
+            stoichiometry = kk_stoichiometry(database)
+            complex_db = asp_db_complex(stoichiometry)
+        elif isinstance(database, kk_stoichiometry):
+            complex_db = asp_db_complex(database)
+        elif isinstance(database, asp_db_complex):
+            complex_db = database
+        else:
+            raise ValueError("Database must be a stoichiometry, string, or asp_db_im object")
+        
+        super().__init__(data_asf,
+                         complex_db,
+                         merge_domain,
+                         fix_distortions,
+                         **kwargs)
 
 if __name__ == "__main__":
     ## Test various formulas

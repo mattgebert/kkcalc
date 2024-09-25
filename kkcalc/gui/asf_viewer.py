@@ -149,7 +149,7 @@ class asf_viewer(QtWidgets.QWidget):
         return self._scattering_objects    
     
     @scattering_objects.setter
-    def scattering_objects(self, objs: list[type[asp_abstract] | type[asf_abstract]]):
+    def scattering_objects(self, objs: list[asp_abstract | asf_abstract | type[asf_abstract] | type[asp_abstract]]):
         """
         The current scattering objects
 

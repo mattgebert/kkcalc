@@ -3,9 +3,10 @@ Object loader and lister for objects that implement asf_abstract and asp_abstrac
 Allows the loading of raw data and duplication objects.
 """
 from PyQt6 import QtWidgets, QtCore
-from kkcalc.models import asf_abstract, asp_abstract, asf, asp, asf_re, asf_im, asp_re, asp_im
+from kkcalc.models import asf_abstract, asp_abstract, asf, asp, asf_re, asf_im, asp_re, asp_im, asf_complex, asp_complex
 from kkcalc.gui.dialogs import factor_complexity_dialog, import_data_dialog, factor_dtype_dialog
 from kkcalc.models import KK_Datatype
+from kkcalc.gui.contrast_viewer import contrast_viewer
 import warnings
 
 class kk_object_list(QtWidgets.QWidget):
@@ -51,7 +52,11 @@ class kk_object_list(QtWidgets.QWidget):
         # Create duplicate and delete buttons
         hlayout = QtWidgets.QHBoxLayout()
         self.duplicate_btn = QtWidgets.QPushButton("Duplicate")
+        self.duplicate_btn.setToolTip("Duplicate the selected object.")
         self.delete_btn = QtWidgets.QPushButton("Delete")
+        self.delete_btn.setToolTip("Delete the selected object.")
+        self.contrast_btn = QtWidgets.QPushButton("Calc. Contrast")
+        self.contrast_btn.setToolTip("Calculate the contrast between the two selected objects.\nSquare of differences between dispersive and absorptive components.")
         
         # Assign elements to the layout
         self._layout.addWidget(self.import_data_btn)
@@ -59,6 +64,7 @@ class kk_object_list(QtWidgets.QWidget):
         self._layout.addLayout(hlayout)
         hlayout.addWidget(self.duplicate_btn)
         hlayout.addWidget(self.delete_btn)
+        hlayout.addWidget(self.contrast_btn)
                 
         # Setup the object sets
         self._visible_rows : set[QtWidgets.QTableWidgetItem] = set() #initialize the set
@@ -73,14 +79,15 @@ class kk_object_list(QtWidgets.QWidget):
         # Setup widget properties
         self.duplicate_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
-        
+        self.contrast_btn.setEnabled(False)
             
         # Setup connections
         self.table.itemClicked.connect(self.itemViewClicked)
         self.import_data_btn.clicked.connect(self.import_data)
-        self.table.itemSelectionChanged.connect(self.on_row_select)
+        self.table.itemSelectionChanged.connect(self.on_row_selection_change)
         self.duplicate_btn.clicked.connect(self.duplicate)
         self.delete_btn.clicked.connect(self.delete)
+        self.contrast_btn.clicked.connect(self.calc_contrast)
         
     def update_kk_obj(self, obj: type[asf_abstract | asp_abstract]) -> None:
         """
@@ -190,14 +197,23 @@ class kk_object_list(QtWidgets.QWidget):
             self.viewSelectionChanged.emit()
         return
     
-    def on_row_select(self):
+    def on_row_selection_change(self):
+        # Alert the selected object has changed.
         self.selectedObjectChanged.emit()
+        # Enable or disable the duplicate and delete buttons
         if self.selected_object is not None:
             self.duplicate_btn.setEnabled(True)
             self.delete_btn.setEnabled(True)
         else:
             self.duplicate_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
+        # Enable or disable the contrast button if two rows are selected.
+        selection = self.table.selectedItems()
+        rows = set([item.row() for item in selection])
+        if len(rows) == 2 and all([isinstance(self._objs[row], (asf_complex, asp_complex)) for row in rows]):
+            self.contrast_btn.setEnabled(True)
+        else:
+            self.contrast_btn.setEnabled(False)
     
     @property
     def checked_objects(self) -> list[type[asf_abstract | asp_abstract]]:
@@ -243,7 +259,8 @@ class kk_object_list(QtWidgets.QWidget):
                         self.add_kk_obj(obj)
         return
     
-    def duplicate(self):
+    def duplicate(self) -> None:
+        """Duplicates the currently selected object in the table."""
         selected = self.selected_object
         if selected is None:
             return
@@ -265,7 +282,8 @@ class kk_object_list(QtWidgets.QWidget):
         if self.table.selectedItems()[0].row() in self._visible_rows:
             self.viewSelectionChanged.emit()
     
-    def delete(self):
+    def delete(self) -> None:
+        """Deletes the currently selected object from the table."""
         selected = self.selected_object
         if selected is None:
             return
@@ -304,3 +322,16 @@ class kk_object_list(QtWidgets.QWidget):
         # Signal a change
         if was_visible:
             self.viewSelectionChanged.emit()
+            
+    def calc_contrast(self):
+        """Calculates the contrast between multiple selected objects if they are complex."""
+        selection = self.table.selectedItems()
+        rows = set([item.row() for item in selection])
+        # Collect the complex objects
+        objs = [self._objs[row] for row in rows
+                if isinstance(self._objs[row], (asf_complex, asp_complex))]
+        
+        # Create a contrast viewer
+        viewer = contrast_viewer(objs=objs)
+        viewer.show()
+        return

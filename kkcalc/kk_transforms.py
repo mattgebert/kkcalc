@@ -196,7 +196,7 @@ def KK_PP(
     Applies the Kramers-Kronig transform on imaginary polynomials (f2, or beta)
     to calculate real factors (f1, or alpha).
     
-    Converts from `f1` to `f2` with 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
+    Converts from `f2` to `f1` with 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
 
     .. math:: 
         f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
@@ -292,6 +292,8 @@ def KK_PP(
         + C2[3, :]*XE**-1
         + C2[4, :]*XE**-2
     )*np.log(np.abs((X2-XE)/(X1-XE)))
+    # print(val)
+    # print(Eval_sing)
     Symb_singularities[Eval_sing] = val
     # Finish things off
     KK_Re = (Symb_B-Symb_singularities) / (math.pi*target_energies) + relativistic_correction

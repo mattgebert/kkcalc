@@ -273,6 +273,8 @@ class kk_object_modifier(QtWidgets.QWidget):
             new_stoich = stoichiometry(stoich)
             if new_stoich != obj.stoichiometry:
                 obj.stoichiometry = new_stoich
+                # Update fm as well, to avoid overriding later
+                fm = new_stoich.formula_mass
                 update = True
             
         # Compare if the values are different and update

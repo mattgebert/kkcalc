@@ -31,10 +31,10 @@ class conversions:
     def betas_to_ASF(
         energies: npt.NDArray,
         betas: npt.NDArray,
-        number_density: float = None,
-        density: float = None,
-        formula_mass: float = None,
-        stoichiometry: kk_stoichiometry | str = None,
+        number_density: float | None = None,
+        density: float | None = None,
+        formula_mass: float | None = None,
+        stoichiometry: kk_stoichiometry | str | None = None,
         reverse : bool = False
     ) -> npt.NDArray:
         """
@@ -77,7 +77,7 @@ class conversions:
                 fm = formula_mass
             elif stoichiometry:
                 stoichiometry = kk_stoichiometry(stoichiometry) if isinstance(stoichiometry, str) else stoichiometry
-                if isinstance(stoichiometry, stoichiometry):
+                if isinstance(stoichiometry, kk_stoichiometry):
                     fm = stoichiometry.formula_mass
                 else:
                     raise ValueError("Invalid stoichiometry provided.")
@@ -106,10 +106,10 @@ class conversions:
     def ASF_to_betas(
         energies: npt.NDArray,
         factors: npt.NDArray,
-        number_density: float = None,
-        density: float = None,
-        formula_mass: float = None,
-        stoichiometry: kk_stoichiometry | str = None
+        number_density: float | None = None,
+        density: float | None = None,
+        formula_mass: float | None = None,
+        stoichiometry: kk_stoichiometry | str | None = None
     ) -> npt.NDArray:
         """
         Converts atomic scattering factors (ASF) to Beta values (index of refraction).
@@ -214,9 +214,9 @@ class conversions:
         energies: npt.NDArray,
         betas: npt.NDArray,
         number_density: float,
-        density: float = None,
-        formula_mass: float = None,
-        stoichiometry: kk_stoichiometry | str = None,
+        density: float | None = None,
+        formula_mass: float | None = None,
+        stoichiometry: kk_stoichiometry | str | None = None,
     ) -> npt.NDArray:
         """
         Converts Beta values (index of refraction) to NEXAFS photoabsorption data.
@@ -247,9 +247,9 @@ class conversions:
         energies: npt.NDArray,
         NEXAFS: npt.NDArray,
         number_density: float,
-        density: float = None,
-        formula_mass: float = None,
-        stoichiometry: kk_stoichiometry | str = None,
+        density: float | None = None,
+        formula_mass: float | None = None,
+        stoichiometry: kk_stoichiometry | str | None = None,
     ) -> npt.NDArray:
         """
         Converts NEXAFS photoabsorption data to Beta values (index of refraction).
@@ -349,7 +349,7 @@ class conversions:
             If `energies` has length `N+1`, the last ASF value will be calculated using the last ASP coefficient.
         """
         energies = np.asarray(energies, dtype=float)
-        coefs = np.asarray(coefs, dtype=float)
+        coefs = np.asarray(coefs)
         # Check dimensions:
         if energies.ndim == 0:
             # Boost to 1D

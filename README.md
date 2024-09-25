@@ -1,10 +1,30 @@
 # KKcalc
 ## Introduction
-KKcalc is an open-source program to calculate the (inverse) Kramers-Kronig transform of X-ray absorption (dispersion) data, using an algorithm developed by Watts^[[1](#1)], implemented in python.
+`kkcalc` is an open-source program to calculate the (inverse) Kramers-Kronig transform of X-ray absorption (dispersion) data,
+
+$$f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star$$
+
+ using a polynomial representation algorithm developed by Watts^[[1](#1)] implemented in `python`.
+
+Documentation with quick-start and examples is located at [url_link](), or can be [built](#docbuild) for offline.
 
 The program can be used via the object-oriented Python API, or through a PyQT6 GUI interface.
 
-Documentation can be found at [url_link]().
+![Screenshot of the KKcalc GUI interface](kk_calc.jpg)
+
+Cite us here [[1]](#1).
+
+## Features
+
+###### Extend and Scale
+Scale and extend your NEXAFS data by the Henke^[] and Briggs/Lighthill^[] atomic scattering factor databases, for more accurate transforms.
+###### Relativistic Correction
+Use your material composition to automatically calculate the relativistic correction, $f^0$.
+###### GUI Interface
+No programming? No problem! Download the executable version.
+
+###### Contrast Calculations
+Can calculate the relative contrast between materials in a mix.
 
 ## Installation
 
@@ -110,7 +130,50 @@ KKcalc implements a piecewise polynomial algorithm that performs direct integrat
 
 The calculation of the relativistic correction deserves some mention too, since I have seen a number of programs not calculating it correctly. Information on the types and number of atoms present are taken from the "Material" box and the equation :math:`Z - (\frac{Z}{82.5})^{2.37}` (as described by Henke et al. [HENKE1993]_) is applied to each atom separately and the individual corrections then summed. -->
 
+#### Usage
 
+###### GUI
+
+`KKCalc` has a modularised GUI interface that can be used without  
+
+###### Python
+
+`kkcalc` is an object-oriented, typed library. If you are keen to include `kkcalc` into your own `python` scripts, use a modern code editor that can intepret docstrings, such as VSCode or PyCharm to get hints as you code.
+
+#### Contributing & Developement
+Want to contribute? Great! Create an issue on Github to discuss.
+
+To install for development, clone the repository into your local file system using `Github Desktop` or `Git` via Windows Terminal / CMD.
+
+    git clone https://github.com/benajamin/kkcalc
+
+  or (even better) create your own fork/branch of `kkcalc` on `github` so you can save and contribute your own changes, and clone that to your local file system.
+
+    git clone https://github.com/<myusername>/kkcalc
+
+  Change directory to the repository, and install an editable version of the repository to your system or a virtual environment, so modifications will be reflected upon `kkcalc` import.
+
+    pip install . -e
+
+  `kkcalc` uses a combination of continuous integration (CI) tools to manage the code quality and documentation. Install these hooks by ....
+
+#### Documentation <a id=docbuild></a>
+To build the documentation, install the documentation dependencies:
+
+    pip install .[docs]
+    
+To build the documentation, run
+
+    cd docs
+    make html
+
+which should create a new set of static `HTML` files in the `/docs/_build` directory. 
+
+To update the documentation after edits, run:
+
+    sphinx-apidoc -o ./docs ./kkcalc
+
+in the source directory, then rebuild as above.
 
 ## References
 

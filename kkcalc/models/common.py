@@ -4,7 +4,9 @@ Classes for common attributes between atomic scattering factor and polynomial mo
 import abc
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
 from scipy.constants import N_A
-from typing import Literal, Self
+from typing import Literal, Self, TypeVar, Union
+
+PROPERTIES_DICT = dict[Literal['name', 'stoichiometry', 'density', 'number_density', 'formula_mass'], str | kk_stoichiometry | float | None]
 
 class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     """
@@ -106,7 +108,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         pass
     
     @property
-    def _properties_dict(self) -> dict[Literal['name', 'stoichiometry', 'density', 'number_density', 'formula_mass'], str | kk_stoichiometry | float | None]:
+    def _properties_dict(self) -> PROPERTIES_DICT:
         """
         Returns a dictionary of the material class properties.
         
@@ -125,7 +127,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         }
         
     @_properties_dict.setter
-    def _properties_dict(self, properties: dict[Literal['name', 'stoichiometry', 'density', 'number_density', 'formula_mass'], str | kk_stoichiometry | float | None]) -> None:
+    def _properties_dict(self, properties: PROPERTIES_DICT) -> None:
         """
         Uses keywords to update values for the material class properties.
         `None` values are ignored.
@@ -460,3 +462,18 @@ class atomic_scattering(atomic_scattering_abstract):
             stoichiometry=self.stoichiometry,
             formula_mass=self.formula_mass,
         )
+        
+    
+    @property
+    def can_calc_beta(self) -> bool:
+        """
+        Returns whether the object can calculate Delta/Beta values.
+        
+        Returns
+        -------
+        bool
+            Whether the object can calculate Delta/Beta values.
+        """
+        return (self.number_density is not None
+                #Formula mass property uses stoichiometry if not provided.
+                or (self.density is not None and self.formula_mass is not None)) 

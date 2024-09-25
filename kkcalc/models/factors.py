@@ -165,20 +165,6 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         if not isinstance(data, tuple) or len(data) != 2 or len(data[0]) != len(data[1]):
             raise ValueError("Data must be a tuple of two equal length arrays.")
         self.energies, self.factors = np.asarray(data[0]), np.asarray(data[1])
-    
-    @property
-    def can_calc_beta(self) -> bool:
-        """
-        Returns whether the object can calculate Beta values.
-        
-        Returns
-        -------
-        bool
-            Whether the object can calculate Beta values.
-        """
-        return (self.number_density is not None
-                #Formula mass property uses stoichiometry if not provided.
-                or (self.density is not None and self.formula_mass is not None)) 
                                                    
     @property
     def betas(self) -> np.ndarray:
@@ -328,11 +314,11 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     
     @classmethod
     @abc.abstractmethod
-    def from_NEXAFS(cls: Self,
+    def from_NEXAFS(cls: type["asf_abstract"],
                     energies: npt.NDArray, 
                     NEXAFS: npt.NDArray,
                     scale_to_database: bool = False,
-                    **kwargs) -> type[Self]:
+                    **kwargs) -> Self:
         """
         Converts NEXAFS photoabsorption data to atomic scattering factors (ASF).
         """
@@ -695,11 +681,11 @@ class asf(asf_abstract, atomic_scattering):
         return self.to_atomic_scattering_polynomial(**kwargs)
     
     @classmethod
-    def from_NEXAFS(cls: Self,
+    def from_NEXAFS(cls: type["asf"],
                     energies: npt.NDArray, 
                     NEXAFS: npt.NDArray,
                     scale_to_database: bool = False,
-                    **kwargs) -> type[Self]:
+                    **kwargs) -> Self:
         """
         Converts NEXAFS photoabsorption data to atomic scattering factors (ASF).
         
@@ -1082,8 +1068,8 @@ class asf_im(asf):
                      improve_accuracy: bool = True,
                      stoichiometry: kk_stoichiometry | None = None,
                      relativistic_correction: float | None = None,
-                     tolerance: float | None = DEF_TOL,
-                     max_iter: int | None = DEF_ITER,
+                     tolerance: float = DEF_TOL,
+                     max_iter: int = DEF_ITER,
                      ) -> "asf_re":
         """
         Kramers-Kronig transform for the imaginary part of the atomic scattering factors.
@@ -1123,8 +1109,8 @@ class asf_im(asf):
                                      improve_accuracy: bool = True,
                                      stoichiometry: kk_stoichiometry | None = None,
                                      relativistic_correction: float | None = None,
-                                     tolerance: float | None = DEF_TOL,
-                                     max_iter: int | None = DEF_ITER,
+                                     tolerance: float = DEF_TOL,
+                                     max_iter: int = DEF_ITER,
                                      **kwargs) -> "asp_complex":
         """
         Converts the imaginary part of the atomic scattering factors to real factors, and then uses both 
@@ -1158,7 +1144,7 @@ class asf_im(asf):
                                                    stoichiometry=stoichiometry,
                                                    relativistic_correction=relativistic_correction,
                                                    tolerance=tolerance,
-                                                   max_iter=max_iter
+                                                   max_iter=max_iter,
                                                    **kwargs)
         
     def calculate_complex_factors(self,
@@ -1166,8 +1152,8 @@ class asf_im(asf):
                                   improve_accuracy: bool = True,
                                   stoichiometry: kk_stoichiometry | None = None,
                                   relativistic_correction: float | None = None,
-                                  tolerance: float | None = DEF_TOL,
-                                  max_iter: int | None = DEF_ITER,
+                                  tolerance: float = DEF_TOL,
+                                  max_iter: int = DEF_ITER,
                                   **kwargs) -> "asf_complex":
         """
         Converts the real part of the atomic scattering factors to imaginary factors, and then uses both 
@@ -1410,8 +1396,8 @@ class asf_complex(asf_abstract, atomic_scattering):
                 im_diff = self.im.betas - other.im.betas
                 return self.energies, np.abs(re_diff)**2 + np.abs(im_diff)**2
             else:
-                warnings.warn("Energy domains do not match. Only common energies are considered.")
                 energy_subset = np.intersect1d(self.energies, other.energies)
+                warnings.warn(f"Energy domains do not match. Only common energies {len(energy_subset)} are considered.")
                 self_ind = np.searchsorted(self.energies, energy_subset)
                 other_ind = np.searchsorted(other.energies, energy_subset)
                 re_diff = self.re.betas[self_ind] - other.re.betas[other_ind]
@@ -1538,6 +1524,27 @@ class asf_complex(asf_abstract, atomic_scattering):
                                **kwargs)
         # Create complex class.
         return cls(re=re, im=im, **kwargs)
+
+    @classmethod
+    def from_asf(cls: type[Self],
+                 energies: npt.NDArray,
+                 asf: npt.NDArray[np.complex_],
+                 **kwargs
+                 ):
+        """
+        Converts complex atomic scattering factors to a complex object.
+
+        Parameters
+        ----------
+        energies : npt.NDArray
+            Photon energies in eV.
+        asf : npt.NDArray[np.complex_]
+            Complex atomic scattering factors.
+        """
+        re = asf_re.from_asf(energies, asf.real, **kwargs)
+        im = asf_im.from_asf(energies, asf.imag, **kwargs)
+        return cls(re=re, im=im, **kwargs)
+        
 
     def copy(self, **kwargs) -> type["asf_complex"]:
         """
