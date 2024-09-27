@@ -70,13 +70,13 @@ class contrast_viewer(asf_viewer):
                     if isinstance(obj, asp_complex) and isinstance(obj2, asp_complex):
                         # Get all energy values
                         energies = np.unique(obj.energies + obj2.energies)
-                        factors = obj.evaluate_energies(energies)
+                        factors = obj.eval_asf(energies)
                         obj = asf_complex.from_asf(energies, factors, **obj._properties_dict)
                         factors2 = obj2.evaluate_energies(energies)
                         obj2 = asf_complex.from_asf(energies, factors2, **obj2._properties_dict)
                     elif isinstance(obj, asp_complex):
                         energies = obj2.energies
-                        factors = obj.evaluate_energies(energies)
+                        factors = obj.eval_asf(energies)
                         obj = asf_complex.from_asf(energies, factors, **obj._properties_dict)
                     elif isinstance(obj2, asp_complex):
                         energies = obj.energies

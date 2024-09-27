@@ -8,7 +8,7 @@ import numpy.typing as npt
 import warnings
 from scipy.constants import N_A
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, overload
 
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
@@ -130,7 +130,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         pass
     
     @staticmethod
-    def evaluate_energies_on_coefs(
+    def eval_asf_on_coefs(
         target_energies: npt.NDArray,
         energies: npt.NDArray,
         coefs: npt.NDArray,
@@ -198,9 +198,17 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         )
         return factors
     
-    def evaluate_energies(self, 
-            target_energies:npt.NDArray | float | None = None
-            ) -> npt.NDArray:
+    @overload
+    def eval_asf(self, target_energies: npt.NDArray | None) -> npt.NDArray:
+        pass
+    
+    @overload
+    def eval_asf(self, target_energies: float | int) -> float:
+        pass
+    
+    def eval_asf(self, 
+            target_energies:npt.NDArray | float | int | None = None
+            ) -> npt.NDArray | float:
         r"""
         Calculate scattering factors from object polynomial coefficients at desired `energies`.
         
@@ -222,11 +230,11 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         # Type check
         if target_energies is None:
             # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
-            return self.evaluate_energies(self.energies)
+            return self.eval_asf(self.energies)
         
         if not isinstance(target_energies, (int, float)):
             target_energies = np.asarray(target_energies)
-            factors = self.evaluate_energies_on_coefs(
+            factors = self.eval_asf_on_coefs(
                 target_energies=target_energies,
                 energies=self.energies,
                 coefs=self.coefs,
@@ -235,7 +243,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         else:
             target_energies = np.array([target_energies])
             # Remove the singleton dimension from the output.
-            factors = self.evaluate_energies_on_coefs(
+            factors = self.eval_asf_on_coefs(
                 target_energies=target_energies,
                 energies=self.energies,
                 coefs=self.coefs,
@@ -243,12 +251,68 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             )[0]
         return factors
 
-    @doc_copy(evaluate_energies)
-    def __call__(self, target_energies:npt.NDArray | float | None = None) -> npt.NDArray:
+    @doc_copy(eval_asf)
+    def __call__(self, target_energies:npt.NDArray | float | None = None) -> npt.NDArray | float:
         """
         Callable alias for `evaluate_energies`.
         """
-        return self.evaluate_energies(target_energies)
+        return self.eval_asf(target_energies)
+    
+    @overload
+    def eval_betas(self, target_energies: npt.NDArray | None) -> npt.NDArray:
+        pass
+    
+    @overload
+    def eval_betas(self, target_energies: float | int) -> float:
+        pass
+    
+    def eval_betas(self, 
+            target_energies:npt.NDArray | float | int | None = None
+            ) -> npt.NDArray | float:
+        r"""
+        Calculate scattering factors from object polynomial coefficients at desired `energies`.
+        
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        energies : array_like | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+
+        """
+        if not self.can_calc_beta:
+            raise AttributeError(f"{self} cannot calculate delta/beta values.")
+        # Type check
+        if target_energies is None:
+            # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
+            return self.eval_asf(self.energies)
+        
+        if not isinstance(target_energies, (int, float)):
+            target_energies = np.asarray(target_energies)
+            factors = self.eval_asf_on_coefs(
+                target_energies=target_energies,
+                energies=self.energies,
+                coefs=self.coefs,
+                orders=self.orders
+            )
+        else:
+            target_energies = np.array([target_energies])
+            # Remove the singleton dimension from the output.
+            factors = self.eval_asf_on_coefs(
+                target_energies=target_energies,
+                energies=self.energies,
+                coefs=self.coefs,
+                orders=self.orders
+            )[0]
+        
+        return conversions.ASF_to_betas(factors)
     
     def __iter__(self) -> Iterator[tuple[tuple[float, float], np.ndarray]]:
         """
@@ -661,7 +725,7 @@ class asp_im(asp):
                         **common_kwargs)
         else:
             return asf_im(energies=energies,
-                        factors=self.evaluate_energies(energies),
+                        factors=self.eval_asf(energies),
                         **common_kwargs)
         
     @doc_copy(to_atomic_scattering_factors)
@@ -842,6 +906,60 @@ class asp_im(asp):
                            im=im_asf,
                            **common_kwargs)
 
+        
+    @overload
+    def eval_NEXAFS(self, target_energies: npt.NDArray | None) -> npt.NDArray:
+        pass
+    
+    @overload
+    def eval_NEXAFS(self, target_energies: float | int) -> float:
+        pass
+    
+    def eval_NEXAFS(self, 
+            target_energies:npt.NDArray | float | int | None = None
+            ) -> npt.NDArray | float:
+        r"""
+        Calculate scattering factors from object polynomial coefficients at desired `energies`.
+        
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        energies : array_like | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+
+        """
+        # Type check
+        if target_energies is None:
+            # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
+            return self.eval_asf(self.energies)
+        
+        if not isinstance(target_energies, (int, float)):
+            target_energies = np.asarray(target_energies)
+            factors = self.eval_asf_on_coefs(
+                target_energies=target_energies,
+                energies=self.energies,
+                coefs=self.coefs,
+                orders=self.orders
+            )
+        else:
+            target_energies = np.array([target_energies])
+            # Remove the singleton dimension from the output.
+            factors = self.eval_asf_on_coefs(
+                target_energies=target_energies,
+                energies=self.energies,
+                coefs=self.coefs,
+                orders=self.orders
+            )[0]
+        return conversions.ASF_to_NEXAFS(target_energies, factors)
+
 class asp_re(asp):
     """
     Identical to the `asp` class, but reserved for the real component.
@@ -906,7 +1024,7 @@ class asp_re(asp):
                     **common_kwargs)
         else:
             return asf_re(energies=energies,
-                          factors=self.evaluate_energies(energies),
+                          factors=self.eval_asf(energies),
                           **common_kwargs)
         
     @doc_copy(to_atomic_scattering_factors)
@@ -1249,6 +1367,22 @@ class asp_complex(asp_abstract, atomic_scattering):
         Alias for `to_atomic_scattering_factors`.
         """
         return self.to_atomic_scattering_factors(**kwargs)
+    
+    @overload
+    def eval_refractive_index(self, target_energies: npt.NDArray | None) -> npt.NDArray:
+        pass
+    
+    @overload
+    def eval_refractive_index(self, target_energies: float | int) -> float:
+        pass
+    
+    def eval_refractive_index(self,
+            target_energies:npt.NDArray | float | int | None = None
+            ) -> npt.NDArray | float:
+        r"""
+        
+        """
+        return 1 - self.eval_betas(target_energies)
     
     def contrast(self, other: "asp_complex") -> tuple[npt.NDArray, npt.NDArray]:
         r"""

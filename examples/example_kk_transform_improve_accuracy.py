@@ -66,7 +66,7 @@ if __name__ == "__main__":
                 max_iter=i)
             
             # Convert the imaginary coefs to imaginary factors
-            PS_imag_factors = PS_imag.evaluate_energies(PS_extended_real.energies)
+            PS_imag_factors = PS_imag.eval_asf(PS_extended_real.energies)
             
             # Find new points
             new_energies = np.setdiff1d(PS_extended_real.energies, past_points, assume_unique=True)

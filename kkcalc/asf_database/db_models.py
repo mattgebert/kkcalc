@@ -145,7 +145,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
             )
         
         # Calculate the corresponding y values using the polynomial coefs
-        db_asp_merge_range = asp.evaluate_energies_on_coefs(
+        db_asp_merge_range = asp.eval_asf_on_coefs(
             target_energies=merge_domain,
             energies=db_e,
             coefs=db_coefs)
@@ -312,7 +312,7 @@ class asp_db_complex(asp_db_abstract, asp_complex):
     """
     def __init__(self, stoichiometry: kk_stoichiometry | str, **kwargs):
         # Run init
-        asp_db_abstract.__init__(self, stoichiometry)
+        asp_db_abstract.__init__(self, stoichiometry, **kwargs)
         
         # Get composition
         if isinstance(stoichiometry, str):
@@ -519,7 +519,7 @@ class asp_db_extended(asp):
             )
         
         # Calculate the corresponding y values using the polynomial coefs
-        db_asp_merge_range = asp.evaluate_energies_on_coefs(
+        db_asp_merge_range = asp.eval_asf_on_coefs(
             target_energies=merge_domain,
             energies=db_e,
             coefs=db_coefs)
@@ -531,7 +531,7 @@ class asp_db_extended(asp):
         
         if fix_distortions:
             # Perform a fit along the domain
-            db_y = asp.evaluate_energies_on_coefs(target_energies=data_e[data_merge_lb_idx:data_merge_ub_idx],
+            db_y = asp.eval_asf_on_coefs(target_energies=data_e[data_merge_lb_idx:data_merge_ub_idx],
                                                      energies=db_e,
                                                      coefs=db_coefs) # Find equivalent values of the db_asp energies to the data energies 
             guess_grad = - (data_merge_range[1] - data_merge_range[0]) / (db_asp_merge_range[1] - db_asp_merge_range[0]) / data_y[-1]
@@ -769,7 +769,7 @@ if __name__ == "__main__":
         for i, e1 in enumerate(energies[:-1]):
             e2 = energies[i+1]
             x = np.linspace(e1, e2, 100)
-            x_asf = stoich_asp.evaluate_energies(target_energies=x)
+            x_asf = stoich_asp.eval_asf(target_energies=x)
             ax.plot(x, x_asf, linewidth=0.5, c=scat.get_edgecolor(), label=f"'{compound}' Polynomial" if i == 0 else None)
     ax.set_title("Atomic Scattering Factors of Elements and Compounds")
     ax.legend()

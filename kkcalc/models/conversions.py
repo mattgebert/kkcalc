@@ -3,6 +3,7 @@ from kkcalc.stoich import stoichiometry as kk_stoichiometry
 import numpy as np
 import numpy.typing as npt
 import warnings
+from typing import overload
 from scipy.constants import (
     Avogadro as N_A, 
     speed_of_light as c, 
@@ -27,16 +28,34 @@ class conversions:
     - Atomic scattering polynomial (ASP) coefficients
     """
     
+    @overload
+    @staticmethod
+    def betas_to_ASF(energies: npt.NDArray, betas: npt.NDArray,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None,
+                     reverse: bool = False) -> npt.NDArray: ...
+    @overload
+    @staticmethod
+    def betas_to_ASF(energies: float | int, betas: float | int | complex,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None,
+                     reverse: bool = False) -> float | complex: ...
+    @overload
+    @staticmethod
+    def betas_to_ASF(energies: npt.NDArray | float | int, betas: npt.NDArray | float | int | complex,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None,
+                     reverse: bool = False) -> npt.NDArray | float | complex: ...
     @staticmethod
     def betas_to_ASF(
-        energies: npt.NDArray,
-        betas: npt.NDArray,
+        energies: npt.NDArray | int | float,
+        betas: npt.NDArray | int | float | complex,
         number_density: float | None = None,
         density: float | None = None,
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         reverse : bool = False
-    ) -> npt.NDArray:
+    ) -> npt.NDArray | int | float | complex:
         """
         Converts Beta values (index of refraction) to atomic scattering factors (ASF).
         
@@ -102,15 +121,30 @@ class conversions:
             betas_reverse = factors / prefactor
             return betas_reverse
     
+    @overload
+    @staticmethod
+    def ASF_to_betas(energies: npt.NDArray, factors: npt.NDArray, 
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None) -> npt.NDArray: ...
+    @overload
+    @staticmethod
+    def ASF_to_betas(energies: float | int, factors: float | int | complex,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None) -> float | complex: ...
+    @overload
+    @staticmethod
+    def ASF_to_betas(energies: npt.NDArray | float | int, factors: npt.NDArray | float | int | complex,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None) -> npt.NDArray | float | complex: ...
     @staticmethod
     def ASF_to_betas(
-        energies: npt.NDArray,
-        factors: npt.NDArray,
+        energies: npt.NDArray | float | int,
+        factors: npt.NDArray | float | int | complex,
         number_density: float | None = None,
         density: float | None = None,
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None
-    ) -> npt.NDArray:
+    ) -> npt.NDArray | float | complex:
         """
         Converts atomic scattering factors (ASF) to Beta values (index of refraction).
         
@@ -150,13 +184,25 @@ class conversions:
             stoichiometry=stoichiometry,
             reverse=True
         )
-    
+
+    @overload
+    @staticmethod
+    def NEXAFS_to_ASF(energies: npt.NDArray, NEXAFS: npt.NDArray,
+                      reverse : bool = False) -> npt.NDArray: ...
+    @overload
+    @staticmethod
+    def NEXAFS_to_ASF(energies: int | float, NEXAFS: int | float,
+                      reverse : bool = False) -> float: ...
+    @overload
+    @staticmethod
+    def NEXAFS_to_ASF(energies: npt.NDArray | int | float, NEXAFS: npt.NDArray | float,
+                      reverse : bool = False) -> npt.NDArray | float: ...
     @staticmethod 
     def NEXAFS_to_ASF(
-        energies: npt.NDArray,
-        NEXAFS: npt.NDArray,
+        energies: npt.NDArray | float | int,
+        NEXAFS: npt.NDArray | float | int,
         reverse : bool = False
-    ) -> npt.NDArray:
+    ) -> npt.NDArray | float:
         r"""Convert NEXAFS photoabsorption data to atomic scattering factors (ASF).
         
         .. math::
@@ -185,12 +231,23 @@ class conversions:
             nexafs_reverse = prefactor*factors/energies
             return nexafs_reverse
             
-    
+    @overload
+    @staticmethod
+    def ASF_to_NEXAFS(energies: npt.NDArray, 
+                      factors: npt.NDArray) -> npt.NDArray: ...
+    @overload
+    @staticmethod
+    def ASF_to_NEXAFS(energies: int | float, 
+                      factors: int | float) -> float: ...
+    @overload
+    @staticmethod
+    def ASF_to_NEXAFS(energies: npt.NDArray | int | float, 
+                      factors: npt.NDArray | int | float) -> npt.NDArray | float: ...
     @staticmethod
     def ASF_to_NEXAFS(
-        energies: npt.NDArray,
-        factors: npt.NDArray,
-    ) -> npt.NDArray:
+        energies: npt.NDArray | float | int,
+        factors: npt.NDArray | float | int,
+    ) -> npt.NDArray | float:
         """Convert atomic scattering factors (ASF) to NEXAFS photoabsorption data.
         
         Uses `NEXAFS_to_ASF` with the `reverse` flag set to `True`.
@@ -209,15 +266,30 @@ class conversions:
         """
         return conversions.NEXAFS_to_ASF(energies, factors, reverse=True)
     
+    @overload
+    @staticmethod
+    def betas_to_NEXAFS(energies: npt.NDArray, betas: npt.NDArray,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None) -> npt.NDArray: ...
+    @overload
+    @staticmethod
+    def betas_to_NEXAFS(energies: float | int, betas: npt.NDArray | float | int | complex,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None) -> npt.NDArray | float: ...
+    @overload
+    @staticmethod
+    def betas_to_NEXAFS(energies: npt.NDArray | float | int, betas: npt.NDArray | float | int | complex,
+                     number_density: float|None, density: float|None, 
+                     formula_mass: float|None, stoichiometry: kk_stoichiometry | str | None) -> npt.NDArray | float: ...
     @staticmethod
     def betas_to_NEXAFS(
-        energies: npt.NDArray,
-        betas: npt.NDArray,
-        number_density: float,
+        energies: npt.NDArray | float | int,
+        betas: npt.NDArray | float | int | complex,
+        number_density: float | None = None,
         density: float | None = None,
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
-    ) -> npt.NDArray:
+    ) -> npt.NDArray | float:
         """
         Converts Beta values (index of refraction) to NEXAFS photoabsorption data.
         
@@ -240,6 +312,9 @@ class conversions:
             Description of the combination of elements composing the material.
         """
         factors = conversions.betas_to_ASF(energies, betas, number_density, density, formula_mass, stoichiometry)
+        # Reduce factors to imaginary component for conversion to NEXAFS / XANES.
+        if isinstance(factors, complex) or (isinstance(factors, np.ndarray) and factors.dtype is np.complex_):
+            factors = factors.imag
         return conversions.ASF_to_NEXAFS(energies, factors)
     
     @staticmethod
