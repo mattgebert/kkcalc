@@ -908,13 +908,9 @@ class asp_im(asp):
 
         
     @overload
-    def eval_NEXAFS(self, target_energies: npt.NDArray | None) -> npt.NDArray:
-        pass
-    
+    def eval_NEXAFS(self, target_energies: npt.NDArray | None) -> npt.NDArray: ...
     @overload
-    def eval_NEXAFS(self, target_energies: float | int) -> float:
-        pass
-    
+    def eval_NEXAFS(self, target_energies: float | int) -> float: ...
     def eval_NEXAFS(self, 
             target_energies:npt.NDArray | float | int | None = None
             ) -> npt.NDArray | float:
