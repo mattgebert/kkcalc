@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
 import warnings
-from typing import Self, override
+from typing import Self, override, overload
 
 import abc
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
@@ -43,7 +43,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         new_obj._coefs = new_obj._coefs[start:stop:step]
         return new_obj
     
-    def copy(self) -> type["asp_db_abstract"]:
+    def copy(self) -> Self:
         """
         Create a copy of the current object.
         
@@ -346,13 +346,13 @@ class asp_db_extended(asp):
 
     Parameters
     ----------
-    data_asf : asf
+    data_asf : asf | list[asf]
         The atomic scattering factor object.
     database : asp_db | kk_stoichiometry | str
         The atomic scattering potential object, generated for a given material stoichiometry.
         Can also be a `kk_stoichiometry` object or a string representing the stoichiometry,
         which will be converted to an `asp_db` object.
-    merge_domain : tuple[float, float] | None
+    merge_domain : tuple[float, float] | list[tuple[float, float]] | None
         The range of energies to merge the user data_asf with the db_asp data.
     fix_distortions : bool
         Flag to fix distortions in the user data_asf.
@@ -367,16 +367,41 @@ class asp_db_extended(asp):
     kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
     
     """
+    @overload
+    def __init__(self, data_asf: asf, database: asp_db_abstract, merge_domain: tuple[float, float] | None = None, 
+                 fix_distortions: bool = False, **kwargs) -> None: ...
+    @overload
+    def __init__(self, data_asf: list[asf], database: asp_db_abstract, merge_domain: list[tuple[float, float]] | None = None,
+                 fix_distortions: bool = False, **kwargs) -> None: ...
     def __init__(self,
-                 data_asf: asf,
-                 database: type[asp_db_abstract],
-                 merge_domain: tuple[float, float] | None = None,
+                 data_asf: asf | list[asf],
+                 database: asp_db_abstract,
+                 merge_domain: tuple[float, float] | list[tuple[float, float]] | None = None,
                  fix_distortions: bool = False,
                  **kwargs
                  ) -> None:
+        # Check if data_asf is a list
+        if isinstance(data_asf, list):
+            # Check if merge_domain is a list
+            if isinstance(merge_domain, list):
+                # Check if the lengths match
+                if len(data_asf) != len(merge_domain):
+                    raise ValueError("Length of data_asf and merge_domain must match")
+            else:
+                # Raise an error if merge_domain is not a list
+                raise ValueError("data_asf is a list, merge_domain must be a list.")
+        else:
+            # Check if merge_domain is a list
+            if isinstance(merge_domain, list):
+                # Raise an error if merge_domain is a list
+                raise ValueError("data_asf is not a list, merge_domain must not be a list.")
+        
+        if isinstance(data_asf, list):
+            raise NotImplementedError("Database extension of a list of asf objects not yet implemented.")
+        
         # Store construction parameters
         self._merge_domain = merge_domain
-        """The merge domain used to choose which `data_asf` values are used to create the extended data."""
+        """The merge domain(s) used to choose which `data_asf` values are used to create the extended data."""
         self._fix_distortions = fix_distortions
         """The fix distortions flag used to add extra processing to the provided `data_asf`."""
         

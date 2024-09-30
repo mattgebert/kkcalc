@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
     from kkcalc.asf_database.db_models import asp_db_im
 
-
-
 # Generate a list of atomic elements. Should already be sorted from the periodictable module.
 ELEMENTS: list[tuple[str, int]] = [
     # Also contains N=0, i.e. neutral, as the first element. So ELEMENTS[1] = H.
@@ -236,6 +234,8 @@ class stoichiometry:
         search = re.compile(r'((?P<Element>[A-Z][a-z]?)|\((?P<Paren>.*)\))(?P<Number>\d*(\.\d+)?)(?P<Remainder>.*)')
         # Perform the search on the formula
         m=re.search(search,formula)
+        if m is None:
+            raise ValueError(f"No formula match: {formula}")
         # Process the search.
         if len(m.group('Number')) != 0:
             Number = float(m.group('Number'))
@@ -337,7 +337,7 @@ if __name__ == "__main__":
         comp = stoich.composition
         for i, (atom, count) in enumerate(comp):
             if type(count) is float and int(count) != count:
-                comp[i] = (atom, f"{count:.2f}") # Round to 3 decimal places
+                comp[i] = (atom, float(f"{count:.2f}")) # Round to 3 decimal places
         data.append([compound, comp, stoich.relativistic_correction, stoich.formula_mass])
 
     import pandas as pd

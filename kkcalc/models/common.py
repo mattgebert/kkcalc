@@ -6,14 +6,14 @@ from kkcalc.stoich import stoichiometry as kk_stoichiometry
 from scipy.constants import N_A
 from typing import Literal, Self, TypedDict
 
-class PROPERTIES_DICT(TypedDict):
+class PROPERTIES_DICT(TypedDict, total=False):
     name: str | None
     stoichiometry: kk_stoichiometry | str | None
     density: float | None
     number_density: float | None
     formula_mass: float | None
     is_extended: bool
-        
+    
 class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     """
     Interface for common attributes between atomic scattering factor and polynomial models.
@@ -450,17 +450,17 @@ class atomic_scattering(atomic_scattering_abstract):
         for key in properties:
             match key:
                 case 'name':
-                    self.name = properties['name']
+                    self.name = properties[key] # type: ignore - Bug in PyLance ## TODO: Submit an issue using match statement.
                 case 'stoichiometry':
-                    self.stoichiometry = properties['stoichiometry']
+                    self.stoichiometry = properties[key] # type: ignore
                 case 'density':
-                    self.density = properties['density']
+                    self.density = properties[key] # type: ignore
                 case 'number_density':
-                    self.number_density = properties['number_density']
+                    self.number_density = properties[key] # type: ignore
                 case 'formula_mass':
-                    self.formula_mass = properties['formula_mass']
+                    self.formula_mass = properties[key] # type: ignore
                 case 'is_extended':
-                    self.is_extended = properties['is_extended']
+                    self.is_extended = properties[key] # type: ignore
                 case _:
                     raise ValueError(f"Invalid property: {key}")
         return

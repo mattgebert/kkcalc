@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Self, overload
 
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
-from kkcalc.models.common import atomic_scattering, atomic_scattering_abstract
+from kkcalc.models.common import atomic_scattering, atomic_scattering_abstract, PROPERTIES_DICT
 from kkcalc import kk_transforms
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
 
@@ -30,7 +30,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     
     @property
     @abc.abstractmethod
-    def coefs(self) -> npt.NDArray | None:
+    def coefs(self) -> npt.NDArray:
         """
         Abstract property for the polynomial coefficients defining scattering factors between energy intervals.
 
@@ -40,7 +40,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The polynomial coefficients for the scattering factors, with shape `(N, M)`, 
             where N is the number of segments and `M` is the number of polynomial coefficients.
         """
-        return
+        pass
     
     @property
     @abc.abstractmethod
@@ -54,7 +54,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The energy values defining the intervals for the polynomial coefficients.
             Has length `N+1`, where `N` is the number of segments.
         """
-        return np.array([])
+        pass
     
     @property
     @abc.abstractmethod
@@ -68,7 +68,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The polynomial orders for the scattering factors, with length `M`. If None, 
             then kkcalc internally assumes the polynomial orders are by default [1, 0, -1, -2, -3].
         """
-        return
+        pass
     
     @staticmethod
     @doc_copy(conversions.ASP_to_ASF)
@@ -131,9 +131,9 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     
     @staticmethod
     def eval_asf_on_coefs(
-        target_energies: npt.NDArray,
-        energies: npt.NDArray,
-        coefs: npt.NDArray,
+        target_energies: npt.ArrayLike,
+        energies: npt.ArrayLike,
+        coefs: npt.ArrayLike,
         orders: npt.NDArray | None = None) -> npt.NDArray:
         """
         Calculate the atomic scattering factors at the `target_energies`.
@@ -165,13 +165,14 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             If the target energies are outside the defined energy domain.
         """
         target_energies = np.asarray(target_energies)
+        energies = np.asarray(energies)
+        coefs = np.asarray(coefs)
+        if orders is not None:
+            orders = np.asarray(orders)
         
         assert np.all(energies[:-1] <= energies[1:]), "Energies must be in increasing order."
         # Find where the energies are located in the object's energies.
         indices = np.searchsorted(energies, target_energies) - 1 # subtract to transfer from spans (N+1) to coefficients (N).
-        # print(f"Tar: {target_energies}")
-        # print(f"Eng: {energies}")
-        # print(f"Ind: {indices}")
         
         if -1 in indices or len(energies)-1 in indices:
             # Check if all searchsorted invalid indexes are defined.
@@ -259,13 +260,9 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         return self.eval_asf(target_energies)
     
     @overload
-    def eval_betas(self, target_energies: npt.NDArray | None) -> npt.NDArray:
-        pass
-    
+    def eval_betas(self, target_energies: npt.NDArray[np.float_] | None) -> npt.NDArray[np.float_]: ...
     @overload
-    def eval_betas(self, target_energies: float | int) -> float:
-        pass
-    
+    def eval_betas(self, target_energies: float | int) -> float: ...
     def eval_betas(self, 
             target_energies:npt.NDArray | float | int | None = None
             ) -> npt.NDArray | float:
@@ -311,7 +308,6 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                 coefs=self.coefs,
                 orders=self.orders
             )[0]
-        
         return conversions.ASF_to_betas(factors)
     
     def __iter__(self) -> Iterator[tuple[tuple[float, float], np.ndarray]]:
@@ -398,7 +394,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         return self.coefs.shape[0]
     
     @abc.abstractmethod
-    def copy(self, **kwargs) -> type[Self]:
+    def copy(self, **kwargs) -> Self:
         """
         Generates a copy of the `asp` object.
         
@@ -630,8 +626,8 @@ class asp(asp_abstract, atomic_scattering):
         Alias for `to_atomic_scattering_factors`.
         """
         return self.to_atomic_scattering_factors(**kwargs)
-    
-    def copy(self, **kwargs) -> type["asp"]:
+
+    def copy(self, **kwargs: *PROPERTIES_DICT) -> Self:
         """
         Generates a copy of the `asp` object.
         
@@ -646,6 +642,11 @@ class asp(asp_abstract, atomic_scattering):
             A new `asp` object with the same polynomial coefficients, 
             and properties, but unique memory allocation.
         """
+        # Check keys are valid properties
+        for key in kwargs:
+            if key not in PROPERTIES_DICT.__annotations__.keys():
+                raise ValueError(f"Invalid property: {key}.")
+
         # Copy the object properties
         common_kwargs = self._properties_dict
         for key in common_kwargs:

@@ -30,10 +30,16 @@ class conversions:
     
     @overload
     @staticmethod
-    def betas_to_ASF(energies: npt.NDArray, betas: npt.NDArray,
+    def betas_to_ASF(energies: npt.NDArray[np.float_ | np.int_], betas: npt.NDArray[np.float_ | np.int_],
                      number_density: float|None=None, density: float|None=None, 
                      formula_mass: float|None=None, stoichiometry: kk_stoichiometry|str|None=None,
-                     reverse: bool = False) -> npt.NDArray: ...
+                     reverse: bool = False) -> npt.NDArray[np.float_]: ...
+    @overload
+    @staticmethod
+    def betas_to_ASF(energies: npt.NDArray[np.float_ | np.int_], betas: npt.NDArray[np.complex_],
+                     number_density: float|None=None, density: float|None=None, 
+                     formula_mass: float|None=None, stoichiometry: kk_stoichiometry|str|None=None,
+                     reverse: bool = False) -> npt.NDArray[np.complex_]: ...
     @overload
     @staticmethod
     def betas_to_ASF(energies: float | int, betas: float | int,
@@ -55,13 +61,13 @@ class conversions:
     @staticmethod
     def betas_to_ASF(
         energies: npt.NDArray | int | float,
-        betas: npt.NDArray | int | float | complex,
+        betas: npt.NDArray[np.int_ | np.float_ | np.complex_] | int | float | complex,
         number_density: float | None = None,
         density: float | None = None,
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         reverse : bool = False
-    ) -> npt.NDArray | int | float | complex:
+    ) -> npt.NDArray[np.float_ | np.complex_] | int | float | complex:
         """
         Converts Beta values (index of refraction) to atomic scattering factors (ASF).
         
@@ -129,9 +135,14 @@ class conversions:
     
     @overload
     @staticmethod
-    def ASF_to_betas(energies: npt.NDArray, factors: npt.NDArray, 
-                     number_density: float|None=None, density: float|None=None, 
-                     formula_mass: float|None=None, stoichiometry: kk_stoichiometry | str | None=None) -> npt.NDArray: ...
+    def ASF_to_betas(energies: npt.NDArray[np.float_ | np.int_], factors: npt.NDArray[np.float_ | np.int_], 
+                     number_density: float|None=None, density: float|None=None, formula_mass: float|None=None, 
+                     stoichiometry: kk_stoichiometry | str | None=None) -> npt.NDArray[np.float_]: ...
+    @overload
+    @staticmethod
+    def ASF_to_betas(energies: npt.NDArray[np.float_ | np.int_], factors: npt.NDArray[np.complex_], 
+                     number_density: float|None=None, density: float|None=None, formula_mass: float|None=None, 
+                     stoichiometry: kk_stoichiometry | str | None=None) -> npt.NDArray[np.complex_]: ...
     @overload
     @staticmethod
     def ASF_to_betas(energies: float | int, factors: float | int,
@@ -149,13 +160,13 @@ class conversions:
                      formula_mass: float|None=None, stoichiometry: kk_stoichiometry | str | None=None) -> npt.NDArray | float | complex: ...
     @staticmethod
     def ASF_to_betas(
-        energies: npt.NDArray | float | int,
-        factors: npt.NDArray | float | int | complex,
+        energies: npt.NDArray[np.float_ | np.int_] | float | int,
+        factors: npt.NDArray[np.float_ | np.int_ | np.complex_] | float | int | complex,
         number_density: float | None = None,
         density: float | None = None,
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None
-    ) -> npt.NDArray | float | complex:
+    ) -> npt.NDArray[np.float_ | np.complex_] | float | complex:
         """
         Converts atomic scattering factors (ASF) to Beta values (index of refraction).
         
@@ -244,8 +255,8 @@ class conversions:
             
     @overload
     @staticmethod
-    def ASF_to_NEXAFS(energies: npt.NDArray, 
-                      factors: npt.NDArray) -> npt.NDArray: ...
+    def ASF_to_NEXAFS(energies: npt.NDArray[np.float_ | np.int_], 
+                      factors: npt.NDArray[np.float_ | np.int_ | np.complex_]) -> npt.NDArray[np.float_]: ...
     @overload
     @staticmethod
     def ASF_to_NEXAFS(energies: int | float, 
@@ -258,7 +269,7 @@ class conversions:
     def ASF_to_NEXAFS(
         energies: npt.NDArray | float | int,
         factors: npt.NDArray | float | int | complex,
-    ) -> npt.NDArray | float:
+    ) -> npt.NDArray[np.float_] | float:
         """Convert atomic scattering factors (ASF) to NEXAFS photoabsorption data.
         
         Uses `NEXAFS_to_ASF` with the `reverse` flag set to `True`.
@@ -282,9 +293,9 @@ class conversions:
     
     @overload
     @staticmethod
-    def betas_to_NEXAFS(energies: npt.NDArray, betas: npt.NDArray,
+    def betas_to_NEXAFS(energies: npt.NDArray[np.float_ | np.int_], betas: npt.NDArray[np.float_ | np.int_ | np.complex_],
                      number_density: float|None=None, density: float|None=None, 
-                     formula_mass: float|None=None, stoichiometry: kk_stoichiometry | str | None=None) -> npt.NDArray: ...
+                     formula_mass: float|None=None, stoichiometry: kk_stoichiometry | str | None=None) -> npt.NDArray[np.float_]: ...
     @overload
     @staticmethod
     def betas_to_NEXAFS(energies: float | int, betas: float | int | complex,
@@ -303,7 +314,7 @@ class conversions:
         density: float | None = None,
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
-    ) -> npt.NDArray | float:
+    ) -> npt.NDArray[np.float_] | float:
         """
         Converts Beta values (index of refraction) to NEXAFS photoabsorption data.
         
@@ -385,12 +396,20 @@ class conversions:
             formula_mass=formula_mass, 
             stoichiometry=stoichiometry)
 
+    @overload
+    @staticmethod
+    def ASF_to_ASP(energies: npt.NDArray[np.float_ | np.int_],
+                   factors: npt.NDArray[np.float_ | np.int_], N: int = 5) -> npt.NDArray[np.float_]: ...
+    @overload
+    @staticmethod
+    def ASF_to_ASP(energies: npt.NDArray[np.float_ | np.int_], 
+                   factors: npt.NDArray[np.complex_], N: int = 5) -> npt.NDArray[np.complex_]: ...
     @staticmethod
     def ASF_to_ASP(
-        energies: npt.ArrayLike,
-        factors: npt.ArrayLike,
+        energies: npt.ArrayLike | npt.NDArray[np.float_ | np.int_],
+        factors: npt.ArrayLike | npt.NDArray[np.float_ | np.int_ | np.complex_],
         N: int = 5
-    ) -> npt.NDArray | float | complex:
+    ) -> npt.NDArray[np.float_ | np.complex_] | float | complex:
         """
         Converts atomic scattering factors (ASF) to atomic scattering polynomial (ASP) coefficients.
         
@@ -430,12 +449,21 @@ class conversions:
             coefs[:, 1] = factors[:-1] - coefs[:, 0] * energies[:-1]
         return coefs
     
+
+    @overload
+    @staticmethod
+    def ASP_to_ASF(energies: npt.NDArray[np.float_ | np.int_], coefs: npt.NDArray[np.float_ | np.int_], 
+                   orders: npt.NDArray[np.int_] | None) -> npt.NDArray[np.float_]: ...
+    @overload
+    @staticmethod
+    def ASP_to_ASF(energies: npt.NDArray[np.float_ | np.int_], coefs: npt.NDArray[np.complex_], 
+                   orders: npt.NDArray[np.int_] | None) -> npt.NDArray[np.complex_]: ...
     @staticmethod
     def ASP_to_ASF(
-        energies: npt.NDArray,
-        coefs: npt.NDArray,
-        orders: npt.NDArray | None = None
-    ) -> npt.NDArray:
+        energies: npt.NDArray[np.float_ | np.int_],
+        coefs: npt.NDArray[np.float_ | np.int_ | np.complex_],
+        orders: npt.NDArray[np.int_] | None = None
+    ) -> npt.NDArray[np.float_ | np.complex_]:
         """
         Converts atomic scattering polynomial (ASP) coefficients to atomic scattering factors (ASF).
         
