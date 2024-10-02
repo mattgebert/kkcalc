@@ -17,7 +17,7 @@ Cite us here [[1]](#1).
 ## Features
 
 ###### Extend and Scale
-Scale and extend your NEXAFS data by the Henke^[] and Briggs/Lighthill^[] atomic scattering factor databases, for more accurate transforms.
+Scale and extend your NEXAFS datasets by the Henke^[] and Briggs/Lighthill^[] atomic scattering factor databases, for more accurate transforms. Stitch together multiple datasets.
 ###### Relativistic Correction
 Use your material composition to automatically calculate the relativistic correction, $f^0$.
 ###### GUI Interface
@@ -101,11 +101,11 @@ Developement
 ------------
 If you're interested in modifying the `KKcalc` library or contributing to it's future development, you can install an editable version of the code via `git`/github.
 
-Using a terminal, 
+Using a terminal,
 
     git clone https://github.com/<your-username>/kkcalc
 
-Next, install the pre-commit 
+Next, install the pre-commit
 
 "Near-Edge Data" Section
 ------------------------
@@ -130,44 +130,64 @@ KKcalc implements a piecewise polynomial algorithm that performs direct integrat
 
 The calculation of the relativistic correction deserves some mention too, since I have seen a number of programs not calculating it correctly. Information on the types and number of atoms present are taken from the "Material" box and the equation :math:`Z - (\frac{Z}{82.5})^{2.37}` (as described by Henke et al. [HENKE1993]_) is applied to each atom separately and the individual corrections then summed. -->
 
+##### PYPI Installation
+
+[`KKcalc`](https://pypi.org/project/kkcalc/) can be installed via [`PyPI`](https://pypi.org/) (Python Package Index) system using a cmd/bash terminal.
+
+    pip install kkcalc
+
+Further details about `pip` usage can be found in the [PyPI installation tutorial](https://packaging.python.org/tutorials/installing-packages/).
+
 #### Usage
 
 ###### GUI
 
-`KKCalc` has a modularised GUI interface that can be used without  
+`KKCalc` has a modularised GUI interface that can be used without requiring the python API.
 
 ###### Python
 
 `kkcalc` is an object-oriented, typed library. If you are keen to include `kkcalc` into your own `python` scripts, use a modern code editor that can intepret docstrings, such as VSCode or PyCharm to get hints as you code.
 
 #### Contributing & Developement
-Want to contribute? Great! Create an issue on Github to discuss.
+Want to contribute? That's fantastic! Have a discussion with us first via Issues/Discussions to avoid wasted effort, and so we can make our visions align.
 
-To install for development, clone the repository into your local file system using `Github Desktop` or `Git` via Windows Terminal / CMD.
-
-    git clone https://github.com/benajamin/kkcalc
-
-  or (even better) create your own fork/branch of `kkcalc` on `github` so you can save and contribute your own changes, and clone that to your local file system.
+To install for development, create your own fork/branch of `kkcalc` on `github` so you can save and contribute your own changes, and clone that to your local file system using `Github Desktop` or `Git` via Windows Terminal / CMD.
 
     git clone https://github.com/<myusername>/kkcalc
 
-  Change directory to the repository, and install an editable version of the repository to your system or a virtual environment, so modifications will be reflected upon `kkcalc` import.
+  Change directory to the repository, and install an editable version of the repository to your system or a [virtual environment](https://docs.python.org/3/library/venv.html), so modifications will be reflected upon `kkcalc` import.
 
-    pip install . -e
+    # Create a virtual environment to avoid conflict with other python packages
+    python -m venv <name>         # Often just use 'venv' as the name.
 
-  `kkcalc` uses a combination of continuous integration (CI) tools to manage the code quality and documentation. Install these hooks by ....
+    # [Activate the virtual environment](https://docs.python.org/3/library/venv.html#how-venvs-work)
+    <name>\Scripts\activate.bat   # Windows
+    source <name>/bin/activate    # Bash
+
+    # Install the library from the source code
+    pip install .[dev] -e
+
+  `kkcalc` uses a combination of continuous integration (CI) tools to manage the code quality and documentation. These include
+  - [`pre-commit`](https://pre-commit.com/): To fix consistency issues in code before pushing to the repository.
+  - [`black`](https://github.com/psf/black): To standardize code formatting so the entire repository is consistent and readable.
+  - [`numpydoc`](https://numpydoc.readthedocs.io/): Readable documentation to standard with other scientific python packages.
+  <!-- - [`pytest`]() -->
+
+  Install these hooks as follows:
+
+    pre-commit install
 
 #### Documentation <a id=docbuild></a>
-To build the documentation, install the documentation dependencies:
+To build the documentation, install the documentation dependencies from the package directory:
 
     pip install .[docs]
-    
+
 To build the documentation, run
 
     cd docs
     make html
 
-which should create a new set of static `HTML` files in the `/docs/_build` directory. 
+which should create a new set of static `HTML` files in the `/docs/_build` directory.
 
 To update the documentation after edits, run:
 
@@ -182,4 +202,3 @@ in the source directory, then rebuild as above.
 <a id=1>[2]</a> B.L. Henke, E.M. Gullikson, and J.C. Davis, "X-ray interactions: photoabsorption, scattering, transmission, and reflection at E=50-30000 eV, Z=1-92", *Atomic Data and Nuclear Data Tables* **54** (2) (1993) 181-342 [`DOI:10.1006/adnd.1993.1013`](https://doi.org/10.1006/adnd.1993.1013).
 
 <a id=1>[3]</a> F. Biggs, and R. Lighthill, "Analytical approximations for X-ray cross-sections III", *Sandia Report* SAND87-0070 UC-34 (1988). [`DOI:10.2172/7124946`](https://doi.org/10.2172/7124946)
-

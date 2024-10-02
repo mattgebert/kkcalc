@@ -1,3 +1,8 @@
+## `Pre-commit` module configuration file
+## Can be installed using `pip install pre-commit`
+## The pre-commit hooks can then be installed using `pre-commit install`
+## All checks are run by default when `git commit` is run.
+
 repos:
 # Pre-commit hooks for basic Python processing
 -   repo: https://github.com/pre-commit/pre-commit-hooks
@@ -10,9 +15,10 @@ repos:
 -   repo: https://github.com/psf/black
     rev: 22.10.0
     hooks:
-    -   id: black    
+    -   id: black
+
 # NumPyDoc - for docstring validation
-- repo: https://github.com/numpy/numpydoc
-  rev: v1.9.0
-  hooks:
-    - id: numpydoc-validation
+# -   repo: https://github.com/numpy/numpydoc
+#     rev: v1.8.0
+#     hooks:
+#       - id: numpydoc-validation
