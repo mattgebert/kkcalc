@@ -51,6 +51,12 @@ dev = [
     "pre-commit",
 ]
 
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "numpydoc",
+]
+
 
 # ------------------- NUMPYDOC -------------------
 [tool.numpydoc_validation]
