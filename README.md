@@ -5,28 +5,104 @@
 $$f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star$$
 
  using a polynomial representation algorithm developed by Watts^[[1](#1)] implemented in `python`.
-
 Documentation with quick-start and examples is located at [url_link](), or can be [built](#docbuild) for offline.
-
-The program can be used via the object-oriented Python API, or through a PyQT6 GUI interface.
-
-![Screenshot of the KKcalc GUI interface](kk_calc.jpg)
+`KKCalc` is usable via an object-oriented Python API, or through a PyQT6 GUI interface.
 
 Cite us here [[1]](#1).
 
 ## Features
-
-###### Extend and Scale
-Scale and extend your NEXAFS datasets by the Henke^[] and Briggs/Lighthill^[] atomic scattering factor databases, for more accurate transforms. Stitch together multiple datasets.
-###### Relativistic Correction
-Use your material composition to automatically calculate the relativistic correction, $f^0$.
-###### GUI Interface
-No programming? No problem! Download the executable version.
-
-###### Contrast Calculations
-Can calculate the relative contrast between materials in a mix.
+- **Extend and Scale**
+   Scale and extend your NEXAFS datasets by the Henke^[] and Briggs/Lighthill^[] atomic scattering factor databases, for more accurate transforms. Stitch together multiple datasets.
+- **Relativistic Correction**
+   Use your material composition to automatically calculate the relativistic correction, $f^0$.
+- **GUI Interface**
+   No programming? No problem! Download the executable version.
+- **Contrast Calculations**
+   Can calculate the relative contrast between materials in a mix.
 
 ## Installation
+
+##### PYPI Installation
+
+[`KKcalc`](https://pypi.org/project/kkcalc/) is [registered](https://pypi.org/project/kkcalc/) on the [`PyPI`](https://pypi.org/) (Python Package Index) system, and can be installed using a cmd/bash terminal.
+
+    pip install kkcalc
+
+Further details about `pip` usage can be found in the [PyPI installation tutorial](https://packaging.python.org/tutorials/installing-packages/).
+
+##### Dependencies
+Current dependencies can be found in the repository `pyproject.toml` file.
+
+#### Usage
+
+###### GUI
+
+`KKCalc` has a modularised GUI interface that can be used without requiring the python API.
+
+![Screenshot of the KKcalc GUI interface](kk_calc.jpg)
+
+###### Python
+
+`kkcalc` is an object-oriented, typed library. The class structure is depicted below. Of note are the `asf` (atomic scattering factor) and `asp_db_extended` (atomic scattering polynomial database) classes, from which data loading and most Kramers-Kronig operations can be performed.
+
+![Architecture graphic of the class structure in KKCalc](https://docs.google.com/drawings/d/1Py6hnj8KXS7-dePQF1435XrBfsZQHaX1XQZ-ol2J7rA/export/png)
+
+If you are keen to include `kkcalc` into your own `python` scripts, use a modern code editor that can intepret docstrings, such as VSCode or PyCharm to get hints as you code.
+
+#### Contributing & Developement
+Want to contribute? That's fantastic! Have a discussion with us first via Issues/Discussions to avoid wasted effort, and so we can make our visions align.
+
+To install for development, create your own [fork/branch](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) of `kkcalc` on `github` so you can save and contribute your own changes, and clone that to your local file system using `Github Desktop` or `Git` via Windows Terminal / CMD.
+
+    git clone https://github.com/<myusername>/kkcalc
+
+  Change directory to the repository, and install an editable version of the repository to your system or a [virtual environment](https://docs.python.org/3/library/venv.html), so modifications will be reflected upon `kkcalc` import.
+
+    # Create a virtual environment to avoid conflict with other python packages
+    python -m venv <name>         # Often just use 'venv' as the name.
+
+    # [Activate the virtual environment](https://docs.python.org/3/library/venv.html#how-venvs-work)
+    <name>\Scripts\activate.bat   # Windows
+    source <name>/bin/activate    # Bash
+
+    # Install the library from the source code
+    pip install .[dev] -e
+
+  `kkcalc` uses a combination of continuous integration (CI) tools to manage the code quality and documentation. These include
+  - [`pre-commit`](https://pre-commit.com/): To fix consistency issues in code before pushing to the repository.
+  - [`black`](https://github.com/psf/black): To standardize code formatting so the entire repository is consistent and readable.
+  - [`numpydoc`](https://numpydoc.readthedocs.io/): Readable documentation to standard with other scientific python packages.
+  <!-- - [`pytest`]() -->
+
+  Install these hooks as follows:
+
+    pre-commit install
+
+#### Documentation <a id=docbuild></a>
+To build the documentation, install the documentation dependencies from the package directory:
+
+    pip install .[docs]
+
+To build the documentation, run
+
+    cd docs
+    make html
+
+which should create a new set of static `HTML` files in the `/docs/_build` directory.
+
+To update the documentation after edits, run:
+
+    sphinx-apidoc -o ./docs ./kkcalc
+
+in the source directory, then rebuild as above.
+
+## References
+
+<a id=1>[1]</a> Benjamin Watts, "Calculation of the Kramers-Kronig transform of X-ray spectra by a piecewise Laurent polynomial method", *Opt. Express* **22**, (2014) 23628-23639. [`DOI:10.1364/OE.22.023628`](https://doi.org/10.1364/OE.22.023628)
+
+<a id=1>[2]</a> B.L. Henke, E.M. Gullikson, and J.C. Davis, "X-ray interactions: photoabsorption, scattering, transmission, and reflection at E=50-30000 eV, Z=1-92", *Atomic Data and Nuclear Data Tables* **54** (2) (1993) 181-342 [`DOI:10.1006/adnd.1993.1013`](https://doi.org/10.1006/adnd.1993.1013).
+
+<a id=1>[3]</a> F. Biggs, and R. Lighthill, "Analytical approximations for X-ray cross-sections III", *Sandia Report* SAND87-0070 UC-34 (1988). [`DOI:10.2172/7124946`](https://doi.org/10.2172/7124946)
 
 
 
@@ -129,76 +205,3 @@ In this section, we define the material whose optical properties are being inves
 KKcalc implements a piecewise polynomial algorithm that performs direct integration of the area between the data-points. [WATTS2014]_ User-supplied data and the scattering factor below 30,000 eV [HENKE1993]_ is interpolated linearly, while the high energy scattering factor data is described by Laurent polynomials [BIGGS1988]_ (the scattering factor data is assembled as described by Henke et al. [HENKE1993]_). Using this piecewise-polynomial expression of the imaginary spectrum, the symbolic form of the Kramers-Kronig transform integral is precisely known and can be fully written symbolically (albeit piecewise). This form is then trivial (though tedious) to symbolically integrate in a piecewise fashion everywhere except at the singularity, which is avoided by integrating across two intervals at once (terms referencing the singularity cancel out). The only assumption of this method is that the piecewise-polynomial description of the imaginary spectrum is continuous (which is required by physics), all remaining steps are exact to machine precision. This algorithm is very efficient because it doesn't require equally spaced steps, which would correspond to a very large number of samples over the full energy range of the spectrum.
 
 The calculation of the relativistic correction deserves some mention too, since I have seen a number of programs not calculating it correctly. Information on the types and number of atoms present are taken from the "Material" box and the equation :math:`Z - (\frac{Z}{82.5})^{2.37}` (as described by Henke et al. [HENKE1993]_) is applied to each atom separately and the individual corrections then summed. -->
-
-##### PYPI Installation
-
-[`KKcalc`](https://pypi.org/project/kkcalc/) can be installed via [`PyPI`](https://pypi.org/) (Python Package Index) system using a cmd/bash terminal.
-
-    pip install kkcalc
-
-Further details about `pip` usage can be found in the [PyPI installation tutorial](https://packaging.python.org/tutorials/installing-packages/).
-
-#### Usage
-
-###### GUI
-
-`KKCalc` has a modularised GUI interface that can be used without requiring the python API.
-
-###### Python
-
-`kkcalc` is an object-oriented, typed library. If you are keen to include `kkcalc` into your own `python` scripts, use a modern code editor that can intepret docstrings, such as VSCode or PyCharm to get hints as you code.
-
-#### Contributing & Developement
-Want to contribute? That's fantastic! Have a discussion with us first via Issues/Discussions to avoid wasted effort, and so we can make our visions align.
-
-To install for development, create your own fork/branch of `kkcalc` on `github` so you can save and contribute your own changes, and clone that to your local file system using `Github Desktop` or `Git` via Windows Terminal / CMD.
-
-    git clone https://github.com/<myusername>/kkcalc
-
-  Change directory to the repository, and install an editable version of the repository to your system or a [virtual environment](https://docs.python.org/3/library/venv.html), so modifications will be reflected upon `kkcalc` import.
-
-    # Create a virtual environment to avoid conflict with other python packages
-    python -m venv <name>         # Often just use 'venv' as the name.
-
-    # [Activate the virtual environment](https://docs.python.org/3/library/venv.html#how-venvs-work)
-    <name>\Scripts\activate.bat   # Windows
-    source <name>/bin/activate    # Bash
-
-    # Install the library from the source code
-    pip install .[dev] -e
-
-  `kkcalc` uses a combination of continuous integration (CI) tools to manage the code quality and documentation. These include
-  - [`pre-commit`](https://pre-commit.com/): To fix consistency issues in code before pushing to the repository.
-  - [`black`](https://github.com/psf/black): To standardize code formatting so the entire repository is consistent and readable.
-  - [`numpydoc`](https://numpydoc.readthedocs.io/): Readable documentation to standard with other scientific python packages.
-  <!-- - [`pytest`]() -->
-
-  Install these hooks as follows:
-
-    pre-commit install
-
-#### Documentation <a id=docbuild></a>
-To build the documentation, install the documentation dependencies from the package directory:
-
-    pip install .[docs]
-
-To build the documentation, run
-
-    cd docs
-    make html
-
-which should create a new set of static `HTML` files in the `/docs/_build` directory.
-
-To update the documentation after edits, run:
-
-    sphinx-apidoc -o ./docs ./kkcalc
-
-in the source directory, then rebuild as above.
-
-## References
-
-<a id=1>[1]</a> Benjamin Watts, "Calculation of the Kramers-Kronig transform of X-ray spectra by a piecewise Laurent polynomial method", *Opt. Express* **22**, (2014) 23628-23639. [`DOI:10.1364/OE.22.023628`](https://doi.org/10.1364/OE.22.023628)
-
-<a id=1>[2]</a> B.L. Henke, E.M. Gullikson, and J.C. Davis, "X-ray interactions: photoabsorption, scattering, transmission, and reflection at E=50-30000 eV, Z=1-92", *Atomic Data and Nuclear Data Tables* **54** (2) (1993) 181-342 [`DOI:10.1006/adnd.1993.1013`](https://doi.org/10.1006/adnd.1993.1013).
-
-<a id=1>[3]</a> F. Biggs, and R. Lighthill, "Analytical approximations for X-ray cross-sections III", *Sandia Report* SAND87-0070 UC-34 (1988). [`DOI:10.2172/7124946`](https://doi.org/10.2172/7124946)

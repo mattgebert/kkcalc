@@ -21,10 +21,6 @@ from kkcalc.models.common import (
 from kkcalc.asf_database import ASF_DATABASE
 
 
-class PROPERTIES_DICT_DB(PROPERTIES_DICT):
-    stoichiometry: Required[kk_stoichiometry | str | None]
-
-
 class asp_db_abstract(asp, metaclass=abc.ABCMeta):
     """
     Abstract class to define the interface for the atomic scattering polynomial object with database data.
@@ -36,7 +32,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
     def __init__(
         self,
         stoichiometry: kk_stoichiometry | str,
-        **kwargs: Unpack[PROPERTIES_DICT_DB],
+        **kwargs: Unpack[PROPERTIES_DICT],
     ):
         pass
 
