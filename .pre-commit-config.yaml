@@ -17,7 +17,7 @@ repos:
     hooks:
     -   id: black
 
-# NumPyDoc - for docstring validation
+# # NumPyDoc - for docstring validation
 # -   repo: https://github.com/numpy/numpydoc
 #     rev: v1.8.0
 #     hooks:

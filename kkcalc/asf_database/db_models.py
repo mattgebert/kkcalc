@@ -9,7 +9,7 @@ from kkcalc.stoich import stoichiometry as kk_stoichiometry
 
 # Import from submodules of models, as models.py will also call these classes.
 from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex
-from kkcalc.models.factors import asf, asf_complex
+from kkcalc.models.factors import asf, asf_im, asf_re, asf_complex
 from kkcalc.models.conversions import conversions
 from kkcalc.models.common import (
     atomic_scattering,
@@ -517,25 +517,45 @@ class asp_db_extended(asp):
         self.fix_distortions = fix_distortions
         """The fix distortions flag used to add extra processing to the provided `data_asf`."""
 
-        ### 1. Alignment of Energy Values:
-        # Get the data pointers from the asf object
-        data_e, data_y = data_asf.data
         # Get the data pointers from the asp object
         asp_e, asp_coefs = database.energies, database.coefs
+        if asp_coefs is None:
+            raise ValueError("Database coefs must be defined to extend the data")
 
-        merge_e, merge_coefs = self.extend_data_with_db(
-            data_e=data_e,
-            data_y=data_y,
-            db_e=asp_e,
-            db_coefs=asp_coefs,
-            merge_domain=merge_domain,
-            fix_distortions=fix_distortions,
-        )
+        # Assign the database data as the default merge data before looping.
+        merge_e, merge_coefs = asp_e, asp_coefs
+        for i, d_asf in enumerate(data_asf):
+            # Merge domain
+            if merge_domain is not None and isinstance(merge_domain, list):
+                d_merge = merge_domain[i]
+            elif merge_domain is None:
+                d_merge = merge_domain
+            else:
+                raise ValueError("Merge domain must be a list of tuples or None")
+
+            ### 1. Alignment of Energy Values:
+            # Get the data pointers from the asf object
+            data_e, data_y = d_asf.data
+            # Extend the data with the merge/database data
+            merge_e, merge_coefs = self.extend_data_with_db(
+                data_e=data_e,
+                data_y=data_y,
+                db_e=merge_e,
+                db_coefs=merge_coefs,
+                merge_domain=d_merge,
+                fix_distortions=fix_distortions,
+            )
 
         # Copy the kwargs from the data_asf / asp objects if not None.
         # Data first, for naming priority, then database.
         # Database stoichiometry is more important to reflect extension operation made on user data.
-        extra_kwargs = data_asf._properties_dict
+        extra_kwargs = data_asf[0]._properties_dict
+        for d_asf in data_asf[1:]:
+            # Add the properties from the data_asf object to the kwargs
+            for key in d_asf._properties_dict:
+                if key not in extra_kwargs:
+                    extra_kwargs[key] = d_asf._properties_dict[key]
+
         # Replace `None` values with the db_asp values
         for key in extra_kwargs:
             if extra_kwargs[key] is None or key == "stoichiometry":
@@ -554,13 +574,15 @@ class asp_db_extended(asp):
         super().__init__(energies=merge_e, coefs=merge_coefs, **kwargs)
 
         # Store the data_asf object for reference
-        self.dataset_asf: asf | list[asf] = data_asf
+        self.dataset_asf: asf | list[asf] = (
+            data_asf if len(data_asf) > 1 else data_asf[0]
+        )
         """
         The original `asf` (atomic scattering factor) object containing the user data,
         used to generate the extended `asp` object.
         """
 
-        self.database_asp: asp_db_abstract | list[asp_db_abstract] = database
+        self.database_asp: asp_db_abstract = database
         """
         The original `asp` (atomic scattering polynomial) object containing the database data,
         used to extend the `asf` object.
@@ -793,9 +815,9 @@ class asp_db_im_extended(asp_db_extended, asp_im):
 
     def __init__(
         self,
-        data_asf: asf,
+        data_asf: asf | asf_im | list[asf | asf_im],
         database: asp_db_im | kk_stoichiometry | str,
-        merge_domain: tuple[float, float] | None = None,
+        merge_domain: tuple[float, float] | list[tuple[float, float]] | None = None,
         fix_distortions: bool = False,
         **kwargs,
     ) -> None:
@@ -826,7 +848,7 @@ class asp_db_re_extended(asp_db_extended, asp_re):
 
     def __init__(
         self,
-        data_asf: asf,
+        data_asf: asf | asf_re | list[asf | asf_re],
         database: asp_db_re | kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
@@ -858,7 +880,7 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
 
     def __init__(
         self,
-        data_asf: asf_complex,
+        data_asf: asf_complex | list[asf_complex],
         database: asp_db_complex | kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
@@ -951,7 +973,7 @@ if __name__ == "__main__":
     data_PS = np.genfromtxt(data_file, skip_header=4)
 
     # Convert to KK Calc objects
-    from kkcalc.models import asf_im
+    from kkcalc.models import asf_im, asf_re
 
     assert data_PS.shape[1] == 2, "Data file must have two columns"
     asf_PS = asf_im(

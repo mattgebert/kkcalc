@@ -2,7 +2,6 @@
 'Piecewise polynomial' representation models of scattering factors.
 """
 import abc
-import pandas as pd
 import numpy as np
 import numpy.typing as npt
 import warnings
@@ -28,6 +27,15 @@ if TYPE_CHECKING:
         asf_complex,
         asf_abstract,
     )
+
+has_pandas: bool
+"""Flag to check if pandas is available."""
+try:
+    import pandas as pd
+
+    has_pandas = True
+except ImportError:
+    has_pandas = False
 
 
 class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
@@ -128,7 +136,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
 
     @doc_copy(to_atomic_scattering_factors)
     @abc.abstractmethod
-    def to_asf(self) -> type["asf_abstract"]:
+    def to_asf(self) -> "asf_abstract":
         """
         Alias for `to_atomic_scattering_factors`.
         """
@@ -314,10 +322,12 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             energies=energies, coefs=coefs, orders=self.orders, **kwargs
         )
 
-    def dataframe(self) -> pd.DataFrame:
+    def dataframe(self) -> "pd.DataFrame":
         """
         Generates a Pandas representation of the coefficients list, useful for display.
         """
+        if not has_pandas:
+            raise ImportError("Pandas is required for this method.")
         orders = self.orders
         if orders is not None:
             return pd.DataFrame(
@@ -640,7 +650,14 @@ class asp(asp_abstract, atomic_scattering):
         # Type check
         if target_energies is None:
             # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
-            return conversions.ASF_to_betas(self.energies, self.eval_asf(self.energies))
+            return conversions.ASF_to_betas(
+                self.energies,
+                self.eval_asf(self.energies),
+                number_density=self.number_density,
+                density=self.density,
+                formula_mass=self.formula_mass,
+                stoichiometry=self.stoichiometry,
+            )
 
         if not isinstance(target_energies, (int, float)):
             target_energies = np.asarray(target_energies)
@@ -651,15 +668,21 @@ class asp(asp_abstract, atomic_scattering):
                 orders=self.orders,
             )
         else:
-            target_energies = np.array([target_energies])
             # Remove the singleton dimension from the output.
             factors = self.eval_asf_on_coefs(
-                target_energies=target_energies,
+                target_energies=np.array([target_energies]),
                 energies=self.energies,
                 coefs=self.coefs,
                 orders=self.orders,
             )[0]
-        return conversions.ASF_to_betas(self.energies, factors)
+        return conversions.ASF_to_betas(
+            target_energies,
+            factors,
+            number_density=self.number_density,
+            density=self.density,
+            formula_mass=self.formula_mass,
+            stoichiometry=self.stoichiometry,
+        )
 
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
@@ -1468,7 +1491,7 @@ class asp_complex(asp_abstract, atomic_scattering):
     @overload
     def eval_betas(
         self, target_energies: npt.NDArray | None
-    ) -> npt.NDArray[np.complex_]:
+    ) -> npt.NDArray[np.complex128]:
         ...
 
     @overload
@@ -1477,7 +1500,7 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     def eval_betas(
         self, target_energies: npt.NDArray | float | int | None = None
-    ) -> npt.NDArray[np.complex_] | complex:
+    ) -> npt.NDArray[np.complex128] | complex:
         r"""
         Calculate scattering factors from object polynomial coefficients at desired `energies`.
 
@@ -1507,7 +1530,7 @@ class asp_complex(asp_abstract, atomic_scattering):
     @overload
     def eval_refractive_index(
         self, target_energies: npt.NDArray | None
-    ) -> npt.NDArray[np.complex_]:
+    ) -> npt.NDArray[np.complex128]:
         ...
 
     @overload
@@ -1516,7 +1539,7 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     def eval_refractive_index(
         self, target_energies: npt.NDArray | float | int | None = None
-    ) -> npt.NDArray[np.complex_] | complex:
+    ) -> npt.NDArray[np.complex128] | complex:
         r"""
         Calculate the refractive index from the atomic scattering factors at desired `energies`.
 
@@ -1533,7 +1556,7 @@ class asp_complex(asp_abstract, atomic_scattering):
 
         Returns
         -------
-        npt.NDArray[np.complex_] | float
+        npt.NDArray[np.complex128] | float
             The refractive index at energy (or energies) `energies`.
         """
         return 1 - self.eval_betas(target_energies)

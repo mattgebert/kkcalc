@@ -15,7 +15,17 @@ from kkcalc.stoich import stoichiometry
 from kkcalc import kk_transforms
 from kkcalc.models import conversions, polynomials, factors, KK_Datatype
 
-from kkcalc.gui import kk_gui
+# Import the GUI module if appropriate packages are available:
+from importlib.metadata import metadata
+import os
+
+try:
+    for key, value in metadata("kkcalc").items():
+        if "Requires-Dist" in key and 'extra == "gui"' in value:
+            module = __import__(value.split(";")[0])
+    from kkcalc.gui import kk_gui
+except ImportError:
+    pass
 
 # Define the version of the package:
 import importlib.metadata

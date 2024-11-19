@@ -26,9 +26,15 @@ import numpy as np
 import numpy.typing as npt
 import abc
 import warnings
-import pandas as pd
 from enum import Enum
 from typing import Self, Union, Iterator, override
+
+try:
+    import pandas as pd
+
+    has_pandas = True
+except ImportError:
+    has_pandas = False
 
 KK_DATATYPE_DOCS: dict[str, str] = {
     "UNDEFINED": """For undefined data types.""",
@@ -419,18 +425,21 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         """
         return self.to_atomic_scattering_polynomial()
 
-    def dataframe(self) -> pd.DataFrame:
+    def dataframe(self) -> "pd.DataFrame":
         """
         Generates a Pandas representation of the factors list, useful for display.
         """
+        if not has_pandas:
+            raise ImportError("Pandas is required for this method.")
         return pd.DataFrame(
             np.c_[self.energies, self.factors], columns=["Energy (eV)", "ASF"]
         )
 
     def __str__(self, **kwargs) -> str:
         """
-        Creates a Pandas string representation of the factors list.
+        Creates a string representation of the factors list.
 
+        Pandas is used if availalble to create a table representation.
         Rows displayed are the first and last 5 if more than 10 rows.
 
         Parameters
@@ -444,9 +453,14 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A string representation of the factors.
         """
         # Create a default max_rows if not provided.
-        if "max_rows" not in kwargs:
-            kwargs["max_rows"] = 10
-        return self.dataframe().to_string(**kwargs)
+        if has_pandas:
+            if "max_rows" not in kwargs:
+                kwargs["max_rows"] = 10
+            return self.dataframe().to_string(**kwargs)
+        else:
+            return (
+                f"{self.__class__.__name__} object with {len(self.energies)} energies."
+            )
 
     def __getitem__(self, key: int | slice) -> type[Self]:
         """
@@ -1099,7 +1113,7 @@ class asf_im(asf):
     """
 
     @staticmethod
-    def from_asf(asf: asf, **kwargs) -> Self:
+    def from_asf(asf: asf, **kwargs) -> "asf_im":
         """
         Converts an `asf` object to an `asf_im` object.
 
@@ -1372,12 +1386,12 @@ class asf_complex(asf_abstract, atomic_scattering):
         self._im.energies = energies
 
     @property
-    def factors(self) -> npt.NDArray[np.complex_]:
+    def factors(self) -> npt.NDArray[np.complex128]:
         return self._re.factors + 1j * self._im.factors
 
     @factors.setter
     def factors(
-        self, factors: tuple[npt.NDArray, npt.NDArray] | npt.NDArray[np.complex_]
+        self, factors: tuple[npt.NDArray, npt.NDArray] | npt.NDArray[np.complex128]
     ) -> None:
         if isinstance(factors, tuple):
             self._re.factors = factors[0]
@@ -1518,7 +1532,7 @@ class asf_complex(asf_abstract, atomic_scattering):
     def from_NEXAFS(
         cls: Self,
         energies: npt.NDArray,
-        NEXAFS: npt.NDArray[np.complex_],
+        NEXAFS: npt.NDArray[np.complex128],
         scale_to_database: bool = False,
         **kwargs,
     ) -> type[Self]:
@@ -1547,8 +1561,8 @@ class asf_complex(asf_abstract, atomic_scattering):
         kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
         """
         energies = np.asarray(energies)
-        if NEXAFS.dtype != np.complex_:
-            NEXAFS = NEXAFS.astype(np.complex_)
+        if NEXAFS.dtype != np.complex128:
+            NEXAFS = NEXAFS.astype(np.complex128)
             warnings.warn(
                 "NEXAFS data was not complex. Assuming data is real-component only."
             )
@@ -1565,7 +1579,7 @@ class asf_complex(asf_abstract, atomic_scattering):
     def from_betas(
         cls: Self,
         energies: npt.NDArray,
-        beta: npt.NDArray[np.complex_],
+        beta: npt.NDArray[np.complex128],
         number_density: float = None,
         density: float = None,
         formula_mass: float = None,
@@ -1612,8 +1626,8 @@ class asf_complex(asf_abstract, atomic_scattering):
         # Convert energy and beta data to numpy arrays.
         energies = np.asarray(energies)
 
-        if beta.dtype != np.complex_:
-            beta = beta.astype(np.complex_)
+        if beta.dtype != np.complex128:
+            beta = beta.astype(np.complex128)
             warnings.warn(
                 "Beta data was not complex. Assuming data is real-component only."
             )
@@ -1647,7 +1661,10 @@ class asf_complex(asf_abstract, atomic_scattering):
 
     @classmethod
     def from_asf(
-        cls: type[Self], energies: npt.NDArray, asf: npt.NDArray[np.complex_], **kwargs
+        cls: type[Self],
+        energies: npt.NDArray,
+        factors: npt.NDArray[np.complex128],
+        **kwargs,
     ):
         """
         Converts complex atomic scattering factors to a complex object.
@@ -1656,11 +1673,11 @@ class asf_complex(asf_abstract, atomic_scattering):
         ----------
         energies : npt.NDArray
             Photon energies in eV.
-        asf : npt.NDArray[np.complex_]
+        asf : npt.NDArray[np.complex128]
             Complex atomic scattering factors.
         """
-        re = asf_re.from_asf(energies, asf.real, **kwargs)
-        im = asf_im.from_asf(energies, asf.imag, **kwargs)
+        re = asf_re.from_asf(asf(energies, factors.real, **kwargs))
+        im = asf_im.from_asf(asf(energies, factors.imag, **kwargs))
         return cls(re=re, im=im, **kwargs)
 
     def copy(self, **kwargs) -> type["asf_complex"]:

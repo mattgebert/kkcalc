@@ -1,18 +1,18 @@
 # KKcalc
 ## Introduction
-`kkcalc` is an open-source program to calculate the (inverse) Kramers-Kronig transform of X-ray absorption (dispersion) data,
+`kkcalc` is an open-source `python` package to calculate the (inverse) Kramers-Kronig transform of X-ray absorption (dispersion) data,
 
 $$f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star$$
 
- using a polynomial representation algorithm developed by Watts^[[1](#1)] implemented in `python`.
-Documentation with quick-start and examples is located at [url_link](), or can be [built](#docbuild) for offline.
-`KKCalc` is usable via an object-oriented Python API, or through a PyQT6 GUI interface.
+using a polynomial representation algorithm developed by Watts^[[1](#1)].
+
+`KKCalc` is usable via an object-oriented Python API, or through a PyQT6 GUI interface. Documentation can be found at [readthedocs](https://kkcalc.rtfd.org/), or can be [built](#docbuild) for offline.
 
 Cite us here [[1]](#1).
 
 ## Features
 - **Extend and Scale**
-   Scale and extend your NEXAFS datasets by the Henke^[] and Briggs/Lighthill^[] atomic scattering factor databases, for more accurate transforms. Stitch together multiple datasets.
+   Scale and extend your NEXAFS datasets by the Henke^[[2](#2)] and Briggs/Lighthill^[[3](#3)] atomic scattering factor databases, for more accurate transforms. Stitch together multiple datasets.
 - **Relativistic Correction**
    Use your material composition to automatically calculate the relativistic correction, $f^0$.
 - **GUI Interface**
@@ -28,10 +28,14 @@ Cite us here [[1]](#1).
 
     pip install kkcalc
 
+There are also optional dependencies `[gui]`, `[dev]` and `[docs]` that can be installed as such:
+
+    pip install kkcalc[gui]
+
 Further details about `pip` usage can be found in the [PyPI installation tutorial](https://packaging.python.org/tutorials/installing-packages/).
 
 ##### Dependencies
-Current dependencies can be found in the repository `pyproject.toml` file.
+Current dependencies can be found in the repository [`pyproject.toml`](pyproject.toml) file.
 
 #### Usage
 

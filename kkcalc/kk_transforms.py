@@ -1,15 +1,15 @@
 """
 This module contains the Kramers-Kronig transform methods.
 """
-import math
-import numpy as np
-import numpy.typing as npt
-from kkcalc.models.conversions import conversions
-
 DEF_ITER: int = 50
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
 """The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
+
+import math
+import numpy as np
+import numpy.typing as npt
+from kkcalc.models.conversions import conversions
 
 
 def KK_General_PP(
