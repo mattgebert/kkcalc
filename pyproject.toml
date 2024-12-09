@@ -84,6 +84,10 @@ override_SS05 = [  # override SS05 to allow docstrings starting with these words
     '^Access ',
 ]
 
+[tool.commitizen]
+update_changelog_on_bump = true
+tag_format = "v$major.$minor.$patch$prerelease.$devrelease"
+
 # ---------- Semantic Release for versioning ------------
 [tool.semantic_release]
 version_variables = ["pyproject.toml:project:version"]
