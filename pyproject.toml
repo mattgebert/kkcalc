@@ -78,8 +78,9 @@ checks = [
 exclude = [  # don't report on objects that match any of these regex
     '\.undocumented_method$',
     '\.__repr__$',
-    '\.@doc_copy$',
-    '\test_$',
+    # Add the .py modules here. Packages don't seem to work...
+    'test_stoich',
+
 ]
 override_SS05 = [  # override SS05 to allow docstrings starting with these words
     '^Process ',
@@ -94,6 +95,7 @@ tag_format = "v$major.$minor.$patch$prerelease.$devrelease"
 # ---------- Semantic Release for versioning ------------
 [tool.semantic_release]
 version_variables = ["pyproject.toml:project:version"]
+
 # TODO: Integrate python-semantic-release for this package.
 # assets = []
 # build_command_env = []
