@@ -103,6 +103,11 @@ class stoichiometry:
         - "C9H12O6S2" for C9H12O6S2
         - pt.formula("C9H12O6S2") for C9H12O6S2
         - "(A)1.2(B)0.8" for a combined composition.
+
+    See Also
+    --------
+    stoichiometry.from_chemical_formula : Convert a chemical formula string to a stoichiometry object.
+    periodictable.formulas.Formula : Formula object from the periodictable package.
     """
 
     def __init__(self, composition: CompositionAlias) -> None:  # numpydoc ignore=GL08
