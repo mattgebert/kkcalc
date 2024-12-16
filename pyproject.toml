@@ -80,6 +80,9 @@ exclude = [  # don't report on objects that match any of these regex
     '\.__repr__$',
     # Add the .py modules here. Packages don't seem to work...
     'test_stoich',
+    'test_transforms',
+    'test_models',
+
 
 ]
 override_SS05 = [  # override SS05 to allow docstrings starting with these words
