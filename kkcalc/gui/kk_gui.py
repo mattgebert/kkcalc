@@ -1,8 +1,11 @@
 """
-kk_gui.py is the GUI interface for the Kramers-Kronig Calculator. It is a simple interface that allows the user
-to input data, assign to real or imaginary components, and perform a Kramers-Kronig transform on it.
+GUI interface for the Kramers-Kronig Calculator.
+
+A simple interface that allows the user to input data, assign to real
+or imaginary components, and perform a Kramers-Kronig transform on it.
 The interface is built using the PyQt6 library.
 """
+
 from PyQt6 import QtWidgets, QtCore, QtGui
 import os
 import numpy as np
@@ -31,6 +34,21 @@ from kkcalc.stoich import stoichiometry
 
 
 class kk_gui(QtWidgets.QWidget):
+    """
+    Widget for the Kramers-Kronig Calculator.
+
+    The widget contains a viewer, a list of objects, and a modifier for the objects.
+
+    Attributes
+    ----------
+    obj_list : kk_object_list
+        The list and selector of objects.
+    obj_modifier : kk_object_modifier
+        The modifier (i.e. of density information or stochiometry) for the objects.
+    viewer : asf_viewer
+        The graphical viewer for the objects.
+    """
+
     def __init__(
         self,
         parent=None,
@@ -91,7 +109,8 @@ class kk_gui(QtWidgets.QWidget):
 
     def on_has_handle(self, has_handle: bool):
         """
-        Catches the signal from the modifier, for when an extended domain is to be created
+        Catch the signal from the modifier, for when an extended domain is to be created.
+
         """
         if has_handle:
             # Get the current obj
@@ -192,7 +211,7 @@ class kk_gui(QtWidgets.QWidget):
             self.obj_list.add_kk_obj(new_obj)
 
 
-if __name__ == "__main__":
+def demo_app():
     # Create the Application
     app = QtWidgets.QApplication([])
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
@@ -272,3 +291,7 @@ if __name__ == "__main__":
     # Run the application
     window.show()
     app.exec()
+
+
+if __name__ == "__main__":
+    demo_app()
