@@ -40,7 +40,7 @@ if has_periodictable:
         (element.symbol, element.number, element.mass)
         for element in pt.elements
     ]
-    assert ELEMENTS[1][0] == "H", "First element should be H"
+    assert ELEMENTS[1][0] == "H", f"First element should be H, was {ELEMENTS[1][0]}"
 else:
     # Use the asf database
     import os
@@ -59,7 +59,7 @@ else:
             ),  # Neutron first element, so H is ELEMENTS[1], consistent with periodictable.
             *zip(atomic_syms, atomic_nums, atomic_masses),
         ]
-        assert ELEMENTS[1][0] == "H", "First element should be H"
+        assert ELEMENTS[1][0] == "H", f"First element should be H, was {ELEMENTS[1][0]}"
     else:
         raise FileNotFoundError("Element data file not found.")
 
