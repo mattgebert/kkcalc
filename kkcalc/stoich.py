@@ -125,6 +125,9 @@ class stoichiometry:
     """Type alias for the composition parameter."""
 
     def __init__(self, composition: CompositionAlias) -> None:  # numpydoc ignore=GL08
+        self._composition: list[tuple[int, float]] | Formula
+        """A list of tuples, where each tuple contains the atomic number and the counts of an element."""
+        print("init ", composition)
         if isinstance(composition, type(self)):
             # Copy the formula / list.
             self._composition = composition._composition.copy()
@@ -132,8 +135,8 @@ class stoichiometry:
             self._composition = composition
         elif isinstance(composition, str):
             # Convert string to composition.
-            c = stoichiometry.__parse_chemical_formula(composition)
-            c = stoichiometry.__consolidate_elements(c)
+            c = stoichiometry._parse_chemical_formula(composition)
+            c = stoichiometry._consolidate_elements(c)
             self._composition = c
         elif hasattr(composition, "__iter__"):
             # Check validity of composition, collect duplicate elements
@@ -153,6 +156,7 @@ class stoichiometry:
                 if not exists:
                     final_comp.append((elem, n))
             self._composition = final_comp
+            print("finl, ", str(self))
         else:
             raise ValueError("Invalid stoichiometry.")
 
@@ -178,8 +182,8 @@ class stoichiometry:
         elif isinstance(other, str):
             # Try to convert the string to a stoichiometry object.
             try:
-                other = stoichiometry(other)
-                return self.composition == other.composition
+                stoich = stoichiometry(other)
+                return self.composition == stoich.composition
             except ValueError:
                 # Try to convert
                 return str(self) == other
@@ -220,13 +224,22 @@ class stoichiometry:
         """
         return "".join(
             [
+                # Get the element symbol
                 ELEMENTS[element[0]][0]
+                # Get the number of atoms
                 + (
-                    str(element[1])
+                    # Float
+                    str(
+                        element[1]
+                    )  # Could possibly use fractions.Fraction here to display 1/3 etc.
+                    # Check if the number is an integer and != 1.
                     if (element[1] * 10) % 10 != 0
-                    else (  # Check if the number is an integer
-                        str(int(element[1])) if element[1] != 1 else ""
-                    )  # Check if the number is 1
+                    else (
+                        # Integer
+                        str(int(element[1]))
+                        if element[1] != 1
+                        else ""
+                    )
                 )
                 for element in self._composition
             ]
@@ -593,7 +606,7 @@ class stoichiometry:
         return self.asp_complex()
 
     @staticmethod
-    def __consolidate_elements(
+    def _consolidate_elements(
         composition: list[tuple[int, float]]
     ) -> list[tuple[int, float]]:
         """
@@ -619,7 +632,7 @@ class stoichiometry:
         return [(element, count) for element, count in consolidated.items()]
 
     @staticmethod
-    def __parse_chemical_formula(
+    def _parse_chemical_formula(
         formula: str, recursion: bool = True
     ) -> list[tuple[int, float]]:
         """
@@ -669,12 +682,12 @@ class stoichiometry:
         elif len(m.group("Paren")) > 0:
             composition += [
                 (x[0], x[1] * Number)
-                for x in stoichiometry.__parse_chemical_formula(
+                for x in stoichiometry._parse_chemical_formula(
                     m.group("Paren"), recursion=recursion
                 )
             ]
         if len(m.group("Remainder")) != 0:
-            composition += stoichiometry.__parse_chemical_formula(
+            composition += stoichiometry._parse_chemical_formula(
                 m.group("Remainder"), recursion=recursion
             )
         return composition
@@ -704,11 +717,11 @@ class stoichiometry:
             return stoichiometry(pt.formula(formula))
         else:
             # Parse the formula string
-            composition = stoichiometry.__parse_chemical_formula(
+            composition = stoichiometry._parse_chemical_formula(
                 formula=formula, recursion=recursion
             )
             # Consolidate the elements
-            composition = stoichiometry.__consolidate_elements(composition)
+            composition = stoichiometry._consolidate_elements(composition)
             # Create the stoichiometry object
             return stoichiometry(composition)
 
