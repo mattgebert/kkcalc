@@ -271,7 +271,9 @@ class asp_db_re(asp_db_abstract, asp_re):
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Run init
-        asp_db_abstract.__init__(self, stoichiometry, energies, coefs, **kwargs)
+        asp_db_abstract.__init__(
+            self, stoichiometry, energies=energies, coefs=coefs, **kwargs
+        )
 
         # Get composition
         if isinstance(stoichiometry, str):
@@ -381,7 +383,9 @@ class asp_db_im(asp_db_abstract, asp_im):
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Run init
-        asp_db_abstract.__init__(self, stoichiometry, energies, coefs, **kwargs)
+        asp_db_abstract.__init__(
+            self, stoichiometry, energies=energies, coefs=coefs, **kwargs
+        )
 
         # Get composition
         if isinstance(stoichiometry, str):
@@ -1027,7 +1031,13 @@ class asp_db_im_extended(asp_db_extended, asp_im):
             )
 
         # Construct the extended object
-        super().__init__(data_asf, im_db, merge_domain, fix_distortions, **kwargs)
+        super().__init__(
+            data_asf=data_asf,
+            database=im_db,
+            merge_domain=merge_domain,
+            fix_distortions=fix_distortions,
+            **kwargs,
+        )
 
 
 class asp_db_re_extended(asp_db_extended, asp_re):
