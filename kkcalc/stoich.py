@@ -38,7 +38,7 @@ if has_periodictable:
     # Also contains N=0, i.e. neutral, as the first element. So ELEMENTS[1] = H.
     ELEMENTS = (
         # Neutron first element, not included in the __iter__ method currently... changed in 2024...
-        [pt.elements[0].symbol, pt.elements[0].number, pt.elements[0].mass]
+        [(pt.elements[0].symbol, pt.elements[0].number, pt.elements[0].mass)]
         + [(element.symbol, element.number, element.mass) for element in pt.elements]
     )
     assert ELEMENTS[1][0] == "H", f"Second element should be H, was {ELEMENTS[1][0]}"
