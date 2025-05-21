@@ -21,9 +21,8 @@ keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transfor
 # Project compatibility:
 requires-python = ">=3.10"
 dependencies = [
-    "numpy",
-    # "scipy",
-    "matplotlib",
+    "numpy", # Basic array and matrix operations
+    "scipy", # Used for constants
 ]
 classifiers = [
     "Developement Status :: 3 - Alpha",
@@ -46,9 +45,9 @@ documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 gui = [
-    "pyqt6",
-    "matplotlib",
-    "pandas",
+    "pyqt6", # For GUI
+    "matplotlib", # For plotting
+    "pandas", # For data format / handling
 ]
 dev = [
     "pre-commit",
