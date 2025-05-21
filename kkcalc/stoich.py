@@ -35,12 +35,13 @@ if TYPE_CHECKING:
 ELEMENTS: list[tuple[str, int, float]]
 """A list of tuples containing the atomic symbol, atomic number and atomic mass of each element."""
 if has_periodictable:
-    ELEMENTS = [
-        # Also contains N=0, i.e. neutral, as the first element. So ELEMENTS[1] = H.
-        (element.symbol, element.number, element.mass)
-        for element in pt.elements
-    ]
-    assert ELEMENTS[1][0] == "H", f"First element should be H, was {ELEMENTS[1][0]}"
+    # Also contains N=0, i.e. neutral, as the first element. So ELEMENTS[1] = H.
+    ELEMENTS = (
+        # Neutron first element, not included in the __iter__ method currently... changed in 2024...
+        [pt.elements[0].symbol, pt.elements[0].number, pt.elements[0].mass]
+        + [(element.symbol, element.number, element.mass) for element in pt.elements]
+    )
+    assert ELEMENTS[1][0] == "H", f"Second element should be H, was {ELEMENTS[1][0]}"
 else:
     # Use the asf database
     import os
@@ -59,7 +60,9 @@ else:
             ),  # Neutron first element, so H is ELEMENTS[1], consistent with periodictable.
             *zip(atomic_syms, atomic_nums, atomic_masses),
         ]
-        assert ELEMENTS[1][0] == "H", f"First element should be H, was {ELEMENTS[1][0]}"
+        assert (
+            ELEMENTS[1][0] == "H"
+        ), f"Second element should be H, was {ELEMENTS[1][0]}"
     else:
         raise FileNotFoundError("Element data file not found.")
 
