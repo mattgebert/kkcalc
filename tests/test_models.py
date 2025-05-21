@@ -45,14 +45,14 @@ class TestCommon:
     MASS_VALUES = {
         "1": 1.00784,  # Hydrogen
         "2": 4.0026,  # Helium
-        "Li": 6.94,  # Lithium
-        "Be": 9.0122,  # Beryllium
-        "B": 10.81,  # Boron
-        "C": 12.011,  # Carbon
-        "N": 14.007,  # Nitrogen
-        "O": 15.999,  # Oxygen
-        "S": 32.06,  # Sulfur
-        "Cl": 35.45,  # Chlorine
+        "3": 6.94,  # Lithium
+        "4": 9.0122,  # Beryllium
+        "5": 10.81,  # Boron
+        "6": 12.011,  # Carbon
+        "7": 14.007,  # Nitrogen
+        "8": 15.999,  # Oxygen
+        "16": 32.06,  # Sulfur
+        "17": 35.45,  # Chlorine
     }
 
     @pytest.mark.parametrize("composition", [fs.POLYMER_PS])
@@ -70,8 +70,12 @@ class TestCommon:
         fm = atomic_scattering.formula_mass
         # Calculate the fomula mass from known values
         fm_calc = sum(
-            [self.MASS_VALUES[atom] * counts for atom, counts in stoich.composition]
+            [
+                self.MASS_VALUES[str(atom)] * counts
+                for atom, counts in stoich.composition
+            ]
         )
 
-        # Check the object is propogated
-        assert atomic_scattering.propogated
+        assert (
+            f"{fm:0.2f}" == f"{fm_calc:0.2f}"
+        ), f"Formula mass {fm} != {fm_calc} at 2 decimal places."
