@@ -1,0 +1,22 @@
+from kkcalc.gui.kk_gui import kk_gui
+
+def kkcalc_app():
+    import PyQt6.QtWidgets as QtWidgets
+    # Create the Application
+    app = QtWidgets.QApplication([])
+    app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
+    
+    # Generate some example data
+    from kkcalc.models import asp_db_im
+    from kkcalc import stoichiometry
+    PS_NAME = "Polystyrene"
+    PS_STOICHIOMETRY = "CH"
+    ps_stoich = stoichiometry(PS_STOICHIOMETRY)
+    db_poly = asp_db_im(ps_stoich, name = PS_NAME)
+    
+    # Create the main window
+    window = kk_gui(objs=[db_poly], autohide_modifier=True)
+    window.show()
+    
+    # Run the application
+    app.exec()

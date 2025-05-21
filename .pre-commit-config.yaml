@@ -1,0 +1,37 @@
+## `Pre-commit` module configuration file
+## Can be installed using `pip install pre-commit`
+## The pre-commit hooks can then be installed using `pre-commit install`
+## All checks are run by default when `git commit` is run.
+
+repos:
+# Pre-commit hooks for basic Python processing
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-toml
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: mixed-line-ending
+    -   id: trailing-whitespace
+
+# Black - for standard code formatting
+-   repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+    -   id: black
+
+# NumPyDoc - for docstring validation
+-   repo: https://github.com/numpy/numpydoc
+    rev: v1.8.0
+    hooks:
+      - id: numpydoc-validation
+
+# Python Semantic Release & commitizen - for automatic versioning
+-   repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+      - id: commitizen-branch
+        stages: [pre-push]

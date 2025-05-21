@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 from typing import Literal
 from kkcalc.models import asf_abstract, asp_abstract, asf_im, asf_re, asf_complex
-from kkcalc.models.factors import KK_Datatype
+from kkcalc.models.factors import KK_Datatype, KK_DATATYPE_DOCS
 import numpy.typing as npt
 import numpy as np
 import warnings
@@ -51,10 +51,10 @@ class asf_viewer(QtWidgets.QWidget):
         
         # Create an option to switch graphing type
         self.graph_type_label = QtWidgets.QLabel("Repr:")
-        self.graph_type = QtWidgets.QComboBox()
-        self.graph_type.addItems([x.name.lower().capitalize().replace("_", " ") for x in GraphType])
+        self.graph_type_combo = QtWidgets.QComboBox()
+        self.graph_type_combo.addItems([x.name.lower().capitalize().replace("_", " ") for x in GraphType])
         # Setup hints
-        [self.graph_type.setItemData( #If __docs__ accessible on enums in future use that. 
+        [self.graph_type_combo.setItemData( #If __docs__ accessible on enums in future use that. 
             i, GRAPH_TYPE_DOCS[i], QtCore.Qt.ItemDataRole.ToolTipRole 
          ) for i, x in enumerate(GraphType)]
         
@@ -62,11 +62,21 @@ class asf_viewer(QtWidgets.QWidget):
         self.x_scale_label = QtWidgets.QLabel("X Scale:")
         self.x_scale_combo = QtWidgets.QComboBox()
         self.x_scale_combo.addItems(["Linear", "Log"])
+        self.x_scale_combo.setCurrentIndex(1) # Default to log scale
         
         # Create an option to switch the y-datatype.
         self.y_datatype_label = QtWidgets.QLabel("Y Datatype:")
         self.y_datatype_combo = QtWidgets.QComboBox()
-        self.y_datatype_combo.addItems([x.name for x in KK_Datatype if x != KK_Datatype.UNDEFINED])
+        i = 0
+        for x in KK_Datatype:
+            if x != KK_Datatype.UNDEFINED:
+                self.y_datatype_combo.addItem(x.name)
+                self.y_datatype_combo.setItemData(i, x.__doc__, QtCore.Qt.ItemDataRole.ToolTipRole)
+                i += 1
+                
+        # self.y_datatype_combo.addItems([x.name for x in KK_Datatype if x != KK_Datatype.UNDEFINED])
+        self.y_datatype_combo.setToolTip("The datatype to display on the y-axis")
+        self.y_datatype_combo.setCurrentIndex(KK_Datatype.ASF.value - 1) # Default to ASF
         
         # Create a matplotlib widget to show real and imaginary parts
         self.figure = plt.Figure()
@@ -96,7 +106,7 @@ class asf_viewer(QtWidgets.QWidget):
         self.top_settings_bar.addWidget(self.y_datatype_label)
         self.top_settings_bar.addWidget(self.y_datatype_combo)
         self.top_settings_bar.addWidget(self.graph_type_label)
-        self.top_settings_bar.addWidget(self.graph_type)
+        self.top_settings_bar.addWidget(self.graph_type_combo)
         self.bottom_settings_bar.addWidget(self.snap_x_label)
         self.bottom_settings_bar.addWidget(self.snap_x_combo)
         self.bottom_settings_bar.addWidget(self.norm_y_label)
@@ -117,7 +127,7 @@ class asf_viewer(QtWidgets.QWidget):
         
         # Connect the graph type change to the switch_graph_style function
         graph_fn = lambda x: self.reset_graph()
-        self.graph_type.currentIndexChanged.connect(graph_fn)
+        self.graph_type_combo.currentIndexChanged.connect(graph_fn)
         self.x_scale_combo.currentIndexChanged.connect(graph_fn)
         self.y_datatype_combo.currentIndexChanged.connect(graph_fn)
         self.norm_y_combo.currentIndexChanged.connect(graph_fn)
@@ -139,7 +149,7 @@ class asf_viewer(QtWidgets.QWidget):
         return self._scattering_objects    
     
     @scattering_objects.setter
-    def scattering_objects(self, objs: list[type[asp_abstract] | type[asf_abstract]]):
+    def scattering_objects(self, objs: list[asp_abstract | asf_abstract | type[asf_abstract] | type[asp_abstract]]):
         """
         The current scattering objects
 
@@ -153,32 +163,53 @@ class asf_viewer(QtWidgets.QWidget):
             if not isinstance(obj, asf_abstract) and not isinstance(obj, asp_abstract):
                 raise ValueError("Invalid scattering object")
         self._scattering_objects = objs
+        
         # Update the snap x combo box with the new objects
+        prev_idx, prev_text = self.snap_x_combo.currentIndex(), self.snap_x_combo.currentText()
         self.snap_x_combo.blockSignals(True)
         self.snap_x_combo.clear()
         self.snap_x_combo.addItem("") # always add a blank option, used to reset to full x-axis.
-        self.snap_x_combo.addItems([f"{type(obj)}: {obj.name}" for obj in self.scattering_objects])
+        self.snap_x_combo.addItems([f"<{type(obj).__name__}>: {obj.name}" for obj in self.scattering_objects])
+        # Restore index if previous text matches an item
+        if prev_text == self.snap_x_combo.itemText(prev_idx):
+            self.snap_x_combo.setCurrentIndex(prev_idx)
+        else:
+            # Check if the previous text is in the list
+            snapx_labels = [self.snap_x_combo.itemText(i) for i in range(self.snap_x_combo.count())]
+            if prev_text in snapx_labels:
+                self.snap_x_combo.setCurrentIndex(snapx_labels.index(prev_text))
+            # Otherwise reset is back to null selection.
         self.snap_x_combo.blockSignals(False)
+        
         # # Update the norm y combo box with the new objects
+        prev_idx, prev_text = self.norm_y_combo.currentIndex(), self.norm_y_combo.currentText()
         self.norm_y_combo.blockSignals(True)
         self.norm_y_combo.clear()
         self.norm_y_combo.addItem("") # always add a blank option, used to reset to full y-axis.
-        self.norm_y_combo.addItems([f"{type(obj)}: {obj.name}" for obj in self.scattering_objects])
+        self.norm_y_combo.addItems([f"<{type(obj).__name__}>: {obj.name}" for obj in self.scattering_objects])
+        if prev_text == self.norm_y_combo.itemText(prev_idx):
+            self.norm_y_combo.setCurrentIndex(prev_idx)
+        else:
+            # Check if the previous text is in the list
+            normy_labels = [self.norm_y_combo.itemText(i) for i in range(self.norm_y_combo.count())]
+            if prev_text in normy_labels:
+                self.norm_y_combo.setCurrentIndex(normy_labels.index(prev_text))
+            # Otherwise reset is back to null selection.
         self.norm_y_combo.blockSignals(False)
         # Reset the graph
         self.reset_graph()
         
     @property
-    def graph_style(self) -> GraphType:
+    def graph_type(self) -> GraphType:
         """
-        The current graphing style
+        The current graphing type
 
         Return
         ------
         GraphType
-            The current graphing style
+            The current graphing type
         """
-        return GraphType(self.graph_type.currentIndex())
+        return GraphType(self.graph_type_combo.currentIndex())
     
     @property
     def x_scale(self) -> Literal["linear", "log"]:
@@ -225,7 +256,7 @@ class asf_viewer(QtWidgets.QWidget):
         norm_idx = self.norm_y_combo.currentIndex()
         y_datatype = self.y_datatype
         NO_NORM = (None, None, None)
-        if norm_idx == 0 or len(self.scattering_objects) == 0:
+        if norm_idx <= 0 or len(self.scattering_objects) == 0:
             return NO_NORM
         else:
             norm_idx -= 1 # Subtract 1 to account for the blank option
@@ -242,7 +273,7 @@ class asf_viewer(QtWidgets.QWidget):
             ret_vals: list[tuple[float, float] | None]
             # Get the appropriate y-data type
             match y_datatype:
-                case KK_Datatype.ASF:
+                case KK_Datatype.ASF | KK_Datatype.ASF_DASH:
                     ydata:npt.NDArray = obj.factors
                 case KK_Datatype.BETA:
                     if obj.can_calc_beta:
@@ -252,6 +283,8 @@ class asf_viewer(QtWidgets.QWidget):
                         return NO_NORM
                 case KK_Datatype.NEXAFS:
                     ydata:npt.NDArray = obj.NEXAFS
+                case _:
+                    raise ValueError(f"Invalid y datatype {y_datatype}")
             # Get the valid x-domain
             if snap_dom is not None:
                 snap_idx = (obj.energies >= snap_dom[0]) & (obj.energies <= snap_dom[1])
@@ -285,7 +318,7 @@ class asf_viewer(QtWidgets.QWidget):
         tuple[float, float] | None
             The x-domain (min, max) to snap to.
         """
-        if index == 0 or len(self.scattering_objects) == 0:
+        if index <= 0 or len(self.scattering_objects) == 0:
             return None
         else:
             index -= 1 # Subtract 1 to account for the blank option
@@ -357,7 +390,7 @@ class asf_viewer(QtWidgets.QWidget):
         Used to update the graph style and x scale attributes.
         """
         # Get graphing attributes
-        graph_style = self.graph_style
+        graph_style = self.graph_type
         x_scale = self.x_scale
         y_datatype = self.y_datatype
         # Clear the existing graph
@@ -367,25 +400,29 @@ class asf_viewer(QtWidgets.QWidget):
         # Choose the y labels and title
         match y_datatype:
             case KK_Datatype.ASF:
-                title = "Atomic Scattering Factors (f = f0 + f1 + i*f2)"
-                yl1 = r"$f_1$" # "f1"
-                yl2 = r"$f_2$" # "f2"
+                title = "Atomic Scattering Factors (f = f1 + i*f2)"
+                yl1 = r"$f_1$ (electrons)" # f1
+                yl2 = r"$f_2$ (electrons)" # f2
             case KK_Datatype.BETA:
-                title = r"Refractive Index Components ($n = 1 - \delta - i * \beta $)"
-                yl1 = r"$\delta$" #"Delta"
-                yl2 = r"$\beta$" #"Beta"
+                title = r"Refractive Index ($n = 1 - \delta - i * \beta $)"
+                yl1 = r"$\delta$ (Dispersion)" # Delta
+                yl2 = r"$\beta$ (Absorption)" # Beta
             case KK_Datatype.NEXAFS | KK_Datatype.XANES | KK_Datatype.PHOTOABSORPTION:
                 title = "Absorption intensities (A.U.)"
-                yl1 = "Re Intensity (A.U.)"
-                yl2 = "Im Intensity (A.U.)"
+                yl1 = "Real (A.U.)"
+                yl2 = "Imaginary (A.U.)"
+            case KK_Datatype.ASF_DASH:
+                title = "Atomic Scattering Factors ($f = f^0 + f' + i*f{''}$)"
+                yl1 = r"$f'$ (electrons)" # f'
+                yl2 = r"$f{''}$ (electrons)" # f''
             case _:
                 raise ValueError("Invalid y datatype")    
         self.figure.suptitle(title)
         # Add the axes, and x labels
         match graph_style:
             case GraphType.RE_IM_SEPARATE | GraphType.ABS_PHASE_SEPARATE:
-                self.ax1 = self.figure.add_subplot(121)
-                self.ax2 = self.figure.add_subplot(122)
+                self.ax1 = self.figure.add_subplot(211)
+                self.ax2 = self.figure.add_subplot(212)
                 self.ax1.set_xlabel("Energy (eV)")
                 self.ax2.set_xlabel("Energy (eV)")
                 self.ax1.set_xscale(x_scale)
@@ -426,7 +463,7 @@ class asf_viewer(QtWidgets.QWidget):
             # If a polynomial, convert to asf to display.
             if isinstance(obj, asp_abstract):
                 obj: asp_abstract
-                obj = obj.to_asf()
+                obj = obj.to_atomic_scattering_factors()
                 
             # Plot data of an asf object.
             x = obj.energies
@@ -438,6 +475,10 @@ class asf_viewer(QtWidgets.QWidget):
                 # Get the appropriate y-data
                 if y_datatype == KK_Datatype.ASF:
                     y = obj.factors
+                elif y_datatype == KK_Datatype.ASF_DASH:
+                    y = obj.factors
+                    if isinstance(obj, (asf_re)): # Real part of asf_dash is f0 + f', remove f0.
+                        y = obj.factors - obj.stoichiometry.relativistic_correction
                 elif y_datatype == KK_Datatype.BETA:
                     if obj.can_calc_beta:
                         y = obj.betas
@@ -566,7 +607,7 @@ class asf_viewer(QtWidgets.QWidget):
             Header rows are (1) the sample names and (2) the data x/y designation.
         """
         # Get the current graph style
-        graph_style = self.graph_style
+        graph_style = self.graph_type
         graph_datatype = self.y_datatype
         
         # Get the data from the displayed lines
@@ -605,15 +646,16 @@ class asf_viewer(QtWidgets.QWidget):
         
         index = pd.MultiIndex.from_tuples(list(zip(samples, columns)), names=["Sample", "Data"])
         df = pd.DataFrame(values, index=index).transpose()
-        print(df.head())
         df.to_clipboard()
         return df
 
 
 if __name__ == "__main__":
+    # Create the application
     import sys
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
+    app.setApplicationName("Atomic Scattering Factor (ASF) Viewer")
     ui = asf_viewer()
     
     # Import kkcalc functions

@@ -1,3 +1,7 @@
 *.pyc
 *.asc
 *.egg-info
+*contrast.py
+docs/_build*
+venv*
+build*

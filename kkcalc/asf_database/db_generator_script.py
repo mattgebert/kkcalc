@@ -44,7 +44,7 @@ Plancks_constant = 4.1356673310e-15 # eV*seconds
 speed_of_light = 2.99792458e8 # meters per second
 Avogadro_constant = 6.02214129e23
 
-Elements_DATA = [line.strip("\r\n").split() for line in open(os.path.join(BASEDIR, 'asf', 'elements.dat'))]
+Elements_DATA = [line.strip("\r\n").split() for line in open(os.path.join(BASEDIR, 'data', 'elements.dat'))]
 Database = dict()
 
 #################################################################################################################
@@ -66,10 +66,10 @@ def LoadData(filename):
 	else:
 		return data
 
-def parse_BL_file():
+def parse_BL_file(briggs_file:str):
 	continue_norm = True # Normalise the Biggs and Lighthill data as the published scattering factors do, rather than as Henke et al says.
 	BLfile = {}
-	for line in open('original_biggs_file.dat'):
+	for line in open(briggs_file):
 		try:
 			values = [float(f) for f in line.split()]
 			if values[3] > 10:
@@ -104,7 +104,7 @@ def Coeffs_to_ASF(E,coeffs):
 	"""Calculate Henke scattering factors from polynomial coefficients. {E in eV and PECS in cm^2/atom}."""
 	return coeffs[0]*E + coeffs[1] + coeffs[2]/E + coeffs[3]/(E**2) + coeffs[4]/(E**3)
 ###########################################################################################################
-BL_data = parse_BL_file()
+BL_data = parse_BL_file(briggs_file=os.path.join(BASEDIR, 'data', 'original_biggs_file.dat'))
 
 #for z, symbol, name, atomic_mass, Henke_file in [Elements_DATA[0]]:
 for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
@@ -116,8 +116,8 @@ for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
 	Element_Database['symbol'] = symbol
 	
 	#Get basic data
-	print("Load nff data from:", os.path.join(BASEDIR, 'asf', Henke_file))
-	asf_RawData = LoadData(os.path.join(BASEDIR, 'asf', Henke_file))
+	print("Load nff data from:", os.path.join(BASEDIR, 'data', Henke_file))
+	asf_RawData = LoadData(os.path.join(BASEDIR, 'data', Henke_file))
 	if min(asf_RawData[1:-1,0]-asf_RawData[0:-2,0])<0:
 		print("Warning! Energies in ", Henke_file, "are not in ascending order! (Sorting now..)")
 		asf_RawData.sort()
@@ -144,6 +144,8 @@ for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
 	M = (asf_RawData[1:,2]-asf_RawData[0:-1,2])/(asf_RawData[1:,0]-asf_RawData[0:-1,0])
 	B = asf_RawData[0:-1,2]-M*asf_RawData[0:-1,0]
 	E = asf_RawData[:,0]
+	# asf_RawData (i.e. E, Re, Im) matches dimensions at this stage. Energies only go to 30000 eV, so we need to extend them. Briggs Lighthill adds 4 points.
+ 
 	Full_coeffs = numpy.zeros((len(asf_RawData[:,0])-1,5))
 	Full_coeffs[:,0] = M
 	Full_coeffs[:,1] = B
@@ -159,11 +161,15 @@ for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
 		Full_coeffs = numpy.append(Full_coeffs,[C[i,:]],axis=0)
 	E = numpy.append(E,X[-1])
 	
+	# Store -9999. Re values as np.nan instead
+	asf_RawData[asf_RawData[:,1]==-9999.0, 1] = numpy.nan
+ 
 	#convert numpy arrays to nested lists to enable json serialisation with the default converter.
 	Element_Database['E'] = E.tolist()
 	Element_Database['Im'] = Full_coeffs.tolist()
 	Element_Database['Re'] = asf_RawData[:,1].tolist()
 	Database[int(z)] = Element_Database
 
-with open('ASF.json','w') as f:
+output_path = os.path.join(BASEDIR, 'ASF.json')
+with open(output_path,'w') as f:
 	json.dump(Database,f,indent=1)
