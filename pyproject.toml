@@ -19,7 +19,7 @@ license = {text = "MIT License"}
 keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transform", "Contrast"]
 
 # Project compatibility:
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "numpy", # Basic array and matrix operations
     "scipy", # Used for constants
