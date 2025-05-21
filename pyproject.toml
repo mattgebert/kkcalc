@@ -22,7 +22,7 @@ keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transfor
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "scipy",
+    # "scipy",
     "matplotlib",
 ]
 classifiers = [
