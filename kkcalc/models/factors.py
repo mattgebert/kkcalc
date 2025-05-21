@@ -90,7 +90,7 @@ class KK_Datatype(Enum):
     PHOTOABSORPTION = 1  # AKA NEXAFS, XANES.
     """Photoabsorption."""
     REFRACTIVE = 2
-    """Refractive components, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
+    r"""Refractive components, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
 
     Not to be confused with the index of refraction (KK_Datatype.REFRACTIVE_INDEX).
 
@@ -460,7 +460,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         scale_to_database: bool = False,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
-        """
+        r"""
         Load refractive values to as atomic scattering factors.
 
         Uses some form of material density information to convert to atomic scattering factors.
@@ -1147,7 +1147,7 @@ class asf_re(asf):
 
     @property
     def deltas(self) -> npt.NDArray[np.float64]:
-        """
+        r"""
         Calculate the real dispersive refraction values ($\delta$) from atomic scattering factors.
 
         This is equivalent to the `refractive` property.
@@ -2006,7 +2006,7 @@ class asf_complex(asf_abstract, atomic_scattering):
 
     @property
     def refractive_indexes(self) -> npt.NDArray[np.complex128]:
-        """
+        r"""
         Refractive coefficients (delta, beta) of the atomic scattering factors.
 
         .. math::
