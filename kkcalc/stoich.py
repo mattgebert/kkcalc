@@ -19,13 +19,17 @@ except ImportError:
 
 import numpy as np
 import numpy.typing as npt
-from typing import Self, TYPE_CHECKING, TypeAlias, Iterable
+from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
 from kkcalc.util import doc_copy
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
     from kkcalc.asf_database.db_models import asp_db_im, asp_db_re, asp_db_complex
     from periodictable.formulas import Formula
+    from kkcalc.models.common import (
+        PROPERTIES_DICT,
+    )
+
 
 # Generate a list of atomic elements. Should already be sorted from the periodictable module.
 ELEMENTS: list[tuple[str, int, float]]
@@ -82,7 +86,9 @@ def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
     return sum([(z - (z / 82.5) ** 2.37) * n for z, n in composition])
 
 
-CompositionAlias: TypeAlias = "Iterable[tuple[int, float]] | Formula | str | Self"
+CompositionAlias: TypeAlias = (
+    Iterable[tuple[int, float]] | "Formula" | str | "stoichiometry"
+)
 
 
 class stoichiometry:
@@ -94,7 +100,7 @@ class stoichiometry:
 
     Parameters
     ----------
-    composition : list[tuple[int, float]] | Formula | str | Self
+    composition : list[tuple[int, float]] | Formula | str | stoichiometry
         The stoichiometry of the compound, i.e. the elemental composition.
         Can be a list of tuples, a Formula object, a string or another stoichiometry object.
 
@@ -104,11 +110,19 @@ class stoichiometry:
         - pt.formula("C9H12O6S2") for C9H12O6S2
         - "(A)1.2(B)0.8" for a combined composition.
 
+    Attributes
+    ----------
+    TYPING : TypeAlias
+        Type alias for the composition parameter and property.
+
     See Also
     --------
     stoichiometry.from_chemical_formula : Convert a chemical formula string to a stoichiometry object.
     periodictable.formulas.Formula : Formula object from the periodictable package.
     """
+
+    COMPOSITION_TYPING = CompositionAlias
+    """Type alias for the composition parameter."""
 
     def __init__(self, composition: CompositionAlias) -> None:  # numpydoc ignore=GL08
         if isinstance(composition, type(self)):
@@ -464,11 +478,23 @@ class stoichiometry:
                 [number * ELEMENTS[element][2] for element, number in self.composition]
             )
 
-    def asp_im(self) -> "asp_db_im":
+    def atomic_scattering_polynomial_im(
+        self, **kwargs: Unpack["PROPERTIES_DICT"]
+    ) -> "asp_db_im":
         """
         Generate a piecewise polynomial of the imaginary atomic scattering factors for the given stoichiometry.
 
         Uses the energy-dependent atomic scattering factor data from the Henke, Briggs and Lighthill database.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+            - `number_density` : float
+            - `density` : float
+            - `stoich` : stoichiometry
+            - `formula_mass` : float
+            - `name` : str
 
         Returns
         -------
@@ -477,20 +503,38 @@ class stoichiometry:
         """
         from kkcalc.asf_database.db_models import asp_db_im
 
-        return asp_db_im(self)
+        return asp_db_im(self, **kwargs)
 
-    @doc_copy(asp_im)
-    def atomic_scattering_polynomial_im(self) -> "asp_db_im":  # numpydoc ignore=RT01
-        """
-        An alias for `asp_im`.
-        """
-        return self.asp_im()
+    # @doc_copy(asp_im)
+    # def atomic_scattering_polynomial_im(
+    #     self, **kwargs: Unpack["PROPERTIES_DICT"]
+    # ) -> "asp_db_im":  # numpydoc ignore=RT01
+    #     """
+    #     An alias for `asp_im`.
+    #     """
+    #     return self.asp_im(**kwargs)
 
-    def asp_re(self) -> "asp_db_re":
+    asp_im = (
+        atomic_scattering_polynomial_im  # Alias for atomic_scattering_polynomial_im
+    )
+
+    def atomic_scattering_polynomial_re(
+        self, **kwargs: Unpack["PROPERTIES_DICT"]
+    ) -> "asp_db_re":
         """
         Generate a piecewise polynomial of the real atomic scattering factors for the given stoichiometry.
 
         Uses the energy-dependent atomic scattering factor data from the Henke, Briggs and Lighthill database.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+            - `number_density` : float
+            - `density` : float
+            - `stoich` : stoichiometry
+            - `formula_mass` : float
+            - `name` : str
 
         Returns
         -------
@@ -499,20 +543,36 @@ class stoichiometry:
         """
         from kkcalc.asf_database.db_models import asp_db_re
 
-        return asp_db_re(self)
+        return asp_db_re(self, **kwargs)
 
-    @doc_copy(asp_re)
-    def atomic_scattering_polynomial_re(self) -> "asp_db_re":  # numpydoc ignore=RT01
-        """
-        An alias for `asp_re`.
-        """
-        return self.asp_re()
+    # @doc_copy(asp_re)
+    # def atomic_scattering_polynomial_re(
+    #     self, **kwargs: Unpack["PROPERTIES_DICT"]
+    # ) -> "asp_db_re":  # numpydoc ignore=RT01
+    #     """
+    #     An alias for `asp_re`.
+    #     """
+    #     return self.asp_re()
 
-    def asp_complex(self) -> "asp_db_complex":
+    asp_re = (
+        atomic_scattering_polynomial_re  # Alias for atomic_scattering_polynomial_re
+    )
+
+    def asp_complex(self, **kwargs: Unpack["PROPERTIES_DICT"]) -> "asp_db_complex":
         """
         Generate a piecewise polynomial of the complex atomic scattering factors for the given stoichiometry.
 
         Uses the energy-dependent atomic scattering factor data from the Henke, Briggs and Lighthill database.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+            - `number_density` : float
+            - `density` : float
+            - `stoich` : stoichiometry
+            - `formula_mass` : float
+            - `name` : str
 
         Returns
         -------
@@ -521,7 +581,7 @@ class stoichiometry:
         """
         from kkcalc.asf_database.db_models import asp_db_complex
 
-        return asp_db_complex(self)
+        return asp_db_complex(self, **kwargs)
 
     @doc_copy(asp_complex)
     def atomic_scattering_polynomial_complex(
