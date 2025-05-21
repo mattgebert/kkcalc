@@ -132,7 +132,6 @@ class stoichiometry:
     def __init__(self, composition: CompositionAlias) -> None:  # numpydoc ignore=GL08
         self._composition: list[tuple[int, float]] | Formula
         """A list of tuples, where each tuple contains the atomic number and the counts of an element."""
-        print("init ", composition)
         if isinstance(composition, type(self)):
             # Copy the formula / list.
             self._composition = composition._composition.copy()
@@ -161,7 +160,6 @@ class stoichiometry:
                 if not exists:
                     final_comp.append((elem, n))
             self._composition = final_comp
-            print("finl, ", str(self))
         else:
             raise ValueError("Invalid stoichiometry.")
 
