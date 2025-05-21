@@ -1,3 +1,9 @@
+"""
+A module for database models.
+
+Allows the calculation of atomic scattering factor data, generated for a given stoichiometry.
+"""
+
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
@@ -26,23 +32,53 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
     Abstract class to define the interface for the atomic scattering polynomial object with database data.
 
     Requires the stoichiometry to be defined, to obtain scattering factor data from the database.
+    Also requires optional arguments for energies and coefs, so that the object can be copied.
+
+    Parameters
+    ----------
+    stoichiometry : stoichiometry | str
+        The stoichiometry of the compound, i.e. the elemental composition.
+        Forms the recipe for summation of the database scattering factor data if `energies` and `coefs` are not provided.
+    energies : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
+    coefs : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        A 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
+        coefficients for the atomic scattering factors.
+    **kwargs : Unpack[PROPERTIES_DICT]
+        Additional keyword arguments to pass to `atomic_scattering` base class.
     """
 
     @abc.abstractmethod
     def __init__(
         self,
         stoichiometry: kk_stoichiometry | str,
+        *,
+        energies: npt.NDArray[np.float64] | None = None,
+        coefs: npt.NDArray[np.float64] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
-    ):
+    ):  # numpydoc ignore=GL08
         pass
 
     @override
     def __getitem__(self, key: int | slice) -> Self:
         """
         Copy the object, and apply the key to the internal data.
+
+        Parameters
+        ----------
+        key : int | slice
+            The index or slice to apply to the internal data.
+
+        Returns
+        -------
+        asp_db_abstract
+            A copy of the object with the key applied to the internal data.
         """
         # Copy the object
-        new_obj = self.copy()
+        props = self._properties_dict  # includes the stoichiometry
+        new_obj = self.copy(**props)
 
         # Convert int index to slice
         if isinstance(key, int):
@@ -54,9 +90,14 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         new_obj._coefs = new_obj._coefs[start:stop:step]
         return new_obj
 
-    def copy(self) -> Self:
+    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Create a copy of the current object.
+
+        Parameters
+        ----------
+        **kwargs : Unpack[PROPERTIES_DICT]
+            Additional keyword arguments for the `atomic_scattering` base class to pass to the copy function.
 
         Returns
         -------
@@ -64,12 +105,17 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
             A copy of the current object.
         """
         # Copy the object properties
-        kwargs = self._properties_dict  # includes the stoichiometry
-        for key in kwargs:
-            if hasattr(kwargs[key], "copy"):
-                kwargs[key] = kwargs[key].copy()
+        props = self._properties_dict  # includes the stoichiometry
+        for key in props:
+            if hasattr(props[key], "copy"):
+                props[key] = props[key].copy()
+        props.update(kwargs)  # Update with the new kwargs
+        if "stoichiometry" not in props or props["stoichiometry"] is None:
+            raise ValueError("Stoichiometry must be defined to copy the object")
         # Copy the object
-        return self.__class__(**kwargs)
+        return self.__class__(
+            energies=self.energies.copy(), coefs=self.coefs.copy(), **props
+        )
 
     @classmethod
     def scale_data(
@@ -93,6 +139,9 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
             The atomic scattering factor values of the user data.
         stoichiometry : stoichiometry | str
             The stoichiometry of the compound, i.e. the elemental composition.
+        merge_domain : tuple[float, float] | None
+            The intersection energies of the user data and database data.
+            If None, the full range of the user data will be used.
 
         Returns
         -------
@@ -188,13 +237,21 @@ class asp_db_re(asp_db_abstract, asp_re):
 
     Parameters
     ----------
-    stoich : stoichiometry
+    stoichiometry : stoichiometry | str
         The stoichiometry of the compound, i.e. the elemental composition.
-    **kwargs
+        Forms the recipe for summation of the database scattering factor data if `energies` and `coefs` are not provided.
+    energies : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
+    coefs : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
+        shape of the imaginary spectrum in that segment.
+    **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `asp_re` and `atomic_scattering` parent classes.
 
     Attributes
-    -------
+    ----------
     energies : numpy.ndarray
         A 1D numpy array with length `N` listing the photon energies corresponding to `factors`.
     factors : numpy.ndarray
@@ -205,59 +262,79 @@ class asp_db_re(asp_db_abstract, asp_re):
     asf_database : The atomic scattering factor module for KK calc, where data is sourced from Briggs and Lighthill, and Henke et al.
     """
 
-    def __init__(self, stoichiometry: kk_stoichiometry, **kwargs):
-
-        # Otherwise
-        asp_db_abstract.__init__(self, stoichiometry)
+    def __init__(
+        self,
+        stoichiometry: kk_stoichiometry,
+        *,
+        energies: npt.NDArray[np.float64] | None = None,
+        coefs: npt.NDArray[np.float64] | None = None,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ):  # numpydoc ignore=GL08
+        # Run init
+        asp_db_abstract.__init__(self, stoichiometry, energies, coefs, **kwargs)
 
         # Get composition
+        if isinstance(stoichiometry, str):
+            stoichiometry = kk_stoichiometry(stoichiometry)
         comp = stoichiometry.composition
 
-        # Get unique energy points for all elements, but limited to values for the real components energies.
-        energies = np.unique(
-            np.r_[
-                *[
-                    ASF_DATABASE[z]["E"][: ASF_DATABASE[z]["Re"].shape[0]]
-                    for z, _ in comp
+        # Use for creating copies of the object...
+        if energies is not None and coefs is not None:
+            if len(energies) - 1 == len(coefs):
+                # Ensure the stoichiometry is set in the kwargs
+                kwargs["stoichiometry"] = stoichiometry
+                asp_re.__init__(self, energies=energies, coefs=coefs, **kwargs)
+            else:
+                raise ValueError(
+                    f"Number of energies ({len(energies)}) and coefs ({len(coefs)}) must match."
+                )
+
+        else:
+            # Get unique energy points for all elements, but limited to values for the real components energies.
+            energies = np.unique(
+                np.r_[
+                    *[
+                        ASF_DATABASE[z]["E"][: ASF_DATABASE[z]["Re"].shape[0]]
+                        for z, _ in comp
+                    ]
                 ]
-            ]
-        )
+            )
 
-        # Add weighted asf data sets for KK calculation
-        re_factors = np.zeros(
-            (len(energies))
-        )  # Stores summations of real factors at each energy
+            # Add weighted asf data sets for KK calculation
+            re_factors = np.zeros(
+                (len(energies))
+            )  # Stores summations of real factors at each energy
 
-        # Stores the current energy index for each element, defining factors at intermediate energies.
-        counters = np.zeros(len(comp), dtype=int)
+            # Stores the current energy index for each element, defining factors at intermediate energies.
+            counters = np.zeros(len(comp), dtype=int)
 
-        # Iterate over the unique energies
-        for i, energy in enumerate(
-            energies
-        ):  # iterate over the energies of the ASF_DATABASE
-            sum_re = 0  # Sum of the real factors at the current energy
-            # Sum the real factors at each energy
-            for j, (z, n) in enumerate(comp):
-                # Imaginary coefs at current energy
-                db_re = ASF_DATABASE[z]["Re"][
-                    counters[j]
-                ]  # the factor at the current energy
-                sum_re += n * db_re  # Multiply by stoichiometry n
-                # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
-                if ASF_DATABASE[z]["E"][counters[j] + 1] == energy:
-                    counters[
-                        j
-                    ] += 1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
-            # Store the sum of the elemental factors at the current energy
-            re_factors[i] = sum_re
+            # Iterate over the unique energies
+            for i, energy in enumerate(
+                energies
+            ):  # iterate over the energies of the ASF_DATABASE
+                sum_re = 0  # Sum of the real factors at the current energy
+                # Sum the real factors at each energy
+                for j, (z, n) in enumerate(comp):
+                    # Imaginary coefs at current energy
+                    db_re = ASF_DATABASE[z]["Re"][
+                        counters[j]
+                    ]  # the factor at the current energy
+                    sum_re += n * db_re  # Multiply by stoichiometry n
+                    # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
+                    if ASF_DATABASE[z]["E"][counters[j] + 1] == energy:
+                        counters[
+                            j
+                        ] += 1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+                # Store the sum of the elemental factors at the current energy
+                re_factors[i] = sum_re
 
-        # Convert factors to a polynomial
-        coefs = conversions.ASF_to_ASP(energies, re_factors)
+            # Convert factors to a polynomial
+            coefs = conversions.ASF_to_ASP(energies, re_factors)
 
-        # Setup properties
-        kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
-        kwargs["is_extended"] = True  # We have extended the data
-        asp_re.__init__(self, energies=energies, coefs=coefs, **kwargs)
+            # Setup properties
+            kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
+            kwargs["is_extended"] = True  # We have extended the data
+            asp_re.__init__(self, energies=energies, coefs=coefs, **kwargs)
 
 
 class asp_db_im(asp_db_abstract, asp_im):
@@ -268,13 +345,21 @@ class asp_db_im(asp_db_abstract, asp_im):
 
     Parameters
     ----------
-    stoich : stoichiometry | str
+    stoichiometry : stoichiometry | str
         The stoichiometry of the compound, i.e. the elemental composition.
-    **kwargs
+        Forms the recipe for summation of the database scattering factor data if `energies` and `coefs` are not provided.
+    energies : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
+    coefs : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
+        shape of the imaginary spectrum in that segment.
+    **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `asp_im` and `atomic_scattering` parent classes.
 
     Attributes
-    -------
+    ----------
     energies : numpy.ndarray
         An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
     coefs : numpy.ndarray
@@ -287,52 +372,69 @@ class asp_db_im(asp_db_abstract, asp_im):
     kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
     """
 
-    def __init__(self, stoichiometry: kk_stoichiometry | str, **kwargs):
+    def __init__(
+        self,
+        stoichiometry: kk_stoichiometry | str,
+        *,
+        energies: npt.NDArray[np.float64] | None = None,
+        coefs: npt.NDArray[np.float64] | None = None,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ):  # numpydoc ignore=GL08
         # Run init
-        asp_db_abstract.__init__(self, stoichiometry)
+        asp_db_abstract.__init__(self, stoichiometry, energies, coefs, **kwargs)
 
         # Get composition
         if isinstance(stoichiometry, str):
             stoichiometry = kk_stoichiometry(stoichiometry)
         comp = stoichiometry.composition
 
-        # Get unique energy points for all elements
-        energies = np.unique(np.r_[*[ASF_DATABASE[z]["E"] for z, _ in comp]])
+        if energies is not None and coefs is not None:
+            if len(energies) - 1 == len(coefs):
+                # Ensure stoichiometry is set in the kwargs
+                kwargs["stoichiometry"] = stoichiometry
+                asp_im.__init__(self, energies=energies, coefs=coefs, **kwargs)
+            else:
+                raise ValueError(
+                    f"Number of energies ({len(energies)}) and coefs ({len(coefs)}) must match."
+                )
+        else:
+            # Get unique energy points for all elements
+            energies = np.unique(np.r_[*[ASF_DATABASE[z]["E"] for z, _ in comp]])
 
-        # Add weighted asf data sets for KK calculation
-        im_coefs = np.zeros(
-            (len(energies) - 1, 5)
-        )  # Stores summations of imaginary coefficients at each energy
+            # Add weighted asf data sets for KK calculation
+            im_coefs = np.zeros(
+                (len(energies) - 1, 5)
+            )  # Stores summations of imaginary coefficients at each energy
 
-        # Stores the current energy index for each element, defining coefficients at intermediate energies.
-        counters = np.zeros(len(comp), dtype=int)
-        # Iterate over the unique energies
-        for i, energy in enumerate(
-            energies[1:]
-        ):  # iterate over the energies of the ASF_DATABASE, coefs run between N-1 and Nth energy
-            sum_im = 0  # Sum of the imaginary coefficients at the current energy
-            # Sum the imaginary coefficients at each energy
-            for j, (z, n) in enumerate(comp):
-                # Imaginary coefs at current energy
-                db_im_coefs = ASF_DATABASE[z]["Im"][
-                    counters[j]
-                ]  # the imaginary piecewise polynomial coefficients
-                sum_im += n * db_im_coefs  # Multiply by stoichiometry n
-                # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
-                if ASF_DATABASE[z]["E"][counters[j] + 1] == energy:
-                    counters[
-                        j
-                    ] += 1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
-            # Store the sum of the imaginary coefficients at the current energy
-            im_coefs[i, :] = sum_im
+            # Stores the current energy index for each element, defining coefficients at intermediate energies.
+            counters = np.zeros(len(comp), dtype=int)
+            # Iterate over the unique energies
+            for i, energy in enumerate(
+                energies[1:]
+            ):  # iterate over the energies of the ASF_DATABASE, coefs run between N-1 and Nth energy
+                sum_im = 0  # Sum of the imaginary coefficients at the current energy
+                # Sum the imaginary coefficients at each energy
+                for j, (z, n) in enumerate(comp):
+                    # Imaginary coefs at current energy
+                    db_im_coefs = ASF_DATABASE[z]["Im"][
+                        counters[j]
+                    ]  # the imaginary piecewise polynomial coefficients
+                    sum_im += n * db_im_coefs  # Multiply by stoichiometry n
+                    # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
+                    if ASF_DATABASE[z]["E"][counters[j] + 1] == energy:
+                        counters[
+                            j
+                        ] += 1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+                # Store the sum of the imaginary coefficients at the current energy
+                im_coefs[i, :] = sum_im
 
-        # Setup properties
-        kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
-        kwargs["is_extended"] = True  # We have extended the data
-        asp_im.__init__(self, energies=energies, coefs=im_coefs, **kwargs)
+            # Setup properties
+            kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
+            kwargs["is_extended"] = True  # We have extended the data
+            asp_im.__init__(self, energies=energies, coefs=im_coefs, **kwargs)
 
 
-class asp_db_complex(asp_db_abstract, asp_complex):
+class asp_db_complex(asp_complex):
     """
     Uses stochiometry to calculate a complex-component piecewise polynomial representation from Henke, Briggs and Lighthill data.
 
@@ -340,13 +442,21 @@ class asp_db_complex(asp_db_abstract, asp_complex):
 
     Parameters
     ----------
-    stoich : stoichiometry | str
+    stoichiometry : stoichiometry | str
         The stoichiometry of the compound, i.e. the elemental composition.
-    **kwargs
-        Additional keyword arguments to pass to `asp_complex` and `atomic_scattering` parent classes.
+        Forms the recipe for summation of the database scattering factor data if `energies` and `coefs` are not provided.
+    energies : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
+    coefs : numpy.ndarray | None, optional
+        Keyword argument to enable copy method, by default None.
+        An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
+        shape of the imaginary spectrum in that segment.
+    **kwargs : Unpack[PROPERTIES_DICT]
+        Additional keyword arguments for the `atomic_scattering` base class.
 
     Attributes
-    -------
+    ----------
     energies : numpy.ndarray
         An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
     coefs : numpy.ndarray
@@ -359,22 +469,81 @@ class asp_db_complex(asp_db_abstract, asp_complex):
     kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
     """
 
-    def __init__(self, stoichiometry: kk_stoichiometry | str, **kwargs):
-        # Run init
-        asp_db_abstract.__init__(self, stoichiometry, **kwargs)
-
+    def __init__(
+        self,
+        stoichiometry: kk_stoichiometry | str,
+        *,
+        energies: npt.NDArray[np.float64] | None = None,
+        coefs: npt.NDArray[np.complex128] | None = None,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ):  # numpydoc ignore=GL08
         # Get composition
         if isinstance(stoichiometry, str):
             stoichiometry = kk_stoichiometry(stoichiometry)
 
-        # Use asp_re and asp_im to generate the complex component
-        re_db = asp_db_re(stoichiometry)
-        im_db = asp_db_im(stoichiometry)
+        if energies is not None and coefs is not None:
+            if len(energies) - 1 == len(coefs):
+                re_db = asp_db_re(
+                    stoichiometry, energies=energies, coefs=coefs.real, **kwargs
+                )
+                im_db = asp_db_im(
+                    stoichiometry, energies=energies, coefs=coefs.imag, **kwargs
+                )
+                asp_complex.__init__(self, re_db, im_db, **kwargs)
+            else:
+                raise ValueError(
+                    f"Number of energies -1 ({len(energies)-1}) and coefs ({len(coefs)}) must match."
+                )
+        else:
+            # Use asp_re and asp_im to generate the complex component
+            kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
+            re_db = asp_db_re(**kwargs)
+            im_db = asp_db_im(**kwargs)
 
-        # Setup properties
-        kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
-        kwargs["is_extended"] = True  # We have extended the data
-        asp_complex.__init__(self, re=re_db, im=im_db, **kwargs)
+            # Setup properties
+            kwargs["is_extended"] = True  # We have extended the data
+            asp_complex.__init__(self, re=re_db, im=im_db, **kwargs)
+
+    @classmethod
+    def scale_data(
+        cls: type["asp_db_complex"],
+        data_e: npt.ArrayLike,
+        data_y: npt.ArrayLike,
+        stoichiometry: kk_stoichiometry | str,
+        merge_domain: tuple[float, float] | None = None,
+    ) -> npt.NDArray[np.complex128]:
+        """
+        Scale the user data to the database data.
+
+        Parameters
+        ----------
+        data_e : npt.ArrayLike
+            The energy values of the user data.
+        data_y : npt.ArrayLike
+            The atomic scattering factor values of the user data.
+        stoichiometry : stoichiometry | str
+            The stoichiometry of the compound, i.e. the elemental composition.
+        merge_domain : tuple[float, float] | None
+            The intersection energies of the user data and database data.
+            If None, the full range of the user data will be used.
+
+        Returns
+        -------
+        numpy.ndarray
+            The scaled user data.
+        """
+        # Separate the data into real and imaginary components
+        data_e = np.asarray(data_e)
+        data_y = np.asarray(data_y)
+        data_re = data_y.real
+        data_im = data_y.imag
+        # Use the db to scale the data
+        data_re = asp_db_re.scale_data(data_e, data_re, stoichiometry, merge_domain)
+        data_im = asp_db_im.scale_data(data_e, data_im, stoichiometry, merge_domain)
+        # Combine the data back into a complex array
+        data_y = data_re + 1j * data_im
+        # Return the scaled data
+        return data_y
 
 
 class asp_db_extended(asp):
@@ -383,15 +552,6 @@ class asp_db_extended(asp):
 
     Merges scattering factor polynomials with the user-provided near-edge data.
     TODO: Implement asp input for dataset, to preserve coefficients.
-
-    Attributes
-    ----------
-    dataset_asf : asf
-        The original `asf` (atomic scattering factor) object containing the user data,
-        used to generate the extended `asp` object.
-    database : asp_db
-        The original `asp_db` (atomic scattering polynomial) object containing the database data,
-        used to extend the data contained in the `asf` object.
 
     Parameters
     ----------
@@ -405,8 +565,17 @@ class asp_db_extended(asp):
         The range of energies to merge the user data_asf with the db_asp data.
     fix_distortions : bool
         Flag to fix distortions in the user data_asf.
-    **kwargs
-        Additional keyword arguments to pass to `asp_im` and `atomic_scattering` parent classes.
+    **kwargs : Unpack[PROPERTIES_DICT]
+        Additional keyword arguments to pass to `atomic_scattering` base classes.
+
+    Attributes
+    ----------
+    dataset_asf : asf
+        The original `asf` (atomic scattering factor) object containing the user data,
+        used to generate the extended `asp` object.
+    database : asp_db
+        The original `asp_db` (atomic scattering polynomial) object containing the database data,
+        used to extend the data contained in the `asf` object.
 
     See Also
     --------
@@ -414,7 +583,6 @@ class asp_db_extended(asp):
     asp_db : The atomic scattering polynomial object for the imaginary component of the scattering factor for a given stoichiometry.
     kkcalc.models.polynomials.asp_im : The atomic scattering polynomial object for the imaginary component of the scattering factor.
     kkcalc.models.common.atomic_scattering : Base class for atomic scattering objects.
-
     """
 
     @overload
@@ -424,9 +592,8 @@ class asp_db_extended(asp):
         database: asp_db_abstract,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
-        **kwargs,
-    ) -> None:
-        ...
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
 
     @overload
     def __init__(
@@ -435,20 +602,19 @@ class asp_db_extended(asp):
         database: asp_db_abstract,
         merge_domain: list[tuple[float, float] | None] | None = None,
         fix_distortions: bool = False,
-        **kwargs,
-    ) -> None:
-        ...
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
 
     def __init__(
         self,
         data_asf: asf | list[asf],
         database: asp_db_abstract,
-        merge_domain: tuple[float, float]
-        | list[tuple[float, float] | None]
-        | None = None,
+        merge_domain: (
+            tuple[float, float] | list[tuple[float, float] | None] | None
+        ) = None,
         fix_distortions: bool = False,
-        **kwargs,
-    ) -> None:
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None:  # numpydoc ignore=GL08
         # Check if data_asf is a list
         if isinstance(data_asf, list):
             # Check if merge_domain is a list
@@ -615,7 +781,7 @@ class asp_db_extended(asp):
             The energy domain within with to merge the data.
             By default None, using full data domain.
         fix_distortions : bool, optional
-            Use a fit to correct distortions in the user data, by default False
+            Use a fit to correct distortions in the user data, by default False.
 
         Returns
         -------
@@ -774,6 +940,11 @@ class asp_db_extended(asp):
             The range of the db_asp energies to fit.
         db_y : numpy.ndarray
             The database atomic scattering factor values (not coefs) to fit.
+
+        Returns
+        -------
+        numpy.ndarray
+            The difference between the fitted data and the database data.
         """
         data_grad_diff = (y - y[0]) - grad * (x - x[0])  # 0 to some number
         data_grad_diff_total = (y[-1] - y[0]) - grad * (x[-1] - x[0])  # some number
@@ -782,9 +953,14 @@ class asp_db_extended(asp):
         # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
 
-    def copy(self) -> "asp_db_extended":
+    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> "asp_db_extended":
         """
         Create a copy of the current object.
+
+        Parameters
+        ----------
+        **kwargs : Unpack[PROPERTIES_DICT]
+            Additional keyword arguments to pass to `atomic_scattering` base classes.
 
         Returns
         -------
@@ -811,6 +987,22 @@ class asp_db_im_extended(asp_db_extended, asp_im):
     The extended imaginary-component atomic scattering polynomial object.
 
     Forms an imaginary part extension of atomic scattering factor data, using the database data.
+
+    Parameters
+    ----------
+    data_asf : asf | asf_im | list[asf | asf_im]
+        The atomic scattering factors.
+    database : asp_db_im | kk_stoichiometry | str
+        The database atomic scattering polynomial, generated for a given material stoichiometry.
+        Can also be a `kk_stoichiometry` object or a string representing the stoichiometry,
+        which will be converted to an `asp_db` object.
+    merge_domain : tuple[float, float] | None
+        The intersection energies to merge the user data_asf with the db_asp data (in eV).
+        By default None, using full data domain.
+    fix_distortions : bool
+        Flag to fix distortions in the user data_asf. By default False.
+    **kwargs : Unpack[PROPERTIES_DICT]
+        Additional keyword arguments to pass to `atomic_scattering` base classes.
     """
 
     def __init__(
@@ -819,9 +1011,8 @@ class asp_db_im_extended(asp_db_extended, asp_im):
         database: asp_db_im | kk_stoichiometry | str,
         merge_domain: tuple[float, float] | list[tuple[float, float]] | None = None,
         fix_distortions: bool = False,
-        **kwargs,
-    ) -> None:
-
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None:  # numpydoc ignore=GL08
         # Convert the database to an asp_db_im object
         if isinstance(database, str):
             stoichiometry = kk_stoichiometry(database)
@@ -844,6 +1035,22 @@ class asp_db_re_extended(asp_db_extended, asp_re):
     The extended real-component atomic scattering polynomial object.
 
     Forms a real part extension of atomic scattering factor data, using the database data.
+
+    Parameters
+    ----------
+    data_asf : asf | asf_re | list[asf | asf_re]
+        The atomic scattering factors.
+    database : asp_db_re | kk_stoichiometry | str
+        The database atomic scattering polynomial, generated for a given material stoichiometry.
+        Can also be a `kk_stoichiometry` object or a string representing the stoichiometry,
+        which will be converted to an `asp_db` object.
+    merge_domain : tuple[float, float] | None
+        The intersection energies to merge the user data_asf with the db_asp data (in eV).
+        By default None, using full data domain.
+    fix_distortions : bool
+        Flag to fix distortions in the user data_asf. By default False.
+    **kwargs : Unpack[PROPERTIES_DICT]
+        Additional keyword arguments to pass to `atomic_scattering` base classes.
     """
 
     def __init__(
@@ -852,9 +1059,8 @@ class asp_db_re_extended(asp_db_extended, asp_re):
         database: asp_db_re | kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
-        **kwargs,
-    ) -> None:
-
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None:  # numpydoc ignore=GL08
         # Convert the database to an asp_db_re object
         if isinstance(database, str):
             stoichiometry = kk_stoichiometry(database)
@@ -876,6 +1082,22 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
     The extended complex-component atomic scattering polynomial object.
 
     Forms a complex part extension of atomic scattering factor data, using the database data.
+
+    Parameters
+    ----------
+    data_asf : asf | asf_complex | list[asf | asf_complex]
+        The atomic scattering factors.
+    database : asp_db_complex | kk_stoichiometry | str
+        The database atomic scattering polynomial, generated for a given material stoichiometry.
+        Can also be a `kk_stoichiometry` object or a string representing the stoichiometry,
+        which will be converted to an `asp_db` object.
+    merge_domain : tuple[float, float] | None
+        The intersection energies to merge the user data_asf with the db_asp data (in eV).
+        By default None, using full data domain.
+    fix_distortions : bool
+        Flag to fix distortions in the user data_asf. By default False.
+    **kwargs : Unpack[PROPERTIES_DICT]
+        Additional keyword arguments to pass to `atomic_scattering` base classes.
     """
 
     def __init__(
@@ -884,8 +1106,8 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
         database: asp_db_complex | kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
-        **kwargs,
-    ) -> None:
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None:  # numpydoc ignore=GL08
 
         # Convert the database to an asp_db_complex object
         if isinstance(database, str):

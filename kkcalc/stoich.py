@@ -19,23 +19,29 @@ except ImportError:
 
 import numpy as np
 import numpy.typing as npt
-from typing import Self, TYPE_CHECKING, TypeAlias, Iterable
+from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
 from kkcalc.util import doc_copy
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
     from kkcalc.asf_database.db_models import asp_db_im, asp_db_re, asp_db_complex
     from periodictable.formulas import Formula
+    from kkcalc.models.common import (
+        PROPERTIES_DICT,
+    )
+
 
 # Generate a list of atomic elements. Should already be sorted from the periodictable module.
 ELEMENTS: list[tuple[str, int, float]]
 """A list of tuples containing the atomic symbol, atomic number and atomic mass of each element."""
 if has_periodictable:
-    ELEMENTS = [
-        # Also contains N=0, i.e. neutral, as the first element. So ELEMENTS[1] = H.
-        (element.symbol, element.number, element.mass)
-        for element in pt.elements
-    ]
+    # Also contains N=0, i.e. neutral, as the first element. So ELEMENTS[1] = H.
+    ELEMENTS = (
+        # Neutron first element, not included in the __iter__ method currently... changed in 2024...
+        [(pt.elements[0].symbol, pt.elements[0].number, pt.elements[0].mass)]
+        + [(element.symbol, element.number, element.mass) for element in pt.elements]
+    )
+    assert ELEMENTS[1][0] == "H", f"Second element should be H, was {ELEMENTS[1][0]}"
 else:
     # Use the asf database
     import os
@@ -43,8 +49,8 @@ else:
     path_elements = __file__.replace("stoich.py", "asf_database/data/elements.dat")
     if os.path.exists(path_elements):
         data_elements = np.loadtxt(path_elements, dtype=str)
-        atomic_nums = data_elements[:, 0].astype(int)
-        atomic_syms = data_elements[:, 1]
+        atomic_nums = data_elements[:, 0].astype(int)  # Starting from 1
+        atomic_syms = data_elements[:, 1]  # Atomic symbols
         atomic_masses = data_elements[:, 3].astype(float)
         ELEMENTS = [
             (
@@ -54,6 +60,9 @@ else:
             ),  # Neutron first element, so H is ELEMENTS[1], consistent with periodictable.
             *zip(atomic_syms, atomic_nums, atomic_masses),
         ]
+        assert (
+            ELEMENTS[1][0] == "H"
+        ), f"Second element should be H, was {ELEMENTS[1][0]}"
     else:
         raise FileNotFoundError("Element data file not found.")
 
@@ -82,7 +91,9 @@ def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
     return sum([(z - (z / 82.5) ** 2.37) * n for z, n in composition])
 
 
-CompositionAlias: TypeAlias = "Iterable[tuple[int, float]] | Formula | str | Self"
+CompositionAlias: TypeAlias = (
+    Iterable[tuple[int, float]] | "Formula" | str | "stoichiometry"
+)
 
 
 class stoichiometry:
@@ -94,7 +105,7 @@ class stoichiometry:
 
     Parameters
     ----------
-    composition : list[tuple[int, float]] | Formula | str | Self
+    composition : list[tuple[int, float]] | Formula | str | stoichiometry
         The stoichiometry of the compound, i.e. the elemental composition.
         Can be a list of tuples, a Formula object, a string or another stoichiometry object.
 
@@ -104,13 +115,24 @@ class stoichiometry:
         - pt.formula("C9H12O6S2") for C9H12O6S2
         - "(A)1.2(B)0.8" for a combined composition.
 
+    Attributes
+    ----------
+    TYPING : TypeAlias
+        Type alias for the composition parameter and property.
+
     See Also
     --------
     stoichiometry.from_chemical_formula : Convert a chemical formula string to a stoichiometry object.
     periodictable.formulas.Formula : Formula object from the periodictable package.
     """
 
+    COMPOSITION_TYPING = CompositionAlias
+    """Type alias for the composition parameter."""
+
     def __init__(self, composition: CompositionAlias) -> None:  # numpydoc ignore=GL08
+        self._composition: list[tuple[int, float]] | Formula
+        """A list of tuples, where each tuple contains the atomic number and the counts of an element."""
+        print("init ", composition)
         if isinstance(composition, type(self)):
             # Copy the formula / list.
             self._composition = composition._composition.copy()
@@ -118,8 +140,8 @@ class stoichiometry:
             self._composition = composition
         elif isinstance(composition, str):
             # Convert string to composition.
-            c = stoichiometry.__parse_chemical_formula(composition)
-            c = stoichiometry.__consolidate_elements(c)
+            c = stoichiometry._parse_chemical_formula(composition)
+            c = stoichiometry._consolidate_elements(c)
             self._composition = c
         elif hasattr(composition, "__iter__"):
             # Check validity of composition, collect duplicate elements
@@ -139,6 +161,7 @@ class stoichiometry:
                 if not exists:
                     final_comp.append((elem, n))
             self._composition = final_comp
+            print("finl, ", str(self))
         else:
             raise ValueError("Invalid stoichiometry.")
 
@@ -164,8 +187,8 @@ class stoichiometry:
         elif isinstance(other, str):
             # Try to convert the string to a stoichiometry object.
             try:
-                other = stoichiometry(other)
-                return self.composition == other.composition
+                stoich = stoichiometry(other)
+                return self.composition == stoich.composition
             except ValueError:
                 # Try to convert
                 return str(self) == other
@@ -206,13 +229,22 @@ class stoichiometry:
         """
         return "".join(
             [
+                # Get the element symbol
                 ELEMENTS[element[0]][0]
+                # Get the number of atoms
                 + (
-                    str(element[1])
+                    # Float
+                    str(
+                        element[1]
+                    )  # Could possibly use fractions.Fraction here to display 1/3 etc.
+                    # Check if the number is an integer and != 1.
                     if (element[1] * 10) % 10 != 0
-                    else (  # Check if the number is an integer
-                        str(int(element[1])) if element[1] != 1 else ""
-                    )  # Check if the number is 1
+                    else (
+                        # Integer
+                        str(int(element[1]))
+                        if element[1] != 1
+                        else ""
+                    )
                 )
                 for element in self._composition
             ]
@@ -464,11 +496,23 @@ class stoichiometry:
                 [number * ELEMENTS[element][2] for element, number in self.composition]
             )
 
-    def asp_im(self) -> "asp_db_im":
+    def atomic_scattering_polynomial_im(
+        self, **kwargs: Unpack["PROPERTIES_DICT"]
+    ) -> "asp_db_im":
         """
         Generate a piecewise polynomial of the imaginary atomic scattering factors for the given stoichiometry.
 
         Uses the energy-dependent atomic scattering factor data from the Henke, Briggs and Lighthill database.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+            - `number_density` : float
+            - `density` : float
+            - `stoich` : stoichiometry
+            - `formula_mass` : float
+            - `name` : str
 
         Returns
         -------
@@ -477,20 +521,38 @@ class stoichiometry:
         """
         from kkcalc.asf_database.db_models import asp_db_im
 
-        return asp_db_im(self)
+        return asp_db_im(self, **kwargs)
 
-    @doc_copy(asp_im)
-    def atomic_scattering_polynomial_im(self) -> "asp_db_im":  # numpydoc ignore=RT01
-        """
-        An alias for `asp_im`.
-        """
-        return self.asp_im()
+    # @doc_copy(asp_im)
+    # def atomic_scattering_polynomial_im(
+    #     self, **kwargs: Unpack["PROPERTIES_DICT"]
+    # ) -> "asp_db_im":  # numpydoc ignore=RT01
+    #     """
+    #     An alias for `asp_im`.
+    #     """
+    #     return self.asp_im(**kwargs)
 
-    def asp_re(self) -> "asp_db_re":
+    asp_im = (
+        atomic_scattering_polynomial_im  # Alias for atomic_scattering_polynomial_im
+    )
+
+    def atomic_scattering_polynomial_re(
+        self, **kwargs: Unpack["PROPERTIES_DICT"]
+    ) -> "asp_db_re":
         """
         Generate a piecewise polynomial of the real atomic scattering factors for the given stoichiometry.
 
         Uses the energy-dependent atomic scattering factor data from the Henke, Briggs and Lighthill database.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+            - `number_density` : float
+            - `density` : float
+            - `stoich` : stoichiometry
+            - `formula_mass` : float
+            - `name` : str
 
         Returns
         -------
@@ -499,20 +561,36 @@ class stoichiometry:
         """
         from kkcalc.asf_database.db_models import asp_db_re
 
-        return asp_db_re(self)
+        return asp_db_re(self, **kwargs)
 
-    @doc_copy(asp_re)
-    def atomic_scattering_polynomial_re(self) -> "asp_db_re":  # numpydoc ignore=RT01
-        """
-        An alias for `asp_re`.
-        """
-        return self.asp_re()
+    # @doc_copy(asp_re)
+    # def atomic_scattering_polynomial_re(
+    #     self, **kwargs: Unpack["PROPERTIES_DICT"]
+    # ) -> "asp_db_re":  # numpydoc ignore=RT01
+    #     """
+    #     An alias for `asp_re`.
+    #     """
+    #     return self.asp_re()
 
-    def asp_complex(self) -> "asp_db_complex":
+    asp_re = (
+        atomic_scattering_polynomial_re  # Alias for atomic_scattering_polynomial_re
+    )
+
+    def asp_complex(self, **kwargs: Unpack["PROPERTIES_DICT"]) -> "asp_db_complex":
         """
         Generate a piecewise polynomial of the complex atomic scattering factors for the given stoichiometry.
 
         Uses the energy-dependent atomic scattering factor data from the Henke, Briggs and Lighthill database.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` such as:
+            - `number_density` : float
+            - `density` : float
+            - `stoich` : stoichiometry
+            - `formula_mass` : float
+            - `name` : str
 
         Returns
         -------
@@ -521,7 +599,7 @@ class stoichiometry:
         """
         from kkcalc.asf_database.db_models import asp_db_complex
 
-        return asp_db_complex(self)
+        return asp_db_complex(self, **kwargs)
 
     @doc_copy(asp_complex)
     def atomic_scattering_polynomial_complex(
@@ -533,7 +611,7 @@ class stoichiometry:
         return self.asp_complex()
 
     @staticmethod
-    def __consolidate_elements(
+    def _consolidate_elements(
         composition: list[tuple[int, float]]
     ) -> list[tuple[int, float]]:
         """
@@ -559,7 +637,7 @@ class stoichiometry:
         return [(element, count) for element, count in consolidated.items()]
 
     @staticmethod
-    def __parse_chemical_formula(
+    def _parse_chemical_formula(
         formula: str, recursion: bool = True
     ) -> list[tuple[int, float]]:
         """
@@ -609,12 +687,12 @@ class stoichiometry:
         elif len(m.group("Paren")) > 0:
             composition += [
                 (x[0], x[1] * Number)
-                for x in stoichiometry.__parse_chemical_formula(
+                for x in stoichiometry._parse_chemical_formula(
                     m.group("Paren"), recursion=recursion
                 )
             ]
         if len(m.group("Remainder")) != 0:
-            composition += stoichiometry.__parse_chemical_formula(
+            composition += stoichiometry._parse_chemical_formula(
                 m.group("Remainder"), recursion=recursion
             )
         return composition
@@ -644,11 +722,11 @@ class stoichiometry:
             return stoichiometry(pt.formula(formula))
         else:
             # Parse the formula string
-            composition = stoichiometry.__parse_chemical_formula(
+            composition = stoichiometry._parse_chemical_formula(
                 formula=formula, recursion=recursion
             )
             # Consolidate the elements
-            composition = stoichiometry.__consolidate_elements(composition)
+            composition = stoichiometry._consolidate_elements(composition)
             # Create the stoichiometry object
             return stoichiometry(composition)
 

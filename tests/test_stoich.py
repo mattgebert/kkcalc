@@ -1,9 +1,6 @@
 """Tests for the `stoich` module."""
 
 import pytest
-import matplotlib.pyplot as plt
-import numpy as np
-
 from kkcalc import stoichiometry as kk_stoich
 
 
@@ -21,6 +18,21 @@ class basic_stoichs:
 
 class TestStoichiometryInit:
     """Tests for the creation of integer `stoichiometry` objects."""
+
+    @pytest.mark.parametrize(
+        "compound,expected",
+        [
+            (basic_stoichs.POLYMER_PS, [(6, 8), (1, 8)]),
+            (basic_stoichs.POLYMER_P3HT, [(6, 10), (1, 14), (16, 1)]),
+        ],
+    )
+    def test_composition(self, compound, expected) -> None:
+        """
+        Tests the reduction of a str representation.
+        """
+        result = kk_stoich._parse_chemical_formula(compound)
+        result = kk_stoich._consolidate_elements(result)
+        assert result == expected
 
     @pytest.mark.parametrize(
         "compound",

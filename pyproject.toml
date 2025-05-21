@@ -19,11 +19,10 @@ license = {text = "MIT License"}
 keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transform", "Contrast"]
 
 # Project compatibility:
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "numpy",
-    "scipy",
-    "matplotlib",
+    "numpy", # Basic array and matrix operations
+    "scipy", # Used for constants
 ]
 classifiers = [
     "Developement Status :: 3 - Alpha",
@@ -46,9 +45,9 @@ documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 gui = [
-    "pyqt6",
-    "matplotlib",
-    "pandas",
+    "pyqt6", # For GUI
+    "matplotlib", # For plotting
+    "pandas", # For data format / handling
 ]
 dev = [
     "pre-commit",
@@ -82,13 +81,12 @@ exclude = [  # don't report on objects that match any of these regex
     'test_stoich',
     'test_transforms',
     'test_models',
-
-
 ]
 override_SS05 = [  # override SS05 to allow docstrings starting with these words
     '^Process ',
     '^Assess ',
     '^Access ',
+    '^Alias',
 ]
 
 [tool.commitizen]
