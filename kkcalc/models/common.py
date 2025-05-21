@@ -1,8 +1,10 @@
 """
 Classes for common attributes between atomic scattering factor and polynomial models.
 """
+
 import abc
-from kkcalc.stoich import stoichiometry as kk_stoichiometry
+import warnings
+from kkcalc.stoich import stoichiometry as kk_stoichiometry, CompositionAlias
 from scipy.constants import N_A
 from typing import Literal, Self, TypedDict
 
@@ -34,14 +36,13 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         Material number density in atoms per millilitre (cm^3).
     formula_mass : float | None
         Atomic mass sum of the materials chemical formula (molecular mass).
-
     """
 
     @property
     @abc.abstractmethod
     def stoichiometry(self) -> kk_stoichiometry | None:
         """
-        Returns the `stoichiometry` of the material associated with the scattering factors.
+        The `stoichiometry` of the material associated with the scattering factors.
 
         Returns `None` if no stoichiometry has been provided.
 
@@ -56,7 +57,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def density(self) -> float | None:
         """
-        Returns the material density in grams per millilitre (cm^3).
+        The material density in grams per millilitre (cm^3).
 
         Returns
         -------
@@ -69,7 +70,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def number_density(self) -> float | None:
         """
-        Returns the material number density in atoms per millilitre (cm^3).
+        The material number density in atoms per millilitre (cm^3).
 
         Returns
         -------
@@ -82,7 +83,9 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def formula_mass(self) -> float | None:
         """
-        Returns the atomic mass sum of the materials chemical formula (molecular mass).
+        The atomic mass sum of the materials chemical formula (molecular mass).
+
+        In units of atomic mass units (amu).
 
         Returns
         -------
@@ -95,7 +98,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def name(self) -> str:
         """
-        Returns the name of the material/sample associated with the scattering factors.
+        The name of the material/sample associated with the scattering factors.
 
         Returns
         -------
@@ -108,7 +111,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def is_extended(self) -> bool:
         """
-        Returns `True` if the material has been extended by the KKCalc database.
+        If the material has been extended by the KKCalc database.
 
         Returns
         -------
@@ -120,7 +123,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @property
     def _properties_dict(self) -> PROPERTIES_DICT:
         """
-        Returns a dictionary of the material class properties.
+        A dictionary of the material class properties.
 
         Returns
         -------
@@ -138,13 +141,13 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
 
     @property
     def can_calc_beta(self) -> bool:
-        """
-        Returns whether the object can calculate Delta/Beta values.
+        r"""
+        Whether the object can calculate $\delta$/$\beta$ values given enough density information.
 
         Returns
         -------
         bool
-            Whether the object can calculate Delta/Beta values.
+            If the object can calculate $\delta$/$\beta$ values.
         """
         return (
             self.number_density is not None
@@ -155,12 +158,12 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def copy(self) -> Self:
         """
-        Returns a copy of the class instance.
+        A copy of the object instance.
 
         Returns
         -------
         atomic_scattering_abstract
-            Copy of the class instance.
+            Copy instance of the object.
         """
         pass
 
@@ -173,13 +176,21 @@ class atomic_scattering(atomic_scattering_abstract):
 
     Parameters
     ----------
-    number_density : float, optional
-        Material number density in atoms per millilitre (cm^3).
+    name : str | None, optional
+        Material/sample name. By default `None`.
+    number_density : float | None, optional
+        Material number density in atoms per millilitre (cm^3). By default `None`.
         Equivalent to providing a density, with a stoichiometry or formula mass.
-    density : float, optional
+    density : float | None, optional
         Material density in grams per millilitre (cm^3).
-    stoichiometry : stoichiometry | str, optional
-        Stoichiometry of the material.
+    stoichiometry : stoichiometry | CompositionAlias | str | None, optional
+        Stoichiometry of the material. By default `None`.
+    formula_mass : float | None, optional
+        Atomic mass sum of the materials chemical formula (molecular mass).
+        Equivalent to providing a stoichiometry. By default `None`.
+    is_extended : bool, optional
+        `True` if the material has been extended by the KKCalc database.
+        By default `False`.
     """
 
     def __init__(
@@ -187,30 +198,10 @@ class atomic_scattering(atomic_scattering_abstract):
         name: str | None = None,
         number_density: float | None = None,
         density: float | None = None,
-        stoichiometry: kk_stoichiometry | str | None = None,
+        stoichiometry: kk_stoichiometry | CompositionAlias | None = None,
         formula_mass: float | None = None,
         is_extended: bool = False,
-    ) -> None:
-        """
-        Class for common attributes between atomic scattering factor and polynomial models.
-
-        Implements the `atomic_scattering_abstract` interface.
-
-        Parameters
-        ----------
-        number_density : float, optional
-            Material number density in atoms per millilitre (cm^3).
-            Equivalent to providing a density, with a stoichiometry or formula mass.
-        density : float, optional
-            Material density in grams per millilitre (cm^3).
-        stoich : stoichiometry, optional
-            Stoichiometry of the material.
-        formula_mass : float, optional
-            Atomic mass sum of the materials chemical formula (molecular mass).
-            Equivalent to providing a stoichiometry.
-        is_extended : bool, optional
-            `True` if the material has been extended by the KKCalc database.
-        """
+    ) -> None:  # numpydoc ignore=GL08
         super().__init__()
         # Initialize internal attributes.
         self._name = name
@@ -219,6 +210,18 @@ class atomic_scattering(atomic_scattering_abstract):
         self._stoichiometry = None
         self._formula_mass = None
         self._is_extended = False
+
+        # Raise a warning if competing information is provided.
+        if (
+            number_density is not None
+            and density is not None
+            and stoichiometry is not None
+        ):
+            warnings.warn(
+                "Competing information provided for `number density` and `density` given a `stoichiometry`. "
+                "`Number density` information precedes `density`.",
+                UserWarning,
+            )
 
         # Assign in reverse order of importance.
         self.stoichiometry = stoichiometry  # can infer a formula mass
@@ -231,7 +234,7 @@ class atomic_scattering(atomic_scattering_abstract):
         return
 
     @atomic_scattering_abstract.name.getter
-    def name(self) -> str | None:
+    def name(self) -> str | None:  # numpydoc ignore=PR02
         """
         The name of the material/sample associated with the scattering factors.
 
@@ -252,12 +255,12 @@ class atomic_scattering(atomic_scattering_abstract):
         return self._name
 
     @name.setter
-    def name(self, name: str | None) -> None:
+    def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
         self._name = name
         return
 
     @property
-    def number_density(self) -> float | None:
+    def number_density(self) -> float | None:  # numpydoc ignore=PR02
         """
         The material number density in atoms per millilitre (cm^3).
 
@@ -277,7 +280,9 @@ class atomic_scattering(atomic_scattering_abstract):
         return self._number_density
 
     @number_density.setter
-    def number_density(self, number_density: float | None) -> None:
+    def number_density(
+        self, number_density: float | None
+    ) -> None:  # numpydoc ignore=GL08
         self._number_density = number_density
         if number_density is not None:
             if self.formula_mass is not None:
@@ -286,12 +291,12 @@ class atomic_scattering(atomic_scattering_abstract):
         return
 
     @property
-    def density(self) -> float | None:
+    def density(self) -> float | None:  # numpydoc ignore=PR02
         """
         The material density in grams per millilitre (cm^3).
 
         When setting a value that is not `None`,
-        - Generates/Updates `number_density` if the `formula_mass` or `stoichiometry` is defined.
+        - Generates/Updates `number_density` if the `stoichiometry` or `formula_mass` is defined.
         - Generates `formula_mass` if None, and updates `number_density`, if the `stoichiometry` is defined.
         - Generates `formula_mass` if None, if the `number_density` is defined.
 
@@ -308,7 +313,7 @@ class atomic_scattering(atomic_scattering_abstract):
         return self._density
 
     @density.setter
-    def density(self, density: float | None) -> None:
+    def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
         self._density = density
         if density is not None:
             if self.formula_mass is not None:
@@ -316,21 +321,24 @@ class atomic_scattering(atomic_scattering_abstract):
                 self._number_density = density * N_A / self.formula_mass
             elif self.stoichiometry is not None:
                 # Generate a formula mass from the stoichiometry and density.
-                self._formula_mass = self.stoichiometry.formula_mass
-                self._number_density = density * N_A / self._formula_mass
-            elif self.number_density is not None:
+                fm = self.stoichiometry.formula_mass
+                self._formula_mass = fm
+                self._number_density = density * N_A / fm
+            elif self.number_density is not None and self.stoichiometry is None:
                 # Generate a formula mass from the number density and density.
                 self._formula_mass = density * N_A / self.number_density
         return
 
     @property
-    def formula_mass(self) -> float | None:
+    def formula_mass(self) -> float | None:  # numpydoc ignore=PR02
         """
-        The atomic mass sum of the materials chemical formula (molecular mass).
+        The atomic mass sum of the materials chemical formula (or molecular mass).
+
+        In units of atomic mass units (amu).
 
         When getting a value that is not `None`,
-        - Returns the `formula_mass` if it has been defined.
-        - Returns the `stoichiometry.formula_mass` if `stoichiometry` is defined but not `formula_mass`.
+        - Returns the `stoichiometry.formula_mass` if `stoichiometry` is defined.
+        - Alternatively returns the `formula_mass` if it has been defined.
 
         When setting a value,
         - Generates/Updates `number_density` if the `density` is defined.
@@ -346,25 +354,30 @@ class atomic_scattering(atomic_scattering_abstract):
         float | None
             Atomic mass sum of the materials chemical formula.
         """
-        if self._formula_mass is None:
-            if self.stoichiometry is not None:
-                return self.stoichiometry.formula_mass
+        if self.stoichiometry is not None:
+            return self.stoichiometry.formula_mass
         return self._formula_mass
 
     @formula_mass.setter
-    def formula_mass(self, formula_mass: float | None) -> None:
+    def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
         self._formula_mass = formula_mass
-        if formula_mass is not None:
-            # Update / generate a number density from the formula mass and density.
-            if self.density is not None:
-                self._number_density = self.density * N_A / formula_mass
-            # Generate a density from the formula mass and number density.
-            elif self.number_density is not None:
-                self._density = self.number_density * formula_mass / N_A
+        if self.stoichiometry is not None:
+            warnings.warn(
+                "Setting a formula mass will not be internally used when a `stoichiometry` has been assigned.",
+                UserWarning,
+            )
+        else:
+            if formula_mass is not None:
+                # Update / generate a number density from the formula mass and density.
+                if self.density is not None:
+                    self._number_density = self.density * N_A / formula_mass
+                # Generate a density from the formula mass and number density.
+                elif self.number_density is not None:
+                    self._density = self.number_density * formula_mass / N_A
         return
 
     @property
-    def stoichiometry(self) -> kk_stoichiometry | None:
+    def stoichiometry(self) -> kk_stoichiometry | None:  # numpydoc ignore=PR02
         """
         The `stoichiometry` of the material associated with the scattering factors.
 
@@ -399,18 +412,18 @@ class atomic_scattering(atomic_scattering_abstract):
         return self._stoichiometry
 
     @stoichiometry.setter
-    def stoichiometry(self, stoich: kk_stoichiometry | str | None) -> None:
+    def stoichiometry(
+        self, stoich: kk_stoichiometry | str | None
+    ) -> None:  # numpydoc ignore=GL08
         # Convert a string to a stoichiometry object.
         if isinstance(stoich, str):
             stoich = kk_stoichiometry(stoich)
 
         if not self.is_extended:
-            # Set the stoichiometry attribute.
-            self._stoichiometry = stoich
-
             # Generate / update the formula mass and number density.
             if stoich is not None:
                 # Generate a formula mass from the stoichiometry.
+                # Modify private attribute before stoichiometry, to avoid immutable error.
                 self.formula_mass = stoich.formula_mass
                 if self.density is not None:
                     # Update / generate a number density from the stoichiometry
@@ -419,14 +432,17 @@ class atomic_scattering(atomic_scattering_abstract):
                 elif self.number_density is not None:
                     # Generate a density from the stoichiometry and number density.
                     self._density = self.number_density * stoich.formula_mass / N_A
+
+            # Set the stoichiometry attribute after the formula mass has been set.
+            self._stoichiometry = stoich
         else:
             raise ValueError(
-                "Stoichiometry is immutable for an object that has been extended by the KKCalc database."
+                "Stoichiometry is immutable on a dataset once extended by the KKCalc database."
             )
         return
 
     @property
-    def is_extended(self) -> bool:
+    def is_extended(self) -> bool:  # numpydoc ignore=PR02
         """
         Property of the object if it has been extended by the KKCalc database.
 
@@ -443,20 +459,33 @@ class atomic_scattering(atomic_scattering_abstract):
         return self._is_extended
 
     @is_extended.setter
-    def is_extended(self, is_extended: bool) -> None:
+    def is_extended(self, is_extended: bool) -> None:  # numpydoc ignore=GL08
         self._is_extended = is_extended
 
-    @atomic_scattering_abstract._properties_dict.setter
-    def _properties_dict(self, properties: PROPERTIES_DICT) -> None:
+    # Override the _properties_dict property, to properly document.
+    @property
+    def _properties_dict(self) -> PROPERTIES_DICT:  # numpydoc ignore=PR02
         """
-        Uses keywords to update values for the material class properties.
-        `None` values are ignored.
+        Property for the material class properties.
 
         Parameters
         ----------
-        **kwargs : dict
-            Keyword arguments for class properties.
+        properties : PROPERTIES_DICT
+            Keyword arguments for class properties. `None` values are ignored.
+
+        Returns
+        -------
+        dict
+            Dictionary of class material properties.
         """
+        f = atomic_scattering_abstract._properties_dict.fget
+        assert f is not None
+        return f(self)
+
+    @_properties_dict.setter
+    def _properties_dict(
+        self, properties: PROPERTIES_DICT
+    ) -> None:  # numpydoc ignore=GL08
         for key in properties:
             match key:
                 case "name":
@@ -477,7 +506,7 @@ class atomic_scattering(atomic_scattering_abstract):
 
     def copy(self) -> Self:
         """
-        Returns a copy of the class instance.
+        Return a copy of the class instance.
 
         Returns
         -------

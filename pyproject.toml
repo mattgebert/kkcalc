@@ -82,13 +82,12 @@ exclude = [  # don't report on objects that match any of these regex
     'test_stoich',
     'test_transforms',
     'test_models',
-
-
 ]
 override_SS05 = [  # override SS05 to allow docstrings starting with these words
     '^Process ',
     '^Assess ',
     '^Access ',
+    '^Alias',
 ]
 
 [tool.commitizen]
