@@ -359,9 +359,9 @@ class conversions:
         .. math::
             ASF_i = \frac{e c}{2 r_e h} E_i \text{NEXAFS}_i
 
-        Where $r_e$ is the classical electron radius, $e$ is the elementary charge,
-        $c$ is the speed of light, and $h$ is Planck's constant (in J.s) and $E_i$ is the photon energy.
-        The prefactor is approximately 1/(6.9876e-21 eV.s^2).
+        Where $r_e$ is the classical electron radius (in meters), $e$ is the elementary charge (in Coulombs),
+        $c$ is the speed of light (in m/s), and $h$ is Planck's constant (in J.s) and $E_i$ is the photon energy (in eV).
+        The prefactor is approximately 1/(6.9876e-21 J.s^2/C).
 
         Parameters
         ----------
