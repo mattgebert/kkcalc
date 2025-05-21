@@ -40,6 +40,7 @@ if has_periodictable:
         (element.symbol, element.number, element.mass)
         for element in pt.elements
     ]
+    assert ELEMENTS[1][0] == "H", "First element should be H"
 else:
     # Use the asf database
     import os
@@ -47,8 +48,8 @@ else:
     path_elements = __file__.replace("stoich.py", "asf_database/data/elements.dat")
     if os.path.exists(path_elements):
         data_elements = np.loadtxt(path_elements, dtype=str)
-        atomic_nums = data_elements[:, 0].astype(int)
-        atomic_syms = data_elements[:, 1]
+        atomic_nums = data_elements[:, 0].astype(int)  # Starting from 1
+        atomic_syms = data_elements[:, 1]  # Atomic symbols
         atomic_masses = data_elements[:, 3].astype(float)
         ELEMENTS = [
             (
@@ -58,6 +59,7 @@ else:
             ),  # Neutron first element, so H is ELEMENTS[1], consistent with periodictable.
             *zip(atomic_syms, atomic_nums, atomic_masses),
         ]
+        assert ELEMENTS[1][0] == "H", "First element should be H"
     else:
         raise FileNotFoundError("Element data file not found.")
 
