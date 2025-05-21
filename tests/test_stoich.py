@@ -1,9 +1,6 @@
 """Tests for the `stoich` module."""
 
 import pytest
-import matplotlib.pyplot as plt
-import numpy as np
-
 from kkcalc import stoichiometry as kk_stoich
 
 
