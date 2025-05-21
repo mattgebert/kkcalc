@@ -90,20 +90,33 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         """
         pass
 
-    # @staticmethod
+    @staticmethod
     # @doc_copy(conversions.ASP_to_ASF)
-    # def coefs_to_atomic_scattering_factors(
-    #     energies: npt.NDArray, coefs: npt.NDArray, orders: npt.NDArray | None = None
-    # ) -> npt.NDArray:
-    #     r"""
-    #     Alias for `conversions.ASP_to_ASF` to calculate the atomic scattering factors from
-    #     polynomial `coefs` defined between `energies`.
-    #     """
-    #     return conversions.ASP_to_ASF(energies=energies, coefs=coefs, orders=orders)
+    def coefs_to_atomic_scattering_factors(
+        energies: npt.NDArray, coefs: npt.NDArray, orders: npt.NDArray | None = None
+    ) -> npt.NDArray:
+        r"""
+        Alias for static method `conversions.ASP_to_ASF`.
 
-    coefs_to_atomic_scattering_factors = (
-        conversions.ASP_to_ASF
-    )  # Alias for conversions.ASP_to_ASF
+        Calculates the atomic scattering factors from polynomial `coefs` defined between `energies`.
+
+        Parameters
+        ----------
+        energies : npt.NDArray
+            The energy values of length `N+1` defining the `N` intervals for the polynomial coefficients.
+        coefs : npt.NDArray
+            The polynomial coefficients of shape `(N, M)` for the scattering factors,
+            defined on the intervals of `energies` where `M` is the number of coefficients.
+        orders : npt.NDArray | None, optional
+            The polynomial orders for the scattering factors, with length `M`. If None,
+            coefficients are assumed to be in the order [1, 0, -1, -2, -3]. By default None.
+
+        Returns
+        -------
+        npt.NDArray
+            The atomic scattering factors calculated from the polynomial coefficients.
+        """
+        return conversions.ASP_to_ASF(energies=energies, coefs=coefs, orders=orders)
 
     @property
     def atomic_scattering_factors(self) -> npt.NDArray:
