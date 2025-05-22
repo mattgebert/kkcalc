@@ -140,7 +140,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         }
 
     @property
-    def can_calc_beta(self) -> bool:
+    def can_calc_refractive(self) -> bool:
         r"""
         Whether the object can calculate $\delta$/$\beta$ values given enough density information.
 

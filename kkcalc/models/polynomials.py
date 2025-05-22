@@ -866,7 +866,7 @@ class asp(asp_abstract, atomic_scattering):
             The magnitude of the atomic scattering factors at energy (or energies) `energies`.
             Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
         """
-        if not self.can_calc_beta:
+        if not self.can_calc_refractive:
             raise AttributeError(f"{self} cannot calculate delta/beta values.")
         # Type check
         if target_energies is None:
@@ -2038,8 +2038,10 @@ class asp_complex(asp_abstract, atomic_scattering):
             The magnitude of the atomic scattering factors at energy (or energies) `energies`.
             Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
         """
-        if not self.can_calc_beta:
-            raise AttributeError(f"{self} cannot calculate delta/beta values.")
+        if not self.can_calc_refractive:
+            raise AttributeError(
+                f"{self} cannot calculate delta/beta values; requires density information."
+            )
 
         # Run eval_betas on the real and imaginary parts
         deltas_re = self.re.eval_refractive(target_energies)
@@ -2078,8 +2080,87 @@ class asp_complex(asp_abstract, atomic_scattering):
         npt.NDArray[np.complex128] | float
             The refractive index at energy (or energies) `energies`.
         """
+        if not self.can_calc_refractive:
+            raise AttributeError(
+                f"{self} cannot calculate delta/beta values; requires density information."
+            )
         result = self.eval_refractive(target_energies)
         return 1 - result.real + 1j * result.imag
+
+    @overload
+    def eval_betas(
+        self, target_energies: npt.NDArray | None
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_betas(
+        self, target_energies: float | int
+    ) -> float | complex: ...  # numpydoc ignore=GL08
+
+    def eval_betas(
+        self, target_energies: npt.NDArray | float | int | None = None
+    ) -> npt.NDArray | float | complex:
+        r"""
+        Determine the energy-dependent, imaginary, absorption refractive index component ($\beta$).
+
+        Calculated from the object atomic scattering polynomial coefficients at desired `target_energies`.
+
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        if not self.can_calc_refractive:
+            raise AttributeError(
+                f"{self} cannot calculate delta/beta values; requires density information."
+            )
+        return self._im.eval_refractive(target_energies=target_energies)
+
+    @overload
+    def eval_deltas(
+        self, target_energies: npt.NDArray | None
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_deltas(
+        self, target_energies: float | int
+    ) -> float | complex: ...  # numpydoc ignore=GL08
+
+    def eval_deltas(
+        self, target_energies: npt.NDArray | float | int | None = None
+    ) -> npt.NDArray | float | complex:
+        r"""
+        Determine the energy-dependent, real, dispersive refractive index component ($\delta$).
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        if not self.can_calc_refractive:
+            raise AttributeError(
+                f"{self} cannot calculate delta/beta values; requires density information."
+            )
+        return self._re.eval_deltas(target_energies=target_energies)
 
     def contrast(self, other: "asp_complex") -> tuple[npt.NDArray, npt.NDArray]:
         r"""
@@ -2103,7 +2184,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         contrast : np.ndarray
             The contrast between two atomic scattering polynomials.
         """
-        if self.can_calc_beta and other.can_calc_beta:
+        if self.can_calc_refractive and other.can_calc_refractive:
             energies_self, energies_other = self.energies, other.energies
 
             if energies_self.shape == energies_other.shape and np.all(

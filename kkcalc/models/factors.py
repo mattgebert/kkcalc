@@ -1114,6 +1114,61 @@ class asf(asf_abstract, atomic_scattering):
             **kwargs,
         )
 
+    @override
+    @classmethod
+    @abc.abstractmethod
+    def from_refractive_index(
+        cls: type[Self],
+        energies: npt.NDArray,
+        refractive_index: npt.NDArray,
+        *,
+        number_density: float | None = None,
+        density: float | None = None,
+        formula_mass: float | None = None,
+        stoichiometry: kk_stoichiometry | str | None = None,
+        scale_to_database: bool = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> Self:
+        r"""
+        Unimplemented method to convert refractive index values.
+
+        Always raises a `NotImplementedError` as the conversion to atomic scattering factors is
+        ambiguous between $\delta$ & $\beta$ values.
+
+        Instead use `from_refractive` to scale $\delta$ or $\beta$ values in the same way,
+        or use the `asf_re`, `asf_im` or `asf_complex` classes to decompose the refractive index.
+
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        refractive_index : array_like
+            Real/imaginary index of refraction values (i.e. $\delta$'s or $\beta$'s).
+        number_density : float, optional
+            Material density in atoms per millilitre (cm^3).
+        density : float
+            Material density in grams per millilitre (cm^3).
+        formula_mass : float
+            Atomic mass sum of the materials chemical formula (molecular mass).
+            Equivalent to providing a `stoichiometry`.
+        stoichiometry : stoichiometry | str
+            Description of the combination of elements composing the material.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs : Unpack[PROPERTIES_DICT]
+            Additional keyword arguments for the `atomic_scattering` object.
+
+        Raises
+        ------
+        NotImplementedError
+            Always is raised as the conversion is not implemented for this class.
+        """
+        raise NotImplementedError(
+            r"Refractive index conversion is not implemented for this class,\
+                as the conversion is ambiguous between $\delta$ & $\beta$ values."
+        )
+
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Generate a copy of the `asp` object.
@@ -1840,6 +1895,71 @@ class asf_im(asf):
             **kwargs,
         )
 
+    @override
+    @classmethod
+    def from_refractive_index(
+        cls: type[Self],
+        energies: npt.NDArray[np.floating],
+        refractive_index: npt.NDArray[np.floating],
+        *,
+        number_density: float | None = None,
+        density: float | None = None,
+        formula_mass: float | None = None,
+        stoichiometry: kk_stoichiometry | str | None = None,
+        scale_to_database: bool = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> Self:
+        r"""
+        Convert imaginary refractive index values (n -> i * $\beta$) to atomic scattering factors (ASF).
+
+        .. math::
+            n(E) &= 1 - \delta(E) + i\beta(E)
+
+        Requires some form of material density information to convert to ASF.
+        As per positional argument order, the function will use the first available density information.
+        This can either be:
+        - `number_density` in atoms|units|molecules per millilitre (cm^3),
+        - `density` in grams per millilitre (cm^3), and `formula_mass` (molecular mass),
+        - `density` in grams per millilitre (cm^3), and `stoichiometry` as a list of elemental symbol, number pairs or string of a formula.
+
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        refractive_index : array_like
+            Real/imaginary index of refraction values (i.e. $\delta$'s or $\beta$'s).
+        number_density : float, optional
+            Material density in atoms per millilitre (cm^3).
+        density : float
+            Material density in grams per millilitre (cm^3).
+        formula_mass : float
+            Atomic mass sum of the materials chemical formula (molecular mass).
+            Equivalent to providing a `stoichiometry`.
+        stoichiometry : stoichiometry | str
+            Description of the combination of elements composing the material.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs : Unpack[PROPERTIES_DICT]
+            Additional keyword arguments for the `atomic_scattering` object.
+
+        Returns
+        -------
+        asf_im
+            Imaginary atomic scattering factors object.
+        """
+        # Equivalent to the `from_betas` or `from_refractive` method.
+        return asf_im.from_refractive(
+            energies=energies,
+            refractive=refractive_index,
+            number_density=number_density,
+            density=density,
+            formula_mass=formula_mass,
+            stoichiometry=stoichiometry,
+            scale_to_database=scale_to_database,
+            **kwargs,
+        )
+
     def kk_transform(
         self,
         target_energies: npt.NDArray[np.floating] | None = None,
@@ -2213,6 +2333,36 @@ class asf_complex(asf_abstract, atomic_scattering):
         """
         return self.refractive
 
+    @property
+    def deltas(self) -> npt.NDArray[np.floating]:
+        r"""
+        Real part of the refractive index.
+
+        .. math::
+            \delta = 1 - n
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The real part of the refractive index.
+        """
+        return self._re.deltas
+
+    @property
+    def betas(self) -> npt.NDArray[np.floating]:
+        r"""
+        Imaginary part of the refractive index.
+
+        .. math::
+            \beta = i\beta
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The imaginary part of the refractive index.
+        """
+        return self._im.betas
+
     def to_atomic_scattering_polynomial(
         self, **kwargs: Unpack[PROPERTIES_DICT]
     ) -> "asp_complex":
@@ -2282,7 +2432,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         contrast : np.ndarray
             The contrast between two atomic scattering polynomials.
         """
-        if self.can_calc_beta and other.can_calc_beta:
+        if self.can_calc_refractive and other.can_calc_refractive:
             if (self.energies.shape == other.energies.shape) and np.all(
                 self.energies == other.energies
             ):
