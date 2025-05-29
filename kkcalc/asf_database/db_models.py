@@ -508,6 +508,33 @@ class asp_db_complex(asp_complex):
             kwargs["is_extended"] = True  # We have extended the data
             asp_complex.__init__(self, re=re_db, im=im_db, **kwargs)
 
+    @override
+    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
+        """
+        Create a copy of the database object by copying the energies and coefficients.
+
+        Parameters
+        ----------
+        **kwargs : Unpack[PROPERTIES_DICT]
+            Additional keyword arguments for the `atomic_scattering` base class to pass to the copy function.
+            These can be used to override object properties such as stoichiometry, etc.
+            The underlying data will not be modified by these kwargs however.
+
+        Returns
+        -------
+        Self
+            A copy of the current object with the same energies and coefficients.
+        """
+        # Create a new object with the same energies and coefficients
+        energies = self.energies.copy()
+        coefs = self.coefs.copy()
+        # Ensure the stoichiometry is set in the kwargs
+        prop_args = self._properties_dict  # includes the stoichiometry
+        for key, value in kwargs.items():
+            if value is not None:
+                prop_args[key] = value.copy() if hasattr(value, "copy") else value  # type: ignore
+        return self.__class__(energies=energies, coefs=coefs, **prop_args)  # type: ignore
+
     @classmethod
     def scale_data(
         cls: type["asp_db_complex"],

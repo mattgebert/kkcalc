@@ -2303,7 +2303,6 @@ class asp_complex(asp_abstract, atomic_scattering):
                 common_kwargs[key] = common_kwargs[key].copy()
         # Update kwargs
         common_kwargs.update(kwargs)
-        # Create a new object
         return self.__class__(re=self.re.copy(), im=self.im.copy(), **common_kwargs)
 
     def extend_energies(self, energies: npt.NDArray, **kwargs) -> Self:

@@ -10,7 +10,24 @@ from typing import Literal, Self, TypedDict
 
 
 class PROPERTIES_DICT(TypedDict, total=False):
-    """Properties of the common atomic scattering classes."""
+    """
+    Properties of the common atomic scattering classes.
+
+    Attributes
+    ----------
+    name : str | None
+        Material/sample name.
+    stoichiometry : stoichiometry | str | None
+        Stoichiometry of the material - can be a string or a `kkcalc.stoichiometry` object.
+    density : float | None
+        Material density in grams per millilitre (cm^3).
+    number_density : float | None
+        Material number density in atoms per millilitre (cm^3).
+    formula_mass : float | None
+        Atomic mass sum of the materials chemical formula (molecular mass) in atomic mass units.
+    is_extended : bool
+        (Immutable) Indicates if the material is extended or not.
+    """
 
     name: str | None
     stoichiometry: kk_stoichiometry | str | None
