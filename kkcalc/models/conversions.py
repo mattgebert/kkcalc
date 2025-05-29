@@ -14,6 +14,7 @@ import numpy as np
 import numpy.typing as npt
 import warnings
 from typing import overload, Literal
+import scipy.constants as sc
 from scipy.constants import (
     Avogadro as N_A,
     speed_of_light as c,
@@ -24,9 +25,12 @@ from scipy.constants import (
     electron_mass as m_e,
 )
 
-E_RADIUS: float = (
-    1 / (4 * pi * epsilon_0) * e**2 / (m_e * c**2)
-)  # classical electron radius, meters, ~2.818e-15
+E_RADIUS: float
+"""Classical electron radius in meters. ~2.818e-15"""
+try:
+    E_RADIUS = sc.value("classical electon radius")
+except KeyError:
+    E_RADIUS: float = 1 / (4 * pi * epsilon_0) * e**2 / (m_e * c**2)
 
 
 class conversions:
@@ -40,6 +44,25 @@ class conversions:
     - Beta data (index of refraction)
     - Atomic scattering polynomial (ASP) coefficients
     """
+
+    @staticmethod
+    def energy_to_wavelength(
+        energies: npt.NDArray[np.float64 | np.int_] | float | int,
+    ) -> npt.NDArray[np.float64] | float:
+        """
+        Convert photon energies in eV to wavelengths in Angstroms.
+
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            Wavelengths in Angstroms.
+        """
+        return h * c / (energies * e) * 1e10
 
     @overload
     @staticmethod

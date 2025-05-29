@@ -9,6 +9,7 @@ import warnings
 from collections.abc import Iterator
 import typing
 from typing import TYPE_CHECKING, Self, overload, Unpack, override, Iterable
+import scipy.constants as sc
 
 from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
@@ -1363,6 +1364,59 @@ class asp_im(asp):
         """
         return self.eval_refractive(target_energies=target_energies)
 
+    @overload
+    def attenuation_length(
+        self, energies: npt.NDArray
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def attenuation_length(
+        self, energies: float | int
+    ) -> float: ...  # numpydoc ignore=GL08
+
+    def attenuation_length(
+        self, energies: npt.ArrayLike | npt.NDArray | int | float
+    ) -> npt.NDArray | float:
+        r"""
+        Calculate the attenuation_length for the material at (a) specified energies.
+
+        Length is in angstroms. The attenuation_length is the distance at which light
+        is attenuated to an intensity of 1/e.
+
+        .. math::
+            I(x) = I_0 e^{-\mu x}
+            \mu = 2 \rho \r_e \lambda f_2
+
+        where
+        - :math:`f2` is the imaginary atomic scattering factor,
+        - :math:`\rho` is the density of the material (g/cm³),
+        - :math:`\r_e` is the classical electron radius (2.81794e-15 m),
+        - :math:`\lambda` is the wavelength of the radiation (in angstroms),
+
+        Parameters
+        ----------
+        energies : array_like | npt.NDArray | int | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The critical angle at energy (or energies) `energies` in radians.
+        """
+        en = np.asarray(energies)
+        if not self.density:
+            raise AttributeError(
+                "Density information is required to calculate the attenuation length."
+            )
+
+        # Calculate the critical angle
+        # r_e = sc.value("classical electron radius")  # in meters
+        wavelength = sc.h * sc.c / (en * sc.e)  # in meters
+        # att_len = self.density * 2 * r_e * self.eval_asf(en) / wavelength
+        alpha = 4 * np.pi * self.eval_betas(en) / wavelength  # absorption coefficient
+        att_len = 1 / alpha  # penetration depth
+        return att_len
+
 
 class asp_re(asp):
     """
@@ -2360,3 +2414,44 @@ class asp_complex(asp_abstract, atomic_scattering):
             The critical angle at energy (or energies) `energies` in radians.
         """
         return self.re.critical_angle(energies=energies)
+
+    @overload
+    def attenuation_length(
+        self, energies: npt.NDArray
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def attenuation_length(
+        self, energies: float | int
+    ) -> float: ...  # numpydoc ignore=GL08
+
+    def attenuation_length(
+        self, energies: npt.ArrayLike | npt.NDArray | int | float
+    ) -> npt.NDArray | float:
+        r"""
+        Calculate the attenuation_length for the material at (a) specified energies.
+
+        Length is in angstroms. The attenuation_length is the distance at which light
+        is attenuated to an intensity of 1/e.
+
+        .. math::
+            I(x) = I_0 e^{-\mu x}
+            \mu = 2 \rho \r_e \lambda f_2
+
+        where
+        - :math:`f2` is the imaginary atomic scattering factor,
+        - :math:`\rho` is the density of the material (g/cm³),
+        - :math:`\r_e` is the classical electron radius (2.81794e-15 m),
+        - :math:`\lambda` is the wavelength of the radiation (in angstroms),
+
+        Parameters
+        ----------
+        energies : array_like | npt.NDArray | int | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The critical angle at energy (or energies) `energies` in radians.
+        """
+        return self.im.attenuation_length(energies=energies)
