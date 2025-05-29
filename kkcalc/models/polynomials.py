@@ -221,10 +221,9 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             energies[:-1] <= energies[1:]
         ), "Energies must be in increasing order."
         # Find where the energies are located in the object's energies.
-        indices = (
+        indices = np.asarray(
             np.searchsorted(energies, target_energies) - 1
         )  # subtract to transfer from spans (N+1) to coefficients (N).
-
         if -1 in indices or len(energies) - 1 in indices:
             # Check if all searchsorted invalid indexes are defined.
             invalid = np.where((indices < 0) | (indices == len(energies) - 1))
@@ -1717,8 +1716,8 @@ class asp_re(asp):
         r"""
         Calculate the critical angle for the material at (a) specified energies.
 
-        The critical angle is the angle of incidence (from the horizon) at which
-        light enters the denser medium at 90 degrees.
+        Angle is in radians. The critical angle is the angle of incidence (from
+        the horizon) at which light enters the denser medium at 90 degrees.
 
         .. math::
             \theta_c = \sqrt{2 \delta}
@@ -1731,7 +1730,7 @@ class asp_re(asp):
         Returns
         -------
         npt.NDArray | float
-            The critical angle at energy (or energies) `energies`.
+            The critical angle at energy (or energies) `energies` in radians.
         """
         en = np.asarray(energies)
         if self.density is None:
@@ -2327,3 +2326,37 @@ class asp_complex(asp_abstract, atomic_scattering):
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
         return self.__class__(re=re_extend, im=im_extend, **common_kwargs)
+
+    @overload
+    def critical_angle(
+        self, energies: npt.NDArray
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def critical_angle(
+        self, energies: float | int
+    ) -> float: ...  # numpydoc ignore=GL08
+
+    def critical_angle(
+        self, energies: npt.ArrayLike | npt.NDArray | int | float
+    ) -> npt.NDArray | float:
+        r"""
+        Calculate the critical angle for the material at (a) specified energies.
+
+        Angle is in radians. The critical angle is the angle of incidence (from
+        the horizon) at which light enters the denser medium at 90 degrees.
+
+        .. math::
+            \theta_c = \sqrt{2 \delta}
+
+        Parameters
+        ----------
+        energies : array_like | npt.NDArray | int | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The critical angle at energy (or energies) `energies` in radians.
+        """
+        return self.re.critical_angle(energies=energies)
