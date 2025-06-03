@@ -11,9 +11,16 @@ of Kramer-Kronig transforms. In particular, the module provides the following cl
     - `factors`: A set of classes to wrap and add methods to experimental data.
     - `polynomials`: A set of classes for the calculation of the Kramer-Kronig transforms.
 """
+
 from kkcalc.stoich import stoichiometry
 from kkcalc import kk_transforms
-from kkcalc.models import conversions, polynomials, factors, KK_Datatype
+from kkcalc.models import (
+    conversions,
+    polynomials,
+    factors,
+    KK_Datatype,
+    PROPERTIES_DICT,
+)
 
 # Import the GUI module if appropriate packages are available:
 from importlib.metadata import metadata

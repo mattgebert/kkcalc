@@ -615,21 +615,34 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Must be implemented in subclass.")
 
-    # @staticmethod
-    # @doc_copy(conversions.ASF_to_ASP)
-    # def atomic_scattering_factors_to_coefs(
-    #     energies: npt.NDArray, factors: npt.NDArray
-    # ) -> npt.NDArray:
-    #     """
-    #     Alias for `conversions.ASF_to_ASP` to calculate the atomic scattering polynomial coefficients from
-    #     atomic scattering `factors` defined at `energies`.
-    #     """
-    #     return conversions.ASF_to_ASP(energies, factors)
+    @staticmethod
+    def atomic_scattering_factors_to_coefs(
+        energies: npt.NDArray, factors: npt.NDArray, N: int = 5
+    ) -> npt.NDArray:
+        """
+        Convert atomic scattering factors (ASF) to atomic scattering polynomial (ASP) coefficients.
 
-    # TODO: Important to check this works statically...
-    atomic_scattering_factors_to_coefs = (
-        conversions.ASF_to_ASP
-    )  # Alias for static function.
+        Alias for `conversions.ASF_to_ASP` to calculate the atomic scattering polynomial coefficients from
+        atomic scattering `factors` defined at `energies`.
+
+        Calculates `N` polynomial coefficients for the spans between `factors` defined at `energies`.
+        Currently only the first two coefficients are calculated (linear interpolation).
+
+        Parameters
+        ----------
+        energies : array_like
+            An array of `N` photon energies in eV.
+        factors : array_like
+            An array of `N` atomic scattering factors.
+        N : int
+            The number of coefficients to calculate. Default is 5.
+
+        Returns
+        -------
+        npt.NDArray
+            An array of `N-1` Atomic scattering polynomial coefficients.
+        """
+        return conversions.ASF_to_ASP(energies, factors)
 
     @property
     def atomic_scattering_polynomial(self) -> npt.NDArray:

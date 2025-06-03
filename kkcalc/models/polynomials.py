@@ -383,10 +383,21 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                 columns=["Energy LB", "Energy UB", *[f"A{order}" for order in orders]],
             )
         else:
-            return pd.DataFrame(
-                np.c_[self.energies[:-1], self.energies[1:], *self.coefs.T],
-                columns=["Energy LB", "Energy UB", "A1", "A0", "A-1", "A-2", "A-3"],
-            )
+            if self.energies.shape[0] == self.coefs.shape[0] + 1:
+                return pd.DataFrame(
+                    np.c_[self.energies[:-1], self.energies[1:], *self.coefs.T],
+                    columns=["Energy LB", "Energy UB", "A1", "A0", "A-1", "A-2", "A-3"],
+                )
+            else:
+                l = min(self.energies.shape[0] - 1, self.coefs.shape[0])
+                return pd.DataFrame(
+                    np.c_[
+                        self.energies[:l],
+                        self.energies[1 : l + 1],
+                        *self.coefs.T[:, :l],
+                    ],
+                    columns=["Energy LB", "Energy UB", "A1", "A0", "A-1", "A-2", "A-3"],
+                )
 
     to_pandas = dataframe  # Alias for dataframe method.
 
@@ -411,10 +422,15 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A string representation of the coefficients.
         """
         if has_pandas:
+            header1: str = (
+                "Atomic Scattering Polynomial" + ""
+                if self.name is None
+                else f" : {self.name}"
+            )
             # Create a default max_rows if not provided.
             if "max_rows" not in kwargs:
                 kwargs["max_rows"] = 10
-            return self.dataframe().to_string(**kwargs)
+            return header1 + self.dataframe().to_string(**kwargs)
         else:
             # Manually show the first and last 5
             header1: str = (
@@ -597,7 +613,9 @@ class asp(asp_abstract, atomic_scattering):
         self._energies = energies
         # Wipe coefficients if the energies are changed to a different length.
         if self.coefs is not None and len(energies) != len(self.coefs) + 1:
-            warnings.warn("Energies have changed length. Coefficients set to `None`.")
+            warnings.warn(
+                f"({self}) Energies have changed length. Coefficients set to `None`."
+            )
             self._coefs = None
 
     def extend_energies(
@@ -1879,14 +1897,14 @@ class asp_complex(asp_abstract, atomic_scattering):
                     for en in re.energies
                 ]
             ):
+                warnings.warn(
+                    "Real energies are a subset of imaginary energies, truncating imaginary energies to match real."
+                )
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
                 im = im.truncate_energies(
                     (min_energy, max_energy)
                 )  # Truncate to the common interval
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
-                warnings.warn(
-                    "Real energies are a subset of imaginary energies, truncating imaginary energies to match real."
-                )
 
             # Check if im is a subset of re
             elif all(
@@ -1895,16 +1913,19 @@ class asp_complex(asp_abstract, atomic_scattering):
                     for en in im.energies
                 ]
             ):
+                warnings.warn(
+                    "Imaginary energies are a subset of real energies, truncating real energies to match imaginary."
+                )
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 re = re.truncate_energies(
                     (min_energy, max_energy)
                 )  # Truncate to the common interval
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
-                warnings.warn(
-                    "Imaginary energies are a subset of real energies, truncating real energies to match imaginary."
-                )
 
             else:  # if they are not subsets, then truncate to the common interval
+                warnings.warn(
+                    "Real and imaginary energies are not subsets of each other, truncating both to the common interval."
+                )
                 re = re.truncate_energies(
                     (min_energy, max_energy)
                 )  # Truncate to the common interval
@@ -1913,9 +1934,6 @@ class asp_complex(asp_abstract, atomic_scattering):
                 )  # Truncate to the common interval
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
-                warnings.warn(
-                    "Real and imaginary energies are not subsets of each other, truncating both to the common interval."
-                )
 
         if not isinstance(re, asp) or not isinstance(im, asp):
             raise ValueError(f"Real and imaginary parts must be of type {asp}.")
