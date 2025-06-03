@@ -1415,7 +1415,7 @@ class asp_im(asp):
         # att_len = self.density * 2 * r_e * self.eval_asf(en) / wavelength
         alpha = 4 * np.pi * self.eval_betas(en) / wavelength  # absorption coefficient
         att_len = 1 / alpha  # penetration depth
-        return att_len
+        return att_len * 1e10  # Convert m to angstroms.
 
 
 class asp_re(asp):

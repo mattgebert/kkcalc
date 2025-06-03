@@ -43,21 +43,28 @@ code = "https://github.com/benajamin/kkcalc"
 documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
 
-[project.optional-dependencies]
-gui = [
-    "pyqt6", # For GUI
-    "matplotlib", # For plotting
-    "pandas", # For data format / handling
+[dependency-groups]
+# Dependency groups for optional dependencies.
+all = [
+    {include-group = "gui"},
+    {include-group = "docs"},
+    {include-group = "dev"},
 ]
+
 dev = [
+    {include-group = "gui"}, # Include GUI dependencies in dev
+    {include-group = "docs"}, # Include documentation dependencies in dev
     "pre-commit",
-    "numpydoc",
-    "sphinx",
-    "sphinx-rtd-theme",
     "pytest",
     "python-semantic-release",
     "commitizen",
-    "periodictable",
+    "periodictable > v2.0.2", # Due to changes in neutron element as zeroth element.
+    "black",
+]
+gui = [
+    "PyQt6", # For GUI
+    "matplotlib", # For plotting
+    "pandas", # For data format / handling
 ]
 docs = [
     "sphinx",
