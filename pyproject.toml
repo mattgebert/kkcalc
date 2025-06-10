@@ -84,10 +84,18 @@ checks = [
 exclude = [  # don't report on objects that match any of these regex
     '\.undocumented_method$',
     '\.__repr__$',
+    # Ignore gui modules... not part of the API yet.
+    '^.*(dialogs).*$',
+    '^.*(contrast_viewer).*$',  # Ignore all gui modules
+    '^.*(asf_viewer).*$',
+    '^.*(asf_modifier).*$',
+    '^.*(asf_loader).*$',
     # Add the .py modules here. Packages don't seem to work...
-    'test_stoich',
-    'test_transforms',
-    'test_models',
+    '^.*(test).*$',
+    # 'test_stoich',
+    # 'test_transforms',
+    # 'test_models',
+
 ]
 override_SS05 = [  # override SS05 to allow docstrings starting with these words
     '^Process ',
