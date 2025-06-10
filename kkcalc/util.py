@@ -7,31 +7,56 @@ P = ParamSpec("P")
 T = TypeVar("T")
 WrappedFunctionDecorator: TypeAlias = Callable[[Callable[P, T]], Callable[P, T]]
 
+
 # Decorator for copying docstrings
 def doc_copy(
     template_func: Callable[..., Any] | property
 ) -> WrappedFunctionDecorator[P, T]:
     """
-    Copies the doc string of the given function to the decorated function.
+    Copy the doc string of the given function to the decorated function.
 
     If a property is passed, the signature of the getter is used by default.
     To use the setter / deleter, use `@doc_copy(prop.setter)`.
 
     Parameters
     ----------
-    copy_func : Callable
+    template_func : Callable
         Function whose docstring is to be copied.
+
+    Returns
+    -------
+    WrappedFunctionDecorator
+        A decorator that copies the docstring from `template_func` to the decorated function.
     """
 
     def decorator(f: Callable[P, T]) -> Callable[P, T]:
+        """
+        Apply the docstring from the decorator parameter `template_func`.
+
+        Parameters
+        ----------
+        f : Callable
+            The function to which the docstring will be copied.
+
+        Returns
+        -------
+        Callable
+            The function `f` with the docstring copied from `template_func`.
+        """
         # f is the decorated function
-        if isinstance(template_func, property) and hasattr(template_func, "fget"):
+        if (
+            isinstance(template_func, property)
+            and hasattr(template_func, "fget")
+            and hasattr(template_func.fget, "__code__")
+        ):
             # Instead use getter method
             tfunc = template_func.fget
         elif hasattr(template_func, "__code__"):
             tfunc = template_func
         else:
-            raise ValueError("Template function is not a property or function.")
+            raise ValueError(
+                "Template function is not a property or function with a '__code__' attribute."
+            )
 
         template_pnames = tfunc.__code__.co_varnames
         f_pnames = f.__code__.co_varnames
