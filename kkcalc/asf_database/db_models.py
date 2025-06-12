@@ -697,10 +697,23 @@ class asp_db_extended(asp):
         else:
             # Check if merge_domain is a list
             if isinstance(merge_domain, list):
-                # Raise an error if merge_domain is a list
-                raise ValueError(
-                    "data_asf is not a list, merge_domain must not be a list."
-                )
+                if len(merge_domain) < 2:
+                    # Reduce the merge_domain for copying purposes. (see asp_db_extended.copy())
+                    if len(merge_domain) == 1:
+                        merge_domain = merge_domain[0]
+                    else:
+                        merge_domain = None
+                else:
+                    # Raise an error if merge_domain is a list but not the data_asf.
+                    raise ValueError(
+                        "data_asf is not a list, merge_domain must not be a list."
+                    )
+                    # Check if the merge_domain is a single tuple / None
+            else:
+                if merge_domain is not None and not isinstance(merge_domain, tuple):
+                    raise ValueError(
+                        "`merge_domain` must be a tuple or None if data_asf is not a list."
+                    )
 
             # Put the data_asf / merge_domain into a list to iterate over later
             data_asf = [data_asf]  # Convert to list for iteration
