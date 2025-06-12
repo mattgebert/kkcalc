@@ -58,7 +58,7 @@ dev = [
     "pytest",
     "python-semantic-release",
     "commitizen",
-    "periodictable > 2.0.2", # Due to changes in neutron element as zeroth element.
+    "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
     "black",
 ]
 gui = [
