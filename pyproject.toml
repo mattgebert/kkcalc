@@ -43,21 +43,28 @@ code = "https://github.com/benajamin/kkcalc"
 documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
 
-[project.optional-dependencies]
-gui = [
-    "pyqt6", # For GUI
-    "matplotlib", # For plotting
-    "pandas", # For data format / handling
+[dependency-groups]
+# Dependency groups for optional dependencies.
+all = [
+    {include-group = "gui"},
+    {include-group = "docs"},
+    {include-group = "dev"},
 ]
+
 dev = [
+    {include-group = "gui"}, # Include GUI dependencies in dev
+    {include-group = "docs"}, # Include documentation dependencies in dev
     "pre-commit",
-    "numpydoc",
-    "sphinx",
-    "sphinx-rtd-theme",
     "pytest",
     "python-semantic-release",
     "commitizen",
-    "periodictable",
+    "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
+    "black",
+]
+gui = [
+    "PyQt6", # For GUI
+    "matplotlib", # For plotting
+    "pandas", # For data format / handling
 ]
 docs = [
     "sphinx",
@@ -77,10 +84,18 @@ checks = [
 exclude = [  # don't report on objects that match any of these regex
     '\.undocumented_method$',
     '\.__repr__$',
+    # Ignore gui modules... not part of the API yet.
+    '^.*(dialogs).*$',
+    '^.*(contrast_viewer).*$',  # Ignore all gui modules
+    '^.*(asf_viewer).*$',
+    '^.*(asf_modifier).*$',
+    '^.*(asf_loader).*$',
     # Add the .py modules here. Packages don't seem to work...
-    'test_stoich',
-    'test_transforms',
-    'test_models',
+    '^.*(test).*$',
+    # 'test_stoich',
+    # 'test_transforms',
+    # 'test_models',
+
 ]
 override_SS05 = [  # override SS05 to allow docstrings starting with these words
     '^Process ',

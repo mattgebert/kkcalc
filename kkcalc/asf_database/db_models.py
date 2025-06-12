@@ -271,11 +271,16 @@ class asp_db_re(asp_db_abstract, asp_re):
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Run init
-        asp_db_abstract.__init__(self, stoichiometry, energies, coefs, **kwargs)
+        asp_db_abstract.__init__(
+            self, stoichiometry, energies=energies, coefs=coefs, **kwargs
+        )
 
         # Get composition
         if isinstance(stoichiometry, str):
             stoichiometry = kk_stoichiometry(stoichiometry)
+            kwargs["stoichiometry"] = (
+                stoichiometry  # Ensure stoichiometry is set in the kwargs
+            )
         comp = stoichiometry.composition
 
         # Use for creating copies of the object...
@@ -381,7 +386,9 @@ class asp_db_im(asp_db_abstract, asp_im):
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Run init
-        asp_db_abstract.__init__(self, stoichiometry, energies, coefs, **kwargs)
+        asp_db_abstract.__init__(
+            self, stoichiometry, energies=energies, coefs=coefs, **kwargs
+        )
 
         # Get composition
         if isinstance(stoichiometry, str):
@@ -503,6 +510,33 @@ class asp_db_complex(asp_complex):
             # Setup properties
             kwargs["is_extended"] = True  # We have extended the data
             asp_complex.__init__(self, re=re_db, im=im_db, **kwargs)
+
+    @override
+    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
+        """
+        Create a copy of the database object by copying the energies and coefficients.
+
+        Parameters
+        ----------
+        **kwargs : Unpack[PROPERTIES_DICT]
+            Additional keyword arguments for the `atomic_scattering` base class to pass to the copy function.
+            These can be used to override object properties such as stoichiometry, etc.
+            The underlying data will not be modified by these kwargs however.
+
+        Returns
+        -------
+        Self
+            A copy of the current object with the same energies and coefficients.
+        """
+        # Create a new object with the same energies and coefficients
+        energies = self.energies.copy()
+        coefs = self.coefs.copy()
+        # Ensure the stoichiometry is set in the kwargs
+        prop_args = self._properties_dict  # includes the stoichiometry
+        for key, value in kwargs.items():
+            if value is not None:
+                prop_args[key] = value.copy() if hasattr(value, "copy") else value  # type: ignore
+        return self.__class__(energies=energies, coefs=coefs, **prop_args)  # type: ignore
 
     @classmethod
     def scale_data(
@@ -663,10 +697,23 @@ class asp_db_extended(asp):
         else:
             # Check if merge_domain is a list
             if isinstance(merge_domain, list):
-                # Raise an error if merge_domain is a list
-                raise ValueError(
-                    "data_asf is not a list, merge_domain must not be a list."
-                )
+                if len(merge_domain) < 2:
+                    # Reduce the merge_domain for copying purposes. (see asp_db_extended.copy())
+                    if len(merge_domain) == 1:
+                        merge_domain = merge_domain[0]
+                    else:
+                        merge_domain = None
+                else:
+                    # Raise an error if merge_domain is a list but not the data_asf.
+                    raise ValueError(
+                        "data_asf is not a list, merge_domain must not be a list."
+                    )
+                    # Check if the merge_domain is a single tuple / None
+            else:
+                if merge_domain is not None and not isinstance(merge_domain, tuple):
+                    raise ValueError(
+                        "`merge_domain` must be a tuple or None if data_asf is not a list."
+                    )
 
             # Put the data_asf / merge_domain into a list to iterate over later
             data_asf = [data_asf]  # Convert to list for iteration
@@ -1027,7 +1074,13 @@ class asp_db_im_extended(asp_db_extended, asp_im):
             )
 
         # Construct the extended object
-        super().__init__(data_asf, im_db, merge_domain, fix_distortions, **kwargs)
+        super().__init__(
+            data_asf=data_asf,
+            database=im_db,
+            merge_domain=merge_domain,
+            fix_distortions=fix_distortions,
+            **kwargs,
+        )
 
 
 class asp_db_re_extended(asp_db_extended, asp_re):

@@ -28,7 +28,7 @@ class contrast_viewer(asf_viewer):
     ):
         super().__init__(parent=parent)
         # Force the y_datatype to be Betas.
-        self.y_datatype_combo.setCurrentIndex(KK_Datatype.BETA.value - 1)
+        self.y_datatype_combo.setCurrentIndex(KK_Datatype.REFRACTIVE_INDEX.value - 1)
         self.y_datatype_combo.setEnabled(False)
         # Set the window title
         self.setWindowTitle("Contrast Viewer")
@@ -74,8 +74,8 @@ class contrast_viewer(asf_viewer):
                 if (
                     isinstance(obj, (asf_complex, asp_complex))
                     and isinstance(obj2, (asf_complex, asp_complex))
-                    and obj.can_calc_beta
-                    and obj2.can_calc_beta
+                    and obj.can_calc_refractive
+                    and obj2.can_calc_refractive
                 ):
                     # Use scattering factors
                     if isinstance(obj, asp_complex) and isinstance(obj2, asp_complex):

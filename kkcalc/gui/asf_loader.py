@@ -2,6 +2,7 @@
 Object loader and lister for objects that implement asf_abstract and asp_abstract classes.
 Allows the loading of raw data and duplication objects.
 """
+
 from PyQt6 import QtWidgets, QtCore
 from kkcalc.models import (
     asf_abstract,
@@ -102,9 +103,9 @@ class kk_object_list(QtWidgets.QWidget):
         self._layout.addWidget(self.extend_btn)
 
         # Setup the object sets
-        self._visible_rows: set[
-            QtWidgets.QTableWidgetItem
-        ] = set()  # initialize the set
+        self._visible_rows: set[QtWidgets.QTableWidgetItem] = (
+            set()
+        )  # initialize the set
         """A set of visible rows numbers, corresponding to `_objs` keys."""
         self._objs: dict[int, type[asf_abstract | asp_abstract]] = {}
         """A mapping of table row to object."""
@@ -340,10 +341,16 @@ class kk_object_list(QtWidgets.QWidget):
                                     origin_dtype=KK_Datatype.ASF,
                                     name=window_data.load_filename,
                                 )
-                            case KK_Datatype.BETA:
-                                obj = asf_im.from_betas(
+                            case KK_Datatype.REFRACTIVE:
+                                obj = asf_im.from_refractive(
                                     energies=data_e,
-                                    betas=data_y,
+                                    refractive=data_y,
+                                    name=window_data.load_filename,
+                                )
+                            case KK_Datatype.REFRACTIVE_INDEX:
+                                obj = asf_im.from_refractive_index(
+                                    energies=data_e,
+                                    refractive_index=data_y,
                                     name=window_data.load_filename,
                                 )
                             case KK_Datatype.NEXAFS:

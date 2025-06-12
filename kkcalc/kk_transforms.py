@@ -1,6 +1,7 @@
 """
 This module contains the Kramers-Kronig transform methods.
 """
+
 DEF_ITER: int = 50
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
@@ -9,6 +10,7 @@ DEF_TOL: float = 1e-2
 import math
 import numpy as np
 import numpy.typing as npt
+import warnings
 from kkcalc.models.conversions import conversions
 
 
@@ -20,10 +22,10 @@ def KK_General_PP(
     relativistic_correction: float = 0,
 ) -> npt.NDArray:
     r"""
-    Applies the Kramers-Kronig transform on imaginary polynomials (f2, or beta) with
-    general coefficients `orders` to calculate real factors (f1, or alpha).
+    Apply the Kramers-Kronig transform on general coefficients.
 
-    Converts from `f1` to `f2` with 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
+    Converts from `f1` defined with general coefficients `orders` to `f2`,
+    with the 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
 
     .. math::
         f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
@@ -46,11 +48,11 @@ def KK_General_PP(
             \mathcal{Z}^\star = \sum_i (Z_i - (Z_i/82.5)^{2.37}) \cdot n_i
         Calculated via the `stoich` module, either by the  `relativistic_correction_eq`
         or the `stoichiometry` object property `stoichiometry.relativistic_correction`.
+
     Returns
     -------
-    array_like
-        An array with length `L` of the real component of the atomic scattering factors,
-        evaluated at `target_energies`.
+    np.ndarray
+        The real component of the atomic scattering factors, evaluated at `target_energies`.
     """
     # Convert inputs to numpy arrays is not already
     target_energies = np.asarray(target_energies)
@@ -130,11 +132,7 @@ def KK_General_PP(
             1
             - np.r_[
                 (poles[0] * poles[1])[np.newaxis, :],
-                np.zeros(
-                    poles[
-                        2:,
-                    ].shape
-                ),
+                np.zeros(poles[2:,].shape),
             ]
         ),  # If poles[0] or poles[1] is a pole, zero value.
         axis=(0, 2),
@@ -189,10 +187,10 @@ def KK_General_PP_inv(
     orders: npt.NDArray | None = None,
 ) -> npt.NDArray:
     r"""
-    Applies the Kramers-Kronig transform on real polynomials (f1, or alpha) with
-    general coefficients `orders` to calculate imaginary factors (f2, or beta).
+    Apply the Kramers-Kronig transform on general coefficients.
 
-    Converts from `f2` to `f1` with 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
+    Converts from `f2` defined with general coefficients `orders` to `f1`,
+    with the 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
     Uses the `KK_General_PP` algorithm to calculate the inverse Kramers-Kronig transform.
 
     .. math::
@@ -216,6 +214,11 @@ def KK_General_PP_inv(
     orders : array_like, optional
         A list of length `N`, listing orders corresponding to the real_coef indices.
         By default assumes [1, 0, -1, ...] for the columns of real_spectrum.
+
+    Returns
+    -------
+    np.ndarray
+        Evaluated real coefficients of the atomic scattering factors at `target_energies`.
     """
     # Use the
     return -target_energies * KK_General_PP(
@@ -238,8 +241,7 @@ def KK_PP(
     relativistic_correction: float,
 ) -> npt.NDArray:
     r"""
-    Applies the Kramers-Kronig transform on imaginary polynomials (f2, or beta)
-    to calculate real factors (f1, or alpha).
+    Apply the Kramers-Kronig transform on imaginary polynomials (f2) to calculate real factors (f1).
 
     Converts from `f2` to `f1` with 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
 
@@ -265,7 +267,7 @@ def KK_PP(
 
     Returns
     -------
-    real_factors : np.ndarray
+    np.ndarray
         The real part of the scattering factors evaluated at `target_energies`.
     """
     target_energies = np.asarray(target_energies)
@@ -356,10 +358,9 @@ def KK_PP_inv(
     energies: npt.NDArray,
     real_coefs: npt.NDArray,
     relativistic_correction: float,
-):
+) -> npt.NDArray:
     r"""
-    Applies the Kramers-Kronig transform on real polynomials (f1, or alpha) with
-    to calculate imaginary factors (f2, or beta).
+    Apply the Kramers-Kronig transform on real polynomials (f1) to calculate imaginary factors (f2).
 
     Converts from `f1` to `f2` with 'Piecewise Polynomial' algorithm by Watts et. al. (2014).
     Uses the `KK_PP` algorithm to calculate the inverse Kramers-Kronig transform.
@@ -373,9 +374,9 @@ def KK_PP_inv(
         An array of energies with length `L` at which to evaluate the real spectrum.
     energies : array_like
         An array of energies with length `M+1` describing the spans on which the `imag_coefs` are defined.
-    imag_coefs : array_like
+    real_coefs : array_like
         A 2D array with shape `(M, 5)`, consisting `M` sets of 5 polynomial coefficients
-        for the imaginary part of the scattering factors defined between the `M+1` energies.
+        for the real part of the scattering factors defined between the `M+1` energies.
         The 5 coefficients correspond to energy powers [1, 0, -1, -2, -3].
     relativistic_correction : float
         The relativistic correction to the Kramers-Kronig transform.
@@ -384,10 +385,9 @@ def KK_PP_inv(
         Calculated via the `stoich` module, either by the  `relativistic_correction_eq`
         or the `stoichiometry` object property `stoichiometry.relativistic_correction`.
 
-
     Returns
     -------
-    real_factors : np.ndarray
+    np.ndarray
         The real part of the scattering factors evaluated at `target_energies`.
     """
     ## Inverse KK is only a minor modification of the forward algorithm
@@ -409,7 +409,7 @@ def improve_accuracy(
     orders: npt.ArrayLike | None = None,
 ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
     r"""
-    Calculates extra data points so that the Kramers-Kronig transform is more accurate.
+    Calculate extra data points so that the Kramers-Kronig transform is more accurate.
 
     Parameters
     ----------
@@ -463,7 +463,7 @@ def improve_accuracy(
     # List has N items, indexed from 0 to N-1
     # idx_extra is an array of indexes 1 to N-1 (representing the insertion index of every single midpoint between indexes 0 and N-1).
     # Midpoints are calculated as x_mid = (x[i] + x[i-1]) / 2.
-    idx_extra = np.linspace(1, energies.shape[0] - 1, energies.shape[0] - 1, dtype=int)
+    idx_extra = np.arange(1, energies.shape[0], dtype=int)  # 1, 2 ... N-1
 
     # Imag polynomial to factors
     imag = conversions.ASP_to_ASF(energies, imag_coefs, orders)
@@ -478,6 +478,16 @@ def improve_accuracy(
 
         # Get energy midpoints
         en_mid = (energies[idx_extra] + energies[idx_extra - 1]) / 2
+        # Ensure midpoints are not equal to existing energies
+        if np.any(np.isin(en_mid, energies)):
+            idx_extra = np.delete(idx_extra, np.where(np.isin(en_mid, energies)))
+        # If no midpoints left, break the loop
+        if idx_extra.shape[0] == 0:
+            warnings.warn(
+                f"Midpoints beyond precision at iteration '{i}'.",
+                UserWarning,
+            )
+            break
 
         # Calculate new midpoint imag values
         im_mid = conversions.ASP_to_ASF(
@@ -568,7 +578,7 @@ def improve_accuracy_inv(
     orders: npt.ArrayLike | None = None,
 ) -> tuple[npt.NDArray, npt.NDArray]:
     r"""
-    Calculates extra data points so that the Kramers-Kronig transform is more accurate.
+    Calculate extra data points so that the Kramers-Kronig transform is more accurate.
 
     Parameters
     ----------
