@@ -278,6 +278,9 @@ class asp_db_re(asp_db_abstract, asp_re):
         # Get composition
         if isinstance(stoichiometry, str):
             stoichiometry = kk_stoichiometry(stoichiometry)
+            kwargs["stoichiometry"] = (
+                stoichiometry  # Ensure stoichiometry is set in the kwargs
+            )
         comp = stoichiometry.composition
 
         # Use for creating copies of the object...

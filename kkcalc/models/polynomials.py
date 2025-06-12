@@ -646,7 +646,7 @@ class asp(asp_abstract, atomic_scattering):
         if not np.all([en >= en_min and en <= en_max for en in new_energies]):
             raise ValueError("Existing energies must be a subset of the new energies.")
         # Get the class and creation kwargs
-        cls = type(self)
+        cls = self.__class__
         # props = self._properties_dict
         # update the properties with the kwargs
         # props.update(kwargs)
@@ -666,10 +666,11 @@ class asp(asp_abstract, atomic_scattering):
         if len(new_coefs.shape) == 1:
             new_coefs = new_coefs.reshape(-1, 1)  # Ensure new_coefs is 2D
         # Create new energy and coefficients
+        unsorted_en = np.r_[self.energies[:-1], nocoef_energies]
         sort_indices = np.argsort(
-            np.r_[self.energies[:-1], nocoef_energies]
+            unsorted_en
         )  # Sort the combination of old (except the last bound) and new energies
-        energies = np.r_[self.energies, nocoef_energies][sort_indices]
+        energies = unsorted_en[sort_indices]
         coefs = np.r_[self.coefs, new_coefs][
             sort_indices[:-1]
         ]  # Exclude the last bound
@@ -678,14 +679,16 @@ class asp(asp_abstract, atomic_scattering):
         from kkcalc.models import asp_db_abstract, asp_db_extended
 
         if issubclass(cls, (asp_db_abstract, asp_db_extended)):
-            # obj = self.copy(**props)
-            obj = self.copy(**kwargs)
+            obj = self.copy(**kwargs)  # Use kwargs not common_kwargs due to copying.
             obj.energies = energies
             obj.coefs = coefs
             return obj
         else:
-            # return cls(energies=energies, coefs=coefs, orders=self.orders, **props)
-            return cls(energies=energies, coefs=coefs, orders=self.orders, **kwargs)
+            common_kwargs = self._properties_dict
+            common_kwargs.update(kwargs)
+            return cls(
+                energies=energies, coefs=coefs, orders=self.orders, **common_kwargs
+            )
 
     def truncate_energies(
         self, domain: tuple[float, float], **kwargs: Unpack[PROPERTIES_DICT]
@@ -760,7 +763,11 @@ class asp(asp_abstract, atomic_scattering):
                 obj.coefs = coefs
                 return obj
             else:
-                return cls(energies=energies, coefs=coefs, orders=self.orders, **kwargs)
+                common_kwargs = self._properties_dict
+                common_kwargs.update(kwargs)
+                return cls(
+                    energies=energies, coefs=coefs, orders=self.orders, **common_kwargs
+                )
 
     @asp_abstract.coefs.getter
     def coefs(self) -> npt.NDArray | None:  # numpydoc ignore=PR02
@@ -1954,8 +1961,8 @@ class asp_complex(asp_abstract, atomic_scattering):
                 common_kwargs[key] = im._properties_dict[key]
             elif common_kwargs[key] != im._properties_dict[key]:
                 warnings.warn(
-                    f"Property {key} is different between real {re._properties_dict[key]}"
-                    + f" and imaginary parts {im._properties_dict[key]} for {self}."
+                    f"Property {key} is different between real `{re._properties_dict[key]}`"
+                    + f" and imaginary parts `{im._properties_dict[key]}` when instantiating `asp_complex`."
                 )
             else:
                 # Ignore if the properties are the same
