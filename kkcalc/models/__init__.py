@@ -30,7 +30,7 @@ from kkcalc.models.factors import (
 from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abstract
 
 # Import the conversions module
-from kkcalc.models import conversions
+from kkcalc.models.conversions import conversions
 
 # Import the database models
 from kkcalc.asf_database.db_models import (
