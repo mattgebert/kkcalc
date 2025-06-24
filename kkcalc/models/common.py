@@ -9,7 +9,32 @@ from scipy.constants import N_A
 from typing import Literal, Self, TypedDict
 
 
-class PROPERTIES_DICT(TypedDict, total=False):
+class PROPERTIES_DICT_NO_STOICH(TypedDict, total=False):
+    """
+    Properties of the common atomic scattering classes without stoichiometry.
+
+    Attributes
+    ----------
+    name : str | None
+        Material/sample name.
+    density : float | None
+        Material density in grams per millilitre (cm^3).
+    number_density : float | None
+        Material number density in atoms per millilitre (cm^3).
+    formula_mass : float | None
+        Atomic mass sum of the materials chemical formula (molecular mass) in atomic mass units.
+    is_extended : bool
+        (Immutable) Indicates if the material is extended or not.
+    """
+
+    name: str | None
+    density: float | None
+    number_density: float | None
+    formula_mass: float | None
+    is_extended: bool
+
+
+class PROPERTIES_DICT(PROPERTIES_DICT_NO_STOICH, total=False):
     """
     Properties of the common atomic scattering classes.
 
@@ -29,12 +54,7 @@ class PROPERTIES_DICT(TypedDict, total=False):
         (Immutable) Indicates if the material is extended or not.
     """
 
-    name: str | None
     stoichiometry: kk_stoichiometry | str | None
-    density: float | None
-    number_density: float | None
-    formula_mass: float | None
-    is_extended: bool
 
 
 class atomic_scattering_abstract(metaclass=abc.ABCMeta):

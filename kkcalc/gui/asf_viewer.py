@@ -513,7 +513,6 @@ class asf_viewer(QtWidgets.QWidget):
         for obj in scat_objs:
             # If a polynomial, convert to asf to display.
             if isinstance(obj, asp_abstract):
-                obj: asp_abstract
                 obj = obj.to_atomic_scattering_factors()
 
             # Plot data of an asf object.

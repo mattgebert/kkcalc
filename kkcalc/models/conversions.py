@@ -689,7 +689,6 @@ class conversions:
     def ASP_to_ASF(
         energies: npt.NDArray[np.float64 | np.int_],
         coefs: npt.NDArray[np.float64 | np.int_],
-        orders: npt.NDArray[np.int_] | None,
     ) -> npt.NDArray[np.float64]: ...  # numpydoc ignore=GL08
 
     @overload
@@ -697,14 +696,29 @@ class conversions:
     def ASP_to_ASF(
         energies: npt.NDArray[np.float64 | np.int_],
         coefs: npt.NDArray[np.complex128],
-        orders: npt.NDArray[np.int_] | None,
+    ) -> npt.NDArray[np.complex128]: ...  # numpydoc ignore=GL08
+
+    @overload
+    @staticmethod
+    def ASP_to_ASF(
+        energies: npt.NDArray[np.float64 | np.int_],
+        coefs: npt.NDArray[np.float64 | np.int_],
+        orders: npt.NDArray[np.integer] | None,
+    ) -> npt.NDArray[np.float64]: ...  # numpydoc ignore=GL08
+
+    @overload
+    @staticmethod
+    def ASP_to_ASF(
+        energies: npt.NDArray[np.float64 | np.int_],
+        coefs: npt.NDArray[np.complex128],
+        orders: npt.NDArray[np.integer] | None,
     ) -> npt.NDArray[np.complex128]: ...  # numpydoc ignore=GL08
 
     @staticmethod
     def ASP_to_ASF(
         energies: npt.NDArray[np.float64 | np.int_],
         coefs: npt.NDArray[np.float64 | np.int_ | np.complex128],
-        orders: npt.NDArray[np.int_] | None = None,
+        orders: npt.NDArray[np.integer] | None = None,
     ) -> npt.NDArray[np.float64 | np.complex128]:
         """
         Convert the atomic scattering polynomial (ASP) coefficients to atomic scattering factors (ASF).
@@ -717,11 +731,11 @@ class conversions:
         coefs : array_like
             An array with dimension (`N`, `M`), with `N` sets of `M` atomic
             scattering polynomial coefficients.
-        orders : array_like, optional
+        orders : npt.NDArray[np.int_] | None, optional
             An array of `M` integers defining the polynomial orders for each coefficient set.
             Each integer corresponds to the power of the energy term multipled by
             the corresponding coefficient in the  polynomial, before summation to factors.
-            If None, assumes coefficients in sequential order decreasing from 1.
+            If None (default), assumes coefficients in sequential order decreasing from 1.
             i.e: [1, 0, -1, -2, ...] etc.
 
         Returns
@@ -730,6 +744,7 @@ class conversions:
             An array of `N` or `N+1` atomic scattering factors, matching the input `energies` length.
             If `energies` has length `N+1`, the last ASF value will be calculated using the last ASP coefficient.
         """
+        # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
         energies = np.asarray(energies, dtype=float)
         coefs = np.asarray(coefs)
         # Check dimensions:

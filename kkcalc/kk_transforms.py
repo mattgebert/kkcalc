@@ -406,8 +406,8 @@ def improve_accuracy(
     relativistic_correction: float,
     tolerance: float = DEF_TOL,
     max_iter: int = DEF_ITER,
-    orders: npt.ArrayLike | None = None,
-) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+    orders: npt.NDArray[np.integer] | None = None,
+) -> tuple[npt.NDArray, npt.NDArray]:
     r"""
     Calculate extra data points so that the Kramers-Kronig transform is more accurate.
 
@@ -441,8 +441,6 @@ def improve_accuracy(
         The photon energies of length N.
     real : npt.NDArray
         The real part of the scattering factors, of length N.
-    imag_coefs : npt.NDArray
-        The imaginary part of the scattering factors, evaluated from `imag_coefs` at provided energies.
 
     Notes
     -----
