@@ -20,11 +20,11 @@ from kkcalc.models import (
     factors,
     KK_Datatype,
     PROPERTIES_DICT,
+    PROPERTIES_DICT_NO_STOICH,
 )
 
 # Import the GUI module if appropriate packages are available:
-from importlib.metadata import metadata
-import os
+from importlib.metadata import metadata, version
 
 try:
     for key, value in metadata("kkcalc").items():
@@ -35,6 +35,4 @@ except ImportError:
     pass
 
 # Define the version of the package:
-import importlib.metadata
-
-__version__ = importlib.metadata.version("kkcalc")
+__version__ = version("kkcalc")

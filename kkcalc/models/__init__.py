@@ -16,6 +16,7 @@ from kkcalc.models.common import (
     atomic_scattering_abstract,
     atomic_scattering,
     PROPERTIES_DICT,
+    PROPERTIES_DICT_NO_STOICH,
 )
 
 # Import the usage models
