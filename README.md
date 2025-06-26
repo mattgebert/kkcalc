@@ -1,4 +1,5 @@
 # KKcalc
+Kramers-Kronig Calculator and toolkit for material optical properties.
 
 [![Coverage Status](https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2)](https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2) [![Code style: black](https://img.shields.io/badge/code_style-black-000000.svg)](https://github.com/psf/black) [![Code doc: numpydoc](https://img.shields.io/badge/doc_style-numpydoc-blue.svg)](https://github.com/numpy/numpydoc) ![example workflow](https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml/badge.svg)
 
