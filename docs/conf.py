@@ -15,8 +15,8 @@ sys.path.insert(0, os.path.abspath(".."))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "kkcalc"
-copyright = "2024, Benjamin Watts, Matthew Gebert"
-author = "Benjamin Watts, Matthew Gebert"
+copyright = "2025, Matthew Gebert, Benjamin Watts"
+author = "Matthew Gebert, Benjamin Watts"
 # release = TODO: Semantic release.
 
 # -- General configuration ---------------------------------------------------
