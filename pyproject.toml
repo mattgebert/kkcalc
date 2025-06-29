@@ -68,7 +68,8 @@ gui = [
 ]
 docs = [
     "sphinx",
-    "sphinx-rtd-theme",
+    # "sphinx-rtd-theme",
+    "pydata-sphinx-theme",
     "numpydoc",
 ]
 
