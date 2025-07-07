@@ -25,7 +25,7 @@ ASF_DATABASE = load_asf_database()  # spectral data, plus atomic masses
 
 # Example usage
 if __name__ == "__main__":
-    for (z, data) in ASF_DATABASE.items():
+    for z, data in ASF_DATABASE.items():
         print(data["name"], data["E"].shape, data["Re"].shape, data["Im"].shape)
 
 # Also import useful classes
@@ -34,4 +34,6 @@ from kkcalc.asf_database.db_models import (
     asp_db_re,
     asp_db_im_extended,
     asp_db_re_extended,
+    asp_db_complex,
+    asp_db_complex_extended,
 )
