@@ -2112,8 +2112,8 @@ class asp_complex(asp_abstract, atomic_scattering):
 
         energies = target_energies if target_energies is not None else self.energies
         return asf_complex(
-            re=self.re.to_atomic_scattering_factors(energies),
-            im=self.im.to_atomic_scattering_factors(energies),
+            re=self.re.to_atomic_scattering_factors(energies, **common_kwargs),
+            im=self.im.to_atomic_scattering_factors(energies, **common_kwargs),
             **common_kwargs,
         )
 
