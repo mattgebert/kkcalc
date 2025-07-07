@@ -402,14 +402,29 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
 
     to_pandas = dataframe  # Alias for dataframe method.
 
-    def __str__(self, **kwargs) -> str:
+    def __str__(self) -> str:
+        """
+        A string representation of polynomial object.
+
+        Returns
+        -------
+        str
+            A string representation of the object properties.
+        """
+        header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
+        header2: str = (
+            f"{self.coefs.shape[0]} en segments, {self.coefs.shape[1]} coefficients."
+        )
+        return f"{header1}({header2})"
+
+    def __repr__(self, **kwargs) -> str:
         """
         A string representation of the coefficient list.
 
         Uses Pandas if available, to create a string representation of the coefficient list.
         Rows displayed are the first and last 5 if more than 10 rows.
 
-        If Pandas is not avaialble,
+        If Pandas is not avaialble, manually
 
         Parameters
         ----------
@@ -423,22 +438,14 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A string representation of the coefficients.
         """
         if has_pandas:
-            header1: str = (
-                "Atomic Scattering Polynomial" + ""
-                if self.name is None
-                else f" : {self.name}"
-            )
+            header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
             # Create a default max_rows if not provided.
             if "max_rows" not in kwargs:
                 kwargs["max_rows"] = 10
-            return header1 + self.dataframe().to_string(**kwargs)
+            return header1 + "\n" + self.dataframe().to_string(**kwargs)
         else:
             # Manually show the first and last 5
-            header1: str = (
-                "Atomic Scattering Polynomial" + ""
-                if self.name is None
-                else f" : {self.name}"
-            )
+            header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
             header2: str = "Energy0\tEnergy1\t" + "\t".join(
                 [
                     "C_" + str(e)
@@ -454,7 +461,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             data_head: list[str] = []
             data_tail: list[str] = []
             M = self.coefs.shape[1]
-            for i in range(0, 5):
+            for i in range(0, M):
                 tail_line = []
                 head_line = []
                 # Add energy values.
@@ -2105,8 +2112,8 @@ class asp_complex(asp_abstract, atomic_scattering):
 
         energies = target_energies if target_energies is not None else self.energies
         return asf_complex(
-            re=self.re.to_atomic_scattering_factors(energies),
-            im=self.im.to_atomic_scattering_factors(energies),
+            re=self.re.to_atomic_scattering_factors(energies, **common_kwargs),
+            im=self.im.to_atomic_scattering_factors(energies, **common_kwargs),
             **common_kwargs,
         )
 

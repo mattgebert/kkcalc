@@ -6,7 +6,7 @@ import pytest
 import warnings
 from kkcalc import models, stoichiometry as kk_stoich
 
-from .test_stoich import fractional_stoichs as fs
+from ..test_stoich import fractional_stoichs as fs
 
 
 class TestCommon:
@@ -79,3 +79,7 @@ class TestCommon:
         assert (
             f"{fm:0.2f}" == f"{fm_calc:0.2f}"
         ), f"Formula mass {fm} != {fm_calc} at 2 decimal places."
+
+
+class TestPolynomial:
+    """Tests the functionality for the polynomial models."""

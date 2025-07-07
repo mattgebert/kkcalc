@@ -68,7 +68,8 @@ gui = [
 ]
 docs = [
     "sphinx",
-    "sphinx-rtd-theme",
+    # "sphinx-rtd-theme",
+    "pydata-sphinx-theme",
     "numpydoc",
 ]
 
@@ -92,6 +93,7 @@ exclude = [  # don't report on objects that match any of these regex
     '^.*(asf_loader).*$',
     # Add the .py modules here. Packages don't seem to work...
     '^.*(test).*$',
+    '^.*(docs).*$',
     # 'test_stoich',
     # 'test_transforms',
     # 'test_models',
