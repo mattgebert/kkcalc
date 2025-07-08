@@ -556,8 +556,13 @@ class asf_viewer(QtWidgets.QWidget):
                 elif y_datatype == KK_Datatype.REFRACTIVE:
                     if obj.can_calc_refractive:
                         y = obj.refractive
+                    else:
+                        continue
                 elif y_datatype == KK_Datatype.NEXAFS:
-                    y = obj.NEXAFS
+                    if isinstance(obj, (asf_im, asf_complex)):
+                        y = obj.NEXAFS
+                    else:
+                        continue  # Skip this object if it cannot calculate NEXAFS
                 else:
                     raise ValueError(f"Invalid y datatype {y_datatype}")
 
