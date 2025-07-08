@@ -379,8 +379,17 @@ class conversions:
         r"""
         Convert NEXAFS photoabsorption data to atomic scattering factors (ASF).
 
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
         .. math::
-            ASF_i = \frac{e c}{2 r_e h} E_i \text{NEXAFS}_i
+            \mu_a = 2 r_e \lambda f_2
+
+        We relabel the cross section as NEXAFS, the scattering factor $f_2$ (or $f''$) as $ASF_i$ and replace the
+        wavelength $\lambda$ for the photon energy $E_i$:
+
+        .. math::
+            ASF_i = \frac{1}{2 r_e}\frac{e c}{h} E_i \text{NEXAFS}_i
 
         Where $r_e$ is the classical electron radius (in meters), $e$ is the elementary charge (in Coulombs),
         $c$ is the speed of light (in m/s), and $h$ is Planck's constant (in J.s) and $E_i$ is the photon energy (in eV).

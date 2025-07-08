@@ -42,8 +42,8 @@ except ImportError:
 
 KK_DATATYPE_DOCS: dict[str, str] = {
     "UNDEFINED": """For undefined data types.""",
-    "NEXAFS": """Near edge X-ray absorption fine structure.""",
-    "XANES": """X-ray absorption near edge structure.""",
+    "NEXAFS": """Near edge X-ray absorption fine structure (NEXAFS).""",
+    "XANES": """X-ray absorption near edge structure (XANES).""",
     "PHOTOABSORPTION": """Photoabsorption.""",
     "REFRACTIVE": r"""Refractive components, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
 
@@ -90,9 +90,9 @@ class KK_Datatype(Enum):
     UNDEFINED = 0
     """For undefined data types."""
     NEXAFS = 1  # AKA Photoabsorption, XANES.
-    """Near edge X-ray absorption fine structure."""
+    """Near edge X-ray absorption fine structure (NEXAFS)."""
     XANES = 1  # AKA Photoabsorption, NEXAFS.
-    """X-ray absorption near edge structure."""
+    """X-ray absorption near edge structure (XANES)."""
     PHOTOABSORPTION = 1  # AKA NEXAFS, XANES.
     """Photoabsorption."""
     REFRACTIVE = 2
@@ -1764,6 +1764,12 @@ class asf_im(asf):
         """
         Convert atomic scattering factors to NEXAFS representation.
 
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
+
         Returns
         -------
         np.ndarray
@@ -1780,10 +1786,20 @@ class asf_im(asf):
         """
         A tuple of energies and NEXAFS photoabsorption values.
 
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
+
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
             Tuple of energies (eV) and NEXAFS photoabsorption values.
+
+        See Also
+        --------
+        kkcalc.models.conversions.ASF_to_NEXAFS : Converts atomic scattering factors to NEXAFS/XANES/Photoabsorption data.
         """
         return self.energies, self.NEXAFS
 
@@ -1797,6 +1813,12 @@ class asf_im(asf):
     ) -> Self:
         """
         Convert NEXAFS data to imaginary absorption atomic scattering factors (ASF).
+
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
 
         Parameters
         ----------
@@ -1818,6 +1840,7 @@ class asf_im(asf):
         See Also
         --------
         kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        kkcalc.models.conversions.ASF_to_NEXAFS : Converts atomic scattering factors to NEXAFS/XANES/Photoabsorption data.
         """
         # TODO: update docs about what the factors in the conversion are about...
         return cls(
