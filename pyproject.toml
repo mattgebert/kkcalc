@@ -72,6 +72,9 @@ docs = [
     "numpydoc",
 ]
 
+[tool.setuptools.packages.find]
+exclude = ["docs*", "tests*"]
+
 # ------------------- NUMPYDOC -------------------
 [tool.numpydoc_validation]
 checks = [
