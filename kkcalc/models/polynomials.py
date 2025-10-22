@@ -430,7 +430,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         ----------
         **kwargs
             Additional keyword arguments for the `pd.dataFrame.to_string` method.
-            I.e. `max_rows` is defaulted to 10.
+            I.e. `max_rows` is defaulted to 6.
 
         Returns
         -------
@@ -441,7 +441,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
             # Create a default max_rows if not provided.
             if "max_rows" not in kwargs:
-                kwargs["max_rows"] = 10
+                kwargs["max_rows"] = 6
             return header1 + "\n" + self.dataframe().to_string(**kwargs)
         else:
             # Manually show the first and last 5
@@ -473,8 +473,8 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                 head_line.extend(self.coefs[i].tolist())
                 tail_line.extend(self.coefs[-5 + i].tolist())
                 # Add to the data
-                data_head.append("\t".join([f"{val:0.3f}" for val in head_line]))
-                data_tail.append("\t".join([f"{val:0.3f}" for val in tail_line]))
+                data_head.append("\t".join([f"{val:3f}" for val in head_line]))
+                data_tail.append("\t".join([f"{val:3f}" for val in tail_line]))
 
             return "\n".join([header1, header2, header3, *data_head, "...", *data_tail])
 

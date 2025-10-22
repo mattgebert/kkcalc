@@ -4,7 +4,8 @@
 [build-system]
 requires = [
     "setuptools>=60",
-    "setuptools-scm>=8.0" # includes git datafiles to be included in the package.
+    "setuptools-scm>=8.0", # includes git datafiles to be included in the package.
+    "uv >= 0.7.20", # Current version as of 2025-July
 ]
 build-backend = "setuptools.build_meta"
 
@@ -12,10 +13,17 @@ build-backend = "setuptools.build_meta"
 # Project information
 name = "KKCalc"
 version = "0.8.0"
-description = "Kramers-Kronig transforms for optical data, via API or GUI interfaces."
+description = "Kramers-Kronig transforms for optical data."
 readme = "README.rst"
-license = {file = "LICENCE.txt"}
+license = {file = "LICENCE"}
 keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transform", "Contrast"]
+authors = [
+    {name = "Benjamin Watts", email = "benjamin.watts@gmail.com"},
+    {name = "Matthew Gebert", email = "mattheuu.gebert@gmail.com"}
+]
+maintainers = [
+    {name = "Matthew Gebert", email="mattheuu.gebert@gmail.com"}
+]
 
 # Project compatibility:
 requires-python = ">=3.12"
@@ -23,6 +31,7 @@ dependencies = [
     "numpy", # Basic array and matrix operations
     "scipy", # Used for constants
 ]
+
 classifiers = [
     "Developement Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -30,23 +39,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
-# Author information
-authors = [
-    {name = "Benjamin Watts", email = "benjamin.watts@gmail.com"},
-    {name = "Matthew Gebert", email = "mattheuu.gebert@gmail.com"}
-]
-
 [project.urls]
 # Website, documentation and other continuous integration URLS.
-code = "https://github.com/benajamin/kkcalc"
+code = "https://github.com/xraysoftmat/kkcalc" # code = "https://github.com/benajamin/kkcalc"
 documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
 
 [dependency-groups]
 # Dependency groups for optional dependencies.
 all = [
-    {include-group = "gui"},
-    {include-group = "docs"},
     {include-group = "dev"},
 ]
 
@@ -57,8 +58,8 @@ dev = [
     "pytest",
     "python-semantic-release",
     "commitizen",
+    "ruff",
     "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
-    "black",
 ]
 gui = [
     "PyQt6", # For GUI
@@ -67,13 +68,32 @@ gui = [
 ]
 docs = [
     "sphinx",
-    # "sphinx-rtd-theme",
+    "sphinx-pyproject",
+    "sphinx-copybutton",
+    "intersphinx-registry", # to reference other projects in sphinx
     "pydata-sphinx-theme",
     "numpydoc",
+    "matplotlib",
 ]
 
 [tool.setuptools.packages.find]
 exclude = ["docs*", "tests*"]
+
+#######################################################
+#############  Pre-commit configurations  #############
+#######################################################
+
+## Linting
+# Ruff
+[tool.ruff] # Same as Black formatting.
+line-length = 88
+indent-width = 4
+
+[tool.ruff.format] # Same as Black formatting.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 # ------------------- NUMPYDOC -------------------
 [tool.numpydoc_validation]
@@ -197,7 +217,7 @@ html_theme = "pydata_sphinx_theme"
     type = "fontawesome"
 
 [tool.sphinx-pyproject.html_sidebars]
-  "**" = []
+  "**" = ["sidebar-nav-bs", "sidebar-ethical-ads"] # default
 
 [tool.sphinx-pyproject.html_context]
     default_mode = "light"
@@ -212,5 +232,6 @@ html_theme = "pydata_sphinx_theme"
 
 # Esbonio Sphinx extension for VS Code integration - https://docs.esbon.io
 [tool.esbonio.sphinx]
-    buildCommand = ["sphinx-build", "-M", "dirhtml", "./docs", "./docs/_build"]
+    # buildCommand = ["sphinx-build", "-M", "dirhtml", "./docs", "./docs/_build"]
+    buildCommand = ["sphinx-build", "-M", "html", "./docs", "./docs/_build"]
     pythonCommand = ["${venv:kkcalc}"]

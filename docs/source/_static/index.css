@@ -1,0 +1,8 @@
+ .rst-content ul, .rst-content ol {
+        margin-top: 0.5em; /* Adjust as needed */
+        margin-bottom: 0.5em; /* Adjust as needed */
+    }
+
+    .rst-content li {
+        margin-bottom: 0.2em; /* Adjust spacing between list items */
+    }

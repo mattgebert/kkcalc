@@ -735,7 +735,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         # Create a default max_rows if not provided.
         if has_pandas:
             if "max_rows" not in kwargs:
-                kwargs["max_rows"] = 10
+                kwargs["max_rows"] = 6
             return self.dataframe().to_string(**kwargs)
         else:
             return (

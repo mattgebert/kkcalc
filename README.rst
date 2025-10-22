@@ -1,0 +1,65 @@
+=====================================
+ KKcalc
+=====================================
+
+``kkcalc`` is a comprehensive toolkit for calculating Kramers Kronig transforms of X-ray absorption/dispersion data, and is built to the feature-rich standards of `xraysoftmat <https://github.com/xraysoftmat>`_.
+
+|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
+
+|PyPI Version| |PyTest| |Coveralls| |Pre-commit|
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
+   :target: https://pypi.org/project/kkcalc/
+   :alt: pypi
+.. |PyTest| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml/badge.svg
+    :alt: PyTest
+    :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml
+.. |Coveralls| image:: https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2
+    :alt: Coverage Status
+    :target: https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2
+.. |Pre-commit| image:: https://results.pre-commit.ci/badge/github/xraysoftmat/kkcalc/main.svg
+    :alt: pre-commit.ci status
+    :target: https://results.pre-commit.ci/latest/github/xraysoftmat/KKCalc/main
+
+.. |tool-semver| image:: https://img.shields.io/badge/versioning-Python%20SemVer-blue.svg
+    :alt: Python SemVer
+    :target: https://python-semantic-release.readthedocs.io/en/stable/
+.. |tool-black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :alt: Code style: black
+    :target: https://github.com/psf/black
+.. |tool-ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+    :alt: Ruff
+    :target: https://github.com/astral-sh/ruff
+.. |tool-numpydoc| image:: https://img.shields.io/badge/doc_style-numpydoc-blue.svg
+    :alt: Code doc: numpydoc
+    :target: https://github.com/numpy/numpydoc
+
+Introduction
+############
+
+``kkcalc`` is an open-source `python` package to calculate the Kramers-Kronig (inverse) transform of X-ray absorption (dispersion) data,
+
+.. math::
+    f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
+
+using a polynomial representation algorithm developed by Watts^[[1](#1)].
+
+This package provides an object oriented API, to evaluate optical constants (index of refraction, absorption and dispersion, etc.), extend measurement spectra with databases.
+
+`KKCalc` is usable via an object-oriented Python API, or through a PyQT6 GUI interface. Documentation can be found at [readthedocs](https://kkcalc.rtfd.org/), or can be [built](#docbuild) for offline.
+
+Cite our previous work for this repository here[<sup>[1]</sup>](#1).
+
+- **GUI Interface**
+- **Contrast Calculations**
+   Can calculate the relative contrast between materials in a mix.
+
+
+
+## References
+
+<a id=1><sup>[1]</sup></a> Benjamin Watts, "Calculation of the Kramers-Kronig transform of X-ray spectra by a piecewise Laurent polynomial method", *Opt. Express* **22**, (2014) 23628-23639. [`DOI:10.1364/OE.22.023628`](https://doi.org/10.1364/OE.22.023628)
+
+<a id=1><sup>[2]</sup></a> B.L. Henke, E.M. Gullikson, and J.C. Davis, "X-ray interactions: photoabsorption, scattering, transmission, and reflection at E=50-30000 eV, Z=1-92", *Atomic Data and Nuclear Data Tables* **54** (2) (1993) 181-342 [`DOI:10.1006/adnd.1993.1013`](https://doi.org/10.1006/adnd.1993.1013).
+
+<a id=1><sup>[3]</sup></a> F. Biggs, and R. Lighthill, "Analytical approximations for X-ray cross-sections III", *Sandia Report* SAND87-0070 UC-34 (1988). [`DOI:10.2172/7124946`](https://doi.org/10.2172/7124946)
