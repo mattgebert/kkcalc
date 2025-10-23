@@ -17,10 +17,9 @@ try:
 except ImportError:
     has_periodictable = False
 
-import numpy as np
-import numpy.typing as npt
+import numpy as np, numpy.typing as npt
 from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
-from kkcalc.util import doc_copy
+from kkcalc.asf_database import ASF_DATABASE, ASFElement
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
@@ -44,27 +43,27 @@ if has_periodictable:
     assert ELEMENTS[1][0] == "H", f"Second element should be H, was {ELEMENTS[1][0]}"
 else:
     # Use the asf database
-    import os
+    db = load_asf_database()
+    atomic_nums = sorted(db.keys())
+    """Atomic Numbers"""
+    atomic_syms = []
+    """Atomic Symbols"""
+    atomic_masses = []
+    """Atomic Masses"""
+    for Z in atomic_nums:
+        a: ASFElement = db[Z]
+        atomic_syms.append(a["symbol"])
+        atomic_masses.append(a["mass"])
 
-    path_elements = __file__.replace("stoich.py", "asf_database/data/elements.dat")
-    if os.path.exists(path_elements):
-        data_elements = np.loadtxt(path_elements, dtype=str)
-        atomic_nums = data_elements[:, 0].astype(int)  # Starting from 1
-        atomic_syms = data_elements[:, 1]  # Atomic symbols
-        atomic_masses = data_elements[:, 3].astype(float)
-        ELEMENTS = [
-            (
-                "n",
-                0,
-                1.008,
-            ),  # Neutron first element, so H is ELEMENTS[1], consistent with periodictable.
-            *zip(atomic_syms, atomic_nums, atomic_masses),
-        ]
-        assert (
-            ELEMENTS[1][0] == "H"
-        ), f"Second element should be H, was {ELEMENTS[1][0]}"
-    else:
-        raise FileNotFoundError("Element data file not found.")
+    ELEMENTS = [
+        (
+            "n",
+            0,
+            1.008,
+        ),  # Neutron first element, so H is ELEMENTS[1], consistent with periodictable.
+        *zip(atomic_syms, atomic_nums, atomic_masses),
+    ]
+    assert ELEMENTS[1][0] == "H", f"Second element should be H, was {ELEMENTS[1][0]}"
 
 
 def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
@@ -521,15 +520,6 @@ class stoichiometry:
 
         return asp_db_im(self, **kwargs)
 
-    # @doc_copy(asp_im)
-    # def atomic_scattering_polynomial_im(
-    #     self, **kwargs: Unpack["PROPERTIES_DICT"]
-    # ) -> "asp_db_im":  # numpydoc ignore=RT01
-    #     """
-    #     An alias for `asp_im`.
-    #     """
-    #     return self.asp_im(**kwargs)
-
     asp_im = (
         atomic_scattering_polynomial_im  # Alias for atomic_scattering_polynomial_im
     )
@@ -561,15 +551,6 @@ class stoichiometry:
 
         return asp_db_re(self, **kwargs)
 
-    # @doc_copy(asp_re)
-    # def atomic_scattering_polynomial_re(
-    #     self, **kwargs: Unpack["PROPERTIES_DICT"]
-    # ) -> "asp_db_re":  # numpydoc ignore=RT01
-    #     """
-    #     An alias for `asp_re`.
-    #     """
-    #     return self.asp_re()
-
     asp_re = (
         atomic_scattering_polynomial_re  # Alias for atomic_scattering_polynomial_re
     )
@@ -599,14 +580,7 @@ class stoichiometry:
 
         return asp_db_complex(self, **kwargs)
 
-    @doc_copy(asp_complex)
-    def atomic_scattering_polynomial_complex(
-        self,
-    ) -> "asp_db_complex":  # numpydoc ignore=RT01
-        """
-        An alias for `asp_complex`.
-        """
-        return self.asp_complex()
+    atomic_scattering_polynomial_complex = asp_complex
 
     @staticmethod
     def _consolidate_elements(

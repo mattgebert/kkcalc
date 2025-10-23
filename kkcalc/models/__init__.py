@@ -6,6 +6,8 @@ It consists of the following submodules:
         * factors: Contains the models for the atomic scattering factors (`asf`)
         * polynomials: Contains the models for polynomial respresentations of the `asf`.
         * conversions: A library of functions for the conversions between datatypes.
+        * db_models: Contains the models for accessing and using the atomic scattering
+                     factor database.
 
 Additionally, the database models are imported from the `kkcalc.asf_database.db_models` module,
 for model completeness.
@@ -34,7 +36,7 @@ from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abst
 from kkcalc.models.conversions import conversions
 
 # Import the database models
-from kkcalc.asf_database.db_models import (
+from kkcalc.models.db_models import (
     asp_db_abstract,
     asp_db_im,
     asp_db_re,

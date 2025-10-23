@@ -11,6 +11,7 @@ import numpy as np
 import numpy.typing as npt
 from typing import Literal, Union, TypedDict
 import gzip
+import pkgutil, io
 
 
 class ASFElement(TypedDict):
@@ -38,18 +39,35 @@ def load_asf_database() -> dict[int, ASFElement]:
             A dictionary of elements atomic number keys, with each value
             consisting of a dictionary of values (see `ASFElement`).
     """
-    path_json = os.path.join(os.path.dirname(__file__), "ASF.json")
-    path_gzip_json = os.path.join(os.path.dirname(__file__), "ASF.json.gz")
+    # For package distribution, use pkgutil to load the data file instead of file paths
+    json_data = None
+    try:
+        gzip_json_data = pkgutil.get_data("asf_database", "ASF.json.gz")
+        if gzip_json_data is None:
+            # Try to load the uncompressed version
+            json_data = pkgutil.get_data("asf_database", "ASF.json")
+            if json_data is None:
+                raise FileNotFoundError("ASF database file not found in package.")
+            else:
+                json_database = json.load(io.BytesIO(json_data))
+        else:
+            json_database = json.load(gzip.open(io.BytesIO(gzip_json_data)))
+    except Exception as e:
+        print("Failed to load ASF database via `pkgutil`.", e)
 
-    # Load all information. This inclues E, Im, and Re but also name and atomic masses.
-    if os.path.exists(path_gzip_json):
-        with gzip.open(path_gzip_json, "rt") as f:
-            json_database = json.load(f)
-    elif os.path.exists(path_json):
-        with open(path_json, "r") as f:
-            json_database = json.load(f)
-    else:
-        raise FileNotFoundError("ASF database file not found.")
+    if json_data is None:
+        print("Trying file path loading...")
+        path_json = os.path.join(os.path.dirname(__file__), "ASF.json")
+        path_gzip_json = os.path.join(os.path.dirname(__file__), "ASF.json.gz")
+        # Load all information. This inclues E, Im, and Re but also name and atomic masses.
+        if os.path.exists(path_gzip_json):
+            with gzip.open(path_gzip_json, "rt") as f:
+                json_database = json.load(f)
+        elif os.path.exists(path_json):
+            with open(path_json, "r") as f:
+                json_database = json.load(f)
+        else:
+            raise FileNotFoundError("ASF database file not found.")
 
     # Convert lists to numpy arrays and convert dictionary keys to integers
     asf_database = {}
@@ -65,3 +83,12 @@ def load_asf_database() -> dict[int, ASFElement]:
             continue
 
     return asf_database
+
+
+if __name__ == "__main__":
+    # Test loading the database
+    db = load_asf_database()
+    print(f"Loaded ASF database with {len(db)} elements.")
+    for Z in sorted(db.keys())[:5]:
+        element = db[Z]
+        print(f"Element {element['name']} (Z={Z}): {len(element['E'])} data points.")
