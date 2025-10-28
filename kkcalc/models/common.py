@@ -301,8 +301,8 @@ class atomic_scattering(atomic_scattering_abstract):
         """
         The material number density in atoms per millilitre (cm^3).
 
-        When setting a value,
-        - Generates/Updates `density` if the `formula_mass` or `stoichiometry` is defined.
+        Automatically calculated from the `density` and `formula_mass` if both are defined,
+        when no explicit number density has been set.
 
         Parameters
         ----------
@@ -314,28 +314,33 @@ class atomic_scattering(atomic_scattering_abstract):
         float | None
             Material number density in atoms per millilitre (cm^3).
         """
-        return self._number_density
+        if self._number_density is None:
+            # Generate a number density from the formula mass and density.
+            den = self._density
+            fm = self._formula_mass
+            if den is not None and fm is not None:
+                return den * N_A / fm
+        else:
+            return self._number_density
 
     @number_density.setter
     def number_density(
         self, number_density: float | None
     ) -> None:  # numpydoc ignore=GL08
         self._number_density = number_density
-        if number_density is not None:
-            if self.formula_mass is not None:
-                # Generate a density from the formula mass and number density.
-                self._density = number_density * self.formula_mass / N_A
         return
+
+    @number_density.deleter
+    def number_density(self) -> None:  # numpydoc ignore=GL08
+        self._number_density = None
 
     @property
     def density(self) -> float | None:  # numpydoc ignore=PR02
         """
         The material density in grams per millilitre (cm^3).
 
-        When setting a value that is not `None`,
-        - Generates/Updates `number_density` if the `stoichiometry` or `formula_mass` is defined.
-        - Generates `formula_mass` if None, and updates `number_density`, if the `stoichiometry` is defined.
-        - Generates `formula_mass` if None, if the `number_density` is defined.
+        Automatically calculated from the `number_density` and `formula_mass` if both are defined,
+        when no explicit density has been set.
 
         Parameters
         ----------
@@ -347,39 +352,38 @@ class atomic_scattering(atomic_scattering_abstract):
         float | None
             Material density in grams per millilitre (cm^3).
         """
-        return self._density
+        density = self._density
+        if density is None:
+            # Generate a density from the formula mass and number density.
+            nd = self._number_density
+            fm = (
+                self.stoichiometry.formula_mass
+                if self.stoichiometry is not None
+                else self._formula_mass
+            )
+            if nd is not None and fm is not None:
+                return nd * fm / N_A
+        else:
+            return density
 
     @density.setter
     def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
         self._density = density
-        if density is not None:
-            if self.formula_mass is not None:
-                # Update / generate a number density from the formula mass and density.
-                self._number_density = density * N_A / self.formula_mass
-            elif self.stoichiometry is not None:
-                # Generate a formula mass from the stoichiometry and density.
-                fm = self.stoichiometry.formula_mass
-                self._formula_mass = fm
-                self._number_density = density * N_A / fm
-            elif self.number_density is not None and self.stoichiometry is None:
-                # Generate a formula mass from the number density and density.
-                self._formula_mass = density * N_A / self.number_density
         return
+
+    @density.deleter
+    def density(self) -> None:  # numpydoc ignore=GL08
+        self._density = None
 
     @property
     def formula_mass(self) -> float | None:  # numpydoc ignore=PR02
         """
         The atomic mass sum of the materials chemical formula (or molecular mass).
 
+        First uses the `stoichiometry` if defined, otherwise any explicit `formula_mass` value,
+        otherwise calculates the `formula_mass` from `number_density` and `density` if both are defined.
+
         In units of atomic mass units (amu).
-
-        When getting a value that is not `None`,
-        - Returns the `stoichiometry.formula_mass` if `stoichiometry` is defined.
-        - Alternatively returns the `formula_mass` if it has been defined.
-
-        When setting a value,
-        - Generates/Updates `number_density` if the `density` is defined.
-        - Generates `density` if `None`, if the `number_density` is defined.
 
         Parameters
         ----------
@@ -393,7 +397,15 @@ class atomic_scattering(atomic_scattering_abstract):
         """
         if self.stoichiometry is not None:
             return self.stoichiometry.formula_mass
-        return self._formula_mass
+        fm = self._formula_mass
+        if fm is None:
+            # Calculate the formula mass from number density and density.
+            nd = self._number_density
+            dens = self._density
+            if nd is not None and dens is not None:
+                return dens * N_A / nd
+        else:
+            return fm
 
     @formula_mass.setter
     def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
@@ -403,15 +415,11 @@ class atomic_scattering(atomic_scattering_abstract):
                 "Setting a formula mass will not be internally used when a `stoichiometry` has been assigned.",
                 UserWarning,
             )
-        else:
-            if formula_mass is not None:
-                # Update / generate a number density from the formula mass and density.
-                if self.density is not None:
-                    self._number_density = self.density * N_A / formula_mass
-                # Generate a density from the formula mass and number density.
-                elif self.number_density is not None:
-                    self._density = self.number_density * formula_mass / N_A
         return
+
+    @formula_mass.deleter
+    def formula_mass(self) -> None:  # numpydoc ignore=GL08
+        self._formula_mass = None
 
     @property
     def stoichiometry(self) -> kk_stoichiometry | None:  # numpydoc ignore=PR02
@@ -472,6 +480,16 @@ class atomic_scattering(atomic_scattering_abstract):
 
             # Set the stoichiometry attribute after the formula mass has been set.
             self._stoichiometry = stoich
+        else:
+            raise ValueError(
+                "Stoichiometry is immutable on a dataset once extended by the KKCalc database."
+            )
+        return
+
+    @stoichiometry.deleter
+    def stoichiometry(self) -> None:  # numpydoc ignore=GL08
+        if not self.is_extended:
+            self._stoichiometry = None
         else:
             raise ValueError(
                 "Stoichiometry is immutable on a dataset once extended by the KKCalc database."
