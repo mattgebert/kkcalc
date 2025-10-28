@@ -3,16 +3,27 @@
 # This workflow should be run by other workflows, not manually, so the output artifacts can be attached to releases.
 
 name: kkcalc GUI Executable Build
+run-name: ${{ github.actor }} - kkcalc GUI Executable Build @${{ github.event.release.tag }}
 
 on:
-    workflow_dispatch:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Operating System Build'
+        required: false
+        type: choice
+        options:
+          - Windows
+          - MacOS
+          - Ubuntu
+        default: 'Windows'
 
 jobs:
-  build-gui-windows-exe:
+  build-gui-exe:
     runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
-        os: [Windows]
+        os: ["${{ github.event.inputs.os }}"]
 
     steps:
     - name: Checkout repository
@@ -45,7 +56,7 @@ jobs:
 
     # Conditionally upload artifacts based on OS
     # Only using windows at the moment!
-    - name: Upload Windows Executable Artifacts
+    - name: Cache Windows Executable Artifacts
       if: matrix.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
@@ -53,7 +64,7 @@ jobs:
         path: dist\kkcalc-${{ github.event.release.tag }}-Windows.exe
         overwrite: true
 
-    - name: Upload MacOS Executable Artifacts
+    - name: Cache MacOS Executable Artifacts
       if: matrix.os == 'MacOS'
       uses: actions/upload-artifact@v4
       with:
@@ -61,7 +72,7 @@ jobs:
         path: kkcalc-gui.app
         overwrite: true
 
-    - name: Upload Linux Executable Artifacts
+    - name: Cache Linux Executable Artifacts
       if: matrix.os == 'Ubuntu'
       uses: actions/upload-artifact@v4
       with:
