@@ -25,8 +25,12 @@ maintainers = [
 # Project compatibility:
 requires-python = ">=3.12"
 dependencies = [
-    "numpy", # Basic array and matrix operations
-    "scipy", # Used for constants, interpolation and fitting.
+    "numpy~=2.3.4", # Basic array and matrix operations
+    "scipy~=1.16.2", # Used for constants, interpolation and fitting.
+]
+optional-dependencies.gui = [
+    "PyQt6~=6.10.0", # For GUI
+    "matplotlib~=3.10.7", # For plotting
 ]
 
 classifiers = [
@@ -41,6 +45,11 @@ classifiers = [
 code = "https://github.com/xraysoftmat/kkcalc" # code = "https://github.com/benajamin/kkcalc"
 documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
+# [project.optional-dependencies]
+# gui = [
+#     "PyQt6~=6.10.0", # For GUI
+#     "matplotlib~=3.10.7", # For plotting
+# ]
 
 [dependency-groups]
 # Dependency groups for optional dependencies.
@@ -61,8 +70,8 @@ dev = [
     "pandas", # For data format / handling
 ]
 gui = [
-    "PyQt6", # For GUI
-    "matplotlib", # For plotting
+    "PyQt6~=6.10.0", # For GUI
+    "matplotlib~=3.10.7", # For plotting
 ]
 
 docs = [
@@ -84,7 +93,7 @@ docs = [
 directory = "./dist" # Output directory for built packages
 targets.sdist.include = [
     "kkcalc/**",
-    "examples/data/**",
+    # "examples/data/**",
 ]
 targets.sdist.exclude = [
     "docs/*",
