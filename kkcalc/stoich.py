@@ -23,7 +23,7 @@ from kkcalc.asf_database import ASF_DATABASE, ASFElement
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
-    from kkcalc.asf_database.db_models import asp_db_im, asp_db_re, asp_db_complex
+    from kkcalc.models.db_models import asp_db_im, asp_db_re, asp_db_complex
     from periodictable.formulas import Formula
     from kkcalc.models.common import (
         PROPERTIES_DICT,
@@ -43,7 +43,7 @@ if has_periodictable:
     assert ELEMENTS[1][0] == "H", f"Second element should be H, was {ELEMENTS[1][0]}"
 else:
     # Use the asf database
-    db = load_asf_database()
+    db = ASF_DATABASE
     atomic_nums = sorted(db.keys())
     """Atomic Numbers"""
     atomic_syms = []
@@ -516,7 +516,7 @@ class stoichiometry:
         asp_db_im
             An object representing the piecewise polynomial calculated from the summation of scattering factor data.
         """
-        from kkcalc.asf_database.db_models import asp_db_im
+        from kkcalc.models.db_models import asp_db_im
 
         return asp_db_im(self, **kwargs)
 
@@ -547,7 +547,7 @@ class stoichiometry:
         asp_db_re
             An object representing the dispersive piecewise polynomial calculated from the summation of scattering factor data.
         """
-        from kkcalc.asf_database.db_models import asp_db_re
+        from kkcalc.models.db_models import asp_db_re
 
         return asp_db_re(self, **kwargs)
 
@@ -576,7 +576,7 @@ class stoichiometry:
         asp_db_complex
             An object representing the complex piecewise polynomial calculated from the summation of scattering factor data.
         """
-        from kkcalc.asf_database.db_models import asp_db_complex
+        from kkcalc.models.db_models import asp_db_complex
 
         return asp_db_complex(self, **kwargs)
 

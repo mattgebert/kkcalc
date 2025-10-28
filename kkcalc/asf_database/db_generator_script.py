@@ -24,7 +24,7 @@ Items 1-4 not usually performed by users. Items 5-7 must be integrated into KKca
 """
 
 import os, os.path
-import scipy, scipy.interpolate
+import scipy.interpolate
 import json
 import numpy.typing as npt
 import numpy as np

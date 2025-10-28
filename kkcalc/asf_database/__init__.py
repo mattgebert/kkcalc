@@ -32,5 +32,7 @@ ASF_DATABASE: dict[int, ASFElement] = (
 
 # Example usage
 if __name__ == "__main__":
-    for z, data in ASF_DATABASE.items()[:5]:
+    for i, (z, data) in enumerate(ASF_DATABASE.items()):
         print(data["name"], data["E"].shape, data["Re"].shape, data["Im"].shape)
+        if i >= 5:
+            break

@@ -7,7 +7,6 @@ import numpy as np
 import numpy.typing as npt
 import warnings
 from collections.abc import Iterator
-import typing
 from typing import TYPE_CHECKING, Self, overload, Unpack, override, Iterable
 import scipy.constants as sc
 
