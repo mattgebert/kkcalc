@@ -7,11 +7,12 @@ The interface is built using the PyQt6 library.
 """
 
 from PyQt6 import QtWidgets, QtCore, QtGui
-import os
+import os, io
 import numpy as np
 import pandas as pd
 from matplotlib.widgets import SpanSelector
 import matplotlib.pyplot as plt
+import pkgutil
 
 from kkcalc.gui.asf_viewer import asf_viewer, GraphType
 from kkcalc.gui.asf_modifier import kk_object_modifier
@@ -39,6 +40,15 @@ class kk_gui(QtWidgets.QWidget):
 
     The widget contains a viewer, a list of objects, and a modifier for the objects.
 
+    Parameters
+    ----------
+    parent : QtWidgets.QWidget | None
+        The parent widget.
+    objs : list[asf_abstract | asp_abstract] | None
+        A list of initial objects to load into the GUI.
+    autohide_modifier : bool
+        Whether to autohide the modifier when no object is selected.
+
     Attributes
     ----------
     obj_list : kk_object_list
@@ -54,9 +64,23 @@ class kk_gui(QtWidgets.QWidget):
         parent=None,
         objs: list[asf_abstract | asp_abstract] | None = None,
         autohide_modifier: bool = False,
-    ):
+    ) -> None:  # numpydoc ignore=GL08
         super().__init__(parent=parent)
         self.setWindowTitle("Kramers-Kronig Calculator")
+
+        windowIconPath = os.path.join(
+            os.path.dirname(__file__), "..\..\docs\source\_static\logo2.png"
+        )
+        if os.path.exists(windowIconPath):
+            self.setWindowIcon(QtGui.QIcon(windowIconPath))
+        else:
+            try:
+                data = pkgutil.get_data("kkcalc", "logo2.png")
+                if data is not None:
+                    self.setWindowIcon(QtGui.QIcon(io.BytesIO(data)))
+            except FileNotFoundError as e:
+                pass
+
         self._layout = QtWidgets.QHBoxLayout()
         self.setLayout(self._layout)
         self._draggable = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
@@ -111,6 +135,10 @@ class kk_gui(QtWidgets.QWidget):
         """
         Catch the signal from the modifier, for when an extended domain is to be created.
 
+        Parameters
+        ----------
+        has_handle : bool
+            Whether to create the handle or not.
         """
         if has_handle:
             # Get the current obj
@@ -171,13 +199,25 @@ class kk_gui(QtWidgets.QWidget):
         self.viewer.reset_graph()
 
     def on_handle_update(self, min_x: float, max_x: float):
-        print(f"Max: {max_x}, Min: {min_x}")
+        """
+        Catch updates to the handle, and update the modifier values.
+
+        Parameters
+        ----------
+        min_x : float
+            The minimum x value of the handle.
+        max_x : float
+            The maximum x value of the handle.
+        """
         # Update the lb and ub values
         self.obj_modifier.merge_dom_lb_edit.setText(f"{min_x:.2f}")
         self.obj_modifier.merge_dom_ub_edit.setText(f"{max_x:.2f}")
         return
 
     def on_view_change(self):
+        """
+        Catch a change of toggling viewed objects.
+        """
         objs = self.obj_list.checked_objects
         if self._has_handle:
             # Create a temporary asf object to pass to the viewer using the handle
@@ -186,6 +226,9 @@ class kk_gui(QtWidgets.QWidget):
         self.viewer.scattering_objects = objs
 
     def on_object_select(self):
+        """
+        Catch an object selection change, and updates the modifier view.
+        """
         selected_obj = self.obj_list.selected_object
         if selected_obj is not None:
             self.obj_modifier.show()
@@ -199,19 +242,27 @@ class kk_gui(QtWidgets.QWidget):
 
     def on_object_modify(self):
         """
-        Catches an object update, and updates the table view of the object.
+        Catch an object update, and updates the table view of the object.
         """
         self.obj_list.update_kk_obj(self.obj_modifier.object)
 
     def on_object_create(self, new_obj: type[asf_abstract | asp_abstract]):
         """
-        Catches signals that generate new objects, and adds them to the object list.
+        Catch signals that generate new objects, and adds them to the object list.
+
+        Parameters
+        ----------
+        new_obj : type[asf_abstract | asp_abstract]
+            The new object to add.
         """
         if new_obj is not None:
             self.obj_list.add_kk_obj(new_obj)
 
 
 def demo_app():
+    """
+    A demo application for the kk_gui widget.
+    """
     # Create the Application
     app = QtWidgets.QApplication([])
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
@@ -225,7 +276,7 @@ def demo_app():
     ps_stoich = stoichiometry(PS_STOICHIOMETRY)
 
     # Import Data
-    data_dir = os.path.join(os.path.dirname(__file__), "../../examples/data")
+    data_dir = os.path.join(os.path.dirname(__file__), "../data")
     data_file = os.path.normpath(os.path.join(data_dir, "PS_004_-dc.txt"))
     data_PS = np.genfromtxt(data_file, skip_header=4)
     assert data_PS.shape[1] == 2, "Data file must have two columns"

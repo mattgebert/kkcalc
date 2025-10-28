@@ -985,14 +985,14 @@ class asf(asf_abstract, atomic_scattering):
         """
         if self.stoichiometry is not None:
             if isinstance(self, asf_re):
-                from kkcalc.asf_database.db_models import asp_db_re
+                from kkcalc.models.db_models import asp_db_re
 
                 self.factors = asp_db_re.scale_data(
                     self.energies, self.factors, self.stoichiometry
                 )
                 return
             elif isinstance(self, asf_im):
-                from kkcalc.asf_database.db_models import asp_db_im
+                from kkcalc.models.db_models import asp_db_im
 
                 self.factors = asp_db_im.scale_data(
                     self.energies, self.factors, self.stoichiometry

@@ -1,0 +1,81 @@
+# This workflow will build a set of executable package for the GUI aspect of the project upon release.
+# Uses PyInstaller to create the executable.
+# This workflow should be run by other workflows, not manually, so the output artifacts can be attached to releases.
+
+name: kkcalc GUI 💻 (PyInstaller Executable Build)
+run-name: ${{ github.actor }} - kkcalc GUI 💻 (PyInstaller Executable Build) @${{ github.event.release.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Operating System Build'
+        required: false
+        type: choice
+        options:
+          - Windows
+          - MacOS
+          - Ubuntu
+        default: 'Windows'
+
+jobs:
+  build-gui-exe:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os: ["${{ github.event.inputs.os }}"]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+
+    - name: Make spec file with PyInstaller
+      run:
+        >
+        pyi-makespec .\kkcalc\__main__.py
+        --name "kkcalc-${{ github.event.release.tag }}-${{ matrix.os}}"
+        --onefile
+        --windowed
+        --add-data "kkcalc/data;kkcalc/data"
+        --add-data "kkcalc/asf_database/ASF.json.gz;kkcalc/asf_database"
+        --icon "docs/source/_static/logo2.png"
+
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller kkcalc-gui.spec
+
+    # Conditionally upload artifacts based on OS
+    # Only using windows at the moment!
+    - name: Cache Windows Executable Artifacts
+      if: matrix.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kkcalc-gui-win64
+        path: dist\kkcalc-${{ github.event.release.tag }}-Windows.exe
+        overwrite: true
+
+    - name: Cache MacOS Executable Artifacts
+      if: matrix.os == 'MacOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kkcalc-gui-macos
+        path: kkcalc-gui.app
+        overwrite: true
+
+    - name: Cache Linux Executable Artifacts
+      if: matrix.os == 'Ubuntu'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kkcalc-gui-linux
+        path: kkcalc-gui
+        overwrite: true

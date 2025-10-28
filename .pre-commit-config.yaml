@@ -9,6 +9,7 @@ repos:
     rev: v5.0.0
     hooks:
     -   id: check-added-large-files
+        args: ['--maxkb=1500']  # 1.5MB limit for added files
     -   id: check-toml
     -   id: check-yaml
     -   id: end-of-file-fixer

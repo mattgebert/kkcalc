@@ -1,13 +1,10 @@
 ## What system to build the project with? I.e. Setuptools, Wheel, Poetry, etc.
-## Using `setuptools` here.
-
 [build-system]
 requires = [
-    "setuptools>=60",
-    "setuptools-scm>=8.0", # includes git datafiles to be included in the package.
-    "uv >= 0.7.20", # Current version as of 2025-July
+    # "uv >= 0.7.20", # Current version as of 2025-July
+    "hatchling"
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 # Project information
@@ -15,7 +12,7 @@ name = "KKCalc"
 version = "0.8.0"
 description = "Kramers-Kronig transforms for optical data."
 readme = "README.rst"
-license = {file = "LICENCE"}
+license = {file = "LICENSE"}
 keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transform", "Contrast"]
 authors = [
     {name = "Benjamin Watts", email = "benjamin.watts@gmail.com"},
@@ -28,12 +25,16 @@ maintainers = [
 # Project compatibility:
 requires-python = ">=3.12"
 dependencies = [
-    "numpy", # Basic array and matrix operations
-    "scipy", # Used for constants
+    "numpy~=2.3.4", # Basic array and matrix operations
+    "scipy~=1.16.2", # Used for constants, interpolation and fitting.
+]
+optional-dependencies.gui = [
+    "PyQt6~=6.10.0", # For GUI
+    "matplotlib~=3.10.7", # For plotting
 ]
 
 classifiers = [
-    "Developement Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -44,6 +45,11 @@ classifiers = [
 code = "https://github.com/xraysoftmat/kkcalc" # code = "https://github.com/benajamin/kkcalc"
 documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
+# [project.optional-dependencies]
+# gui = [
+#     "PyQt6~=6.10.0", # For GUI
+#     "matplotlib~=3.10.7", # For plotting
+# ]
 
 [dependency-groups]
 # Dependency groups for optional dependencies.
@@ -60,12 +66,14 @@ dev = [
     "commitizen",
     "ruff",
     "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
-]
-gui = [
-    "PyQt6", # For GUI
-    "matplotlib", # For plotting
+    "PyInstaller", # For building executables
     "pandas", # For data format / handling
 ]
+gui = [
+    "PyQt6~=6.10.0", # For GUI
+    "matplotlib~=3.10.7", # For plotting
+]
+
 docs = [
     "sphinx",
     "sphinx-pyproject",
@@ -76,8 +84,25 @@ docs = [
     "matplotlib",
 ]
 
-[tool.setuptools.packages.find]
-exclude = ["docs*", "tests*"]
+#######################################################
+#############  Package Build configurations  ##########
+#######################################################
+
+# Use "hatchling build" as the build command.
+[tool.hatch.build]
+directory = "./dist" # Output directory for built packages
+targets.sdist.include = [
+    "kkcalc/**",
+    # "examples/data/**",
+]
+targets.sdist.exclude = [
+    "docs/*",
+    "tests/*",
+    "kkcalc/asf_database/data/*", # Exclude raw data files from package
+    "kkcalc/asf_database/db_generator_script.py", # Exclude db generator script
+]
+
+
 
 #######################################################
 #############  Pre-commit configurations  #############

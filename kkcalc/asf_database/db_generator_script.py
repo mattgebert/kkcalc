@@ -1,17 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-# This file is part of the Kramers-Kronig Calculator software package.
-#
-# Copyright (c) 2013 Benjamin Watts, Daniel J. Lauk
-#
-# The software is licensed under the terms of the zlib/libpng license.
-# For details see LICENSE.txt
 """
 This module accumulates optical database data.
 
-Data is taken from  different sources and packaged to be used by and
-distributed with the Kramers-Kronig Calculator software package.
+This file is not included in the distributed package, but is provided
+for reference.
+
+Data is taken from  different sources and packaged into `ASF.json` to be
+used by and distributed with the Kramers-Kronig Calculator software package.
 
 Workflow to accomodate:
 1. Read data from .nff files and BL files.
@@ -30,8 +24,8 @@ Items 1-4 not usually performed by users. Items 5-7 must be integrated into KKca
 """
 
 import os, os.path
-import scipy, scipy.io, scipy.interpolate
-import math, json
+import scipy.interpolate
+import json
 import numpy.typing as npt
 import numpy as np
 
@@ -75,7 +69,7 @@ def LoadData(filename: str) -> npt.NDArray:
         print("Error:", filename, "is not a valid file name.")
     if len(data) == 0:
         print("Error: no data found in", filename)
-    return np.array([])
+    return np.array(data)
 
 
 def parse_BL_file(briggs_file: str) -> dict[int, npt.NDArray]:
@@ -251,7 +245,8 @@ for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
 
     # Get basic data
     # print("Load nff data from:", os.path.join(BASEDIR, 'data', Henke_file))
-    asf_RawData = LoadData(os.path.join(BASEDIR, "data", Henke_file))
+    data_path = os.path.join(BASEDIR, "data", Henke_file)
+    asf_RawData = LoadData(data_path)
     if min(asf_RawData[1:-1, 0] - asf_RawData[0:-2, 0]) < 0:
         print(
             "Warning! Energies in ",
@@ -330,4 +325,11 @@ for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
 
 output_path = os.path.join(BASEDIR, "ASF.json")
 with open(output_path, "w") as f:
-    json.dump(Database, f, indent=1)
+    json.dump(Database, f, indent=None)  # Indent: 1 for readability, None for compact.
+
+# Compress the database file
+import gzip
+
+with open(output_path, "rb") as f_in:
+    with gzip.open(output_path + ".gz", "wb") as f_out:
+        f_out.writelines(f_in)
