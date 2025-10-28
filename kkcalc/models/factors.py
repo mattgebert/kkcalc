@@ -18,6 +18,7 @@ from kkcalc.models.common import (
     atomic_scattering_abstract,
     atomic_scattering,
     PROPERTIES_DICT,
+    PROPERTIES_DICT_NO_STOICH,
 )
 from kkcalc.models.conversions import conversions
 from kkcalc.stoich import (
@@ -42,8 +43,8 @@ except ImportError:
 
 KK_DATATYPE_DOCS: dict[str, str] = {
     "UNDEFINED": """For undefined data types.""",
-    "NEXAFS": """Near edge X-ray absorption fine structure.""",
-    "XANES": """X-ray absorption near edge structure.""",
+    "NEXAFS": """Near edge X-ray absorption fine structure (NEXAFS).""",
+    "XANES": """X-ray absorption near edge structure (XANES).""",
     "PHOTOABSORPTION": """Photoabsorption.""",
     "REFRACTIVE": r"""Refractive components, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
 
@@ -90,9 +91,9 @@ class KK_Datatype(Enum):
     UNDEFINED = 0
     """For undefined data types."""
     NEXAFS = 1  # AKA Photoabsorption, XANES.
-    """Near edge X-ray absorption fine structure."""
+    """Near edge X-ray absorption fine structure (NEXAFS)."""
     XANES = 1  # AKA Photoabsorption, NEXAFS.
-    """X-ray absorption near edge structure."""
+    """X-ray absorption near edge structure (XANES)."""
     PHOTOABSORPTION = 1  # AKA NEXAFS, XANES.
     """Photoabsorption."""
     REFRACTIVE = 2
@@ -734,7 +735,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         # Create a default max_rows if not provided.
         if has_pandas:
             if "max_rows" not in kwargs:
-                kwargs["max_rows"] = 10
+                kwargs["max_rows"] = 6
             return self.dataframe().to_string(**kwargs)
         else:
             return (
@@ -984,14 +985,14 @@ class asf(asf_abstract, atomic_scattering):
         """
         if self.stoichiometry is not None:
             if isinstance(self, asf_re):
-                from kkcalc.asf_database.db_models import asp_db_re
+                from kkcalc.models.db_models import asp_db_re
 
                 self.factors = asp_db_re.scale_data(
                     self.energies, self.factors, self.stoichiometry
                 )
                 return
             elif isinstance(self, asf_im):
-                from kkcalc.asf_database.db_models import asp_db_im
+                from kkcalc.models.db_models import asp_db_im
 
                 self.factors = asp_db_im.scale_data(
                     self.energies, self.factors, self.stoichiometry
@@ -1594,7 +1595,7 @@ class asf_re(asf):
         relativistic_correction: float | None = None,
         tolerance: float = DEF_TOL,
         max_iter: int = DEF_ITER,
-        **kwargs: Unpack[PROPERTIES_DICT],
+        **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
     ) -> "asf_complex":
         """
         Create a complex atomic scattering factor representation.
@@ -1619,7 +1620,7 @@ class asf_re(asf):
         max_iter : int, optional
             The maximum number of iterations for the inverse transform.
             By default `kkcalc.kk_transforms.DEF_ITER`.
-        **kwargs : Unpack[PROPERTIES_DICT]
+        **kwargs : Unpack[PROPERTIES_DICT_NO_STOICH]
             Additional keyword arguments for the `atomic_scattering` class.
 
         Returns
@@ -1642,7 +1643,8 @@ class asf_re(asf):
         )
         re_extended: asp_re = re.extend_energies(im.energies)
         # Return asf object
-        common_kwargs = self._properties_dict
+        common_kwargs = {}
+        common_kwargs.update(self._properties_dict)
         common_kwargs.update(kwargs)
         return asf_complex(
             re=re_extended.to_asf(), im=im, **common_kwargs
@@ -1764,6 +1766,12 @@ class asf_im(asf):
         """
         Convert atomic scattering factors to NEXAFS representation.
 
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
+
         Returns
         -------
         np.ndarray
@@ -1780,10 +1788,20 @@ class asf_im(asf):
         """
         A tuple of energies and NEXAFS photoabsorption values.
 
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
+
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
             Tuple of energies (eV) and NEXAFS photoabsorption values.
+
+        See Also
+        --------
+        kkcalc.models.conversions.ASF_to_NEXAFS : Converts atomic scattering factors to NEXAFS/XANES/Photoabsorption data.
         """
         return self.energies, self.NEXAFS
 
@@ -1793,10 +1811,16 @@ class asf_im(asf):
         energies: npt.NDArray[np.floating],
         NEXAFS: npt.NDArray[np.floating],
         scale_to_database: bool = False,
-        **kwargs,
+        **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         """
         Convert NEXAFS data to imaginary absorption atomic scattering factors (ASF).
+
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
 
         Parameters
         ----------
@@ -1807,7 +1831,7 @@ class asf_im(asf):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
-        **kwargs
+        **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
         Returns
@@ -1818,6 +1842,7 @@ class asf_im(asf):
         See Also
         --------
         kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        kkcalc.models.conversions.ASF_to_NEXAFS : Converts atomic scattering factors to NEXAFS/XANES/Photoabsorption data.
         """
         # TODO: update docs about what the factors in the conversion are about...
         return cls(
@@ -2026,7 +2051,7 @@ class asf_im(asf):
         relativistic_correction: float | None = None,
         tolerance: float = DEF_TOL,
         max_iter: int = DEF_ITER,
-        **kwargs,
+        **kwargs: Unpack[PROPERTIES_DICT],
     ) -> "asp_complex":
         """
         Perform a KK transform and create a complex atomic scattering polynomial representation.
@@ -2049,7 +2074,7 @@ class asf_im(asf):
         max_iter : int, optional
             The maximum number of iterations for the inverse transform.
             By default `kkcalc.kk_transforms.DEF_ITER`.
-        **kwargs
+        **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `asp_complex` and `atomic_scattering` classes.
 
         Returns
@@ -2467,13 +2492,56 @@ class asf_complex(asf_abstract, atomic_scattering):
                 "Both objects must have beta values to calculate contrast."
             )
 
+    @property
+    def NEXAFS(self) -> np.ndarray:
+        """
+        Convert atomic scattering factors to NEXAFS representation.
+
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
+
+        Returns
+        -------
+        np.ndarray
+            NEXAFS photoabsorption values corresponding to the `energies` property.
+
+        See Also
+        --------
+        kkcalc.models.conversions.ASF_to_NEXAFS : Converts atomic scattering factors to NEXAFS/XANES/Photoabsorption data.
+        """
+        return self.im.NEXAFS
+
+    def to_NEXAFS(self) -> tuple[np.ndarray, np.ndarray]:
+        """
+        A tuple of energies and NEXAFS photoabsorption values.
+
+        This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
+        $\mu_a$, as defined by Henke (https://henke.lbl.gov/optical_constants/intro.html):
+
+        .. math::
+            \mu_a = 2 r_e \lambda f_2
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            Tuple of energies (eV) and NEXAFS photoabsorption values.
+
+        See Also
+        --------
+        kkcalc.models.conversions.ASF_to_NEXAFS : Converts atomic scattering factors to NEXAFS/XANES/Photoabsorption data.
+        """
+        return self.energies, self.NEXAFS
+
     @classmethod
     def from_NEXAFS(
         cls: type[Self],
         energies: npt.NDArray[np.floating],
         NEXAFS: npt.NDArray[np.floating],
         scale_to_database: bool = False,
-        **kwargs,
+        **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
         NEXAFS photoabsorption data to a full complex representation of scattering factors.
@@ -2490,7 +2558,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
-        **kwargs
+        **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
         Returns
@@ -2516,7 +2584,10 @@ class asf_complex(asf_abstract, atomic_scattering):
             raise ValueError(f"NEXAFS data must be a set of float. Was {NEXAFS.dtype}.")
 
         im = asf_im.from_NEXAFS(
-            energies=energies, NEXAFS=NEXAFS.imag, scale_to_database=scale_to_database
+            energies=energies,
+            NEXAFS=NEXAFS.imag,
+            scale_to_database=scale_to_database,
+            **kwargs,
         )
         re = im.kk_transform()
 
@@ -2533,7 +2604,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
-        **kwargs,
+        **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
         Convert refractive components ($\delta$ + i*$\beta$) to atomic scattering factors (ASF).
@@ -2570,7 +2641,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
-        **kwargs
+        **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
         Returns
@@ -2600,7 +2671,9 @@ class asf_complex(asf_abstract, atomic_scattering):
             )
 
         # Accumulate keyword arguments
-        kwargs.update(
+        common_kwargs = {}
+        common_kwargs.update(kwargs)
+        common_kwargs.update(
             dict(
                 number_density=number_density,
                 density=density,
@@ -2615,16 +2688,16 @@ class asf_complex(asf_abstract, atomic_scattering):
             energies=energies,
             refractive=refractive.real,
             scale_to_database=scale_to_database,
-            **kwargs,
+            **common_kwargs,
         )
         im = asf_im.from_refractive(
             energies=energies,
             refractive=refractive.imag,
             scale_to_database=scale_to_database,
-            **kwargs,
+            **common_kwargs,
         )
         # Create complex class.
-        return cls(re=re, im=im, **kwargs)
+        return cls(re=re, im=im, **common_kwargs)
 
     @classmethod
     def from_refractive_index(
@@ -2637,7 +2710,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
-        **kwargs,
+        **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
         Convert refractive_index (n= 1 - $\delta$ +i $\beta$) to atomic scattering factors (ASF).
@@ -2672,7 +2745,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
-        **kwargs
+        **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
         Returns
@@ -2702,7 +2775,9 @@ class asf_complex(asf_abstract, atomic_scattering):
             )
 
         # Accumulate keyword arguments
-        kwargs.update(
+        common_kwargs = {}
+        common_kwargs.update(kwargs)
+        common_kwargs.update(
             dict(
                 number_density=number_density,
                 density=density,
@@ -2721,16 +2796,16 @@ class asf_complex(asf_abstract, atomic_scattering):
             energies=energies,
             refractive=delta,
             scale_to_database=scale_to_database,
-            **kwargs,
+            **common_kwargs,
         )
         im = asf_im.from_refractive(
             energies=energies,
             refractive=beta,
             scale_to_database=scale_to_database,
-            **kwargs,
+            **common_kwargs,
         )
         # Create complex class.
-        return cls(re=re, im=im, **kwargs)
+        return cls(re=re, im=im, **common_kwargs)
 
     @classmethod
     def from_asf(

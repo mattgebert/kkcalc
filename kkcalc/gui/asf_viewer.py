@@ -456,6 +456,10 @@ class asf_viewer(QtWidgets.QWidget):
                 yl2 = r"$f_2$ (electrons)"  # f2
             case KK_Datatype.REFRACTIVE_INDEX:
                 title = r"Refractive Index ($n = 1 - \delta - i * \beta $)"
+                yl1 = r"$1-\delta$ (Dispersion)"  # Delta
+                yl2 = r"$\beta$ (Absorption)"  # Beta
+            case KK_Datatype.REFRACTIVE:
+                title = r"Refractive Components ($n = 1 - \delta - i * \beta $)"
                 yl1 = r"$\delta$ (Dispersion)"  # Delta
                 yl2 = r"$\beta$ (Absorption)"  # Beta
             case KK_Datatype.NEXAFS | KK_Datatype.XANES | KK_Datatype.PHOTOABSORPTION:
@@ -535,12 +539,30 @@ class asf_viewer(QtWidgets.QWidget):
                         y = obj.factors - obj.stoichiometry.relativistic_correction
                 elif y_datatype == KK_Datatype.REFRACTIVE_INDEX:
                     if obj.can_calc_refractive:
-                        y = obj.refractive
+                        if isinstance(obj, asf_complex):
+                            # Use the complex refractive index
+                            y = obj.refractive_indexes
+                        elif isinstance(obj, asf_re):
+                            y = (
+                                1 - obj.refractive
+                            )  # The refractive index component is 1-delta.
+                        elif isinstance(obj, asf_im):
+                            y = obj.refractive
+                        else:
+                            continue  # Skip this object if it cannot calculate refractive index
                     else:
                         # Skip this object if it cannot calculate beta
                         continue
+                elif y_datatype == KK_Datatype.REFRACTIVE:
+                    if obj.can_calc_refractive:
+                        y = obj.refractive
+                    else:
+                        continue
                 elif y_datatype == KK_Datatype.NEXAFS:
-                    y = obj.NEXAFS
+                    if isinstance(obj, (asf_im, asf_complex)):
+                        y = obj.NEXAFS
+                    else:
+                        continue  # Skip this object if it cannot calculate NEXAFS
                 else:
                     raise ValueError(f"Invalid y datatype {y_datatype}")
 

@@ -9,26 +9,30 @@ python:
   install:
     - method: pip
       path: .
-      extra_requirements:
-        - docs
+      # extra_requirements:
+      #   - docs
 
 # Set the OS, Python version and other tools you might need
 build:
-  os: ubuntu-22.04, ubuntu-24.04, ubuntu-lts-latest
+  os: ubuntu-lts-latest
   tools:
-    python: "3.12"
+    python: "3.13"
     # You can also specify other tool versions:
     # nodejs: "19"
     # rust: "1.64"
     # golang: "1.19"
+  jobs:
+    install:
+      - python -m pip install --upgrade pip
+      - pip install . --group 'docs'
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
   configuration: docs/conf.py
 
 # Optionally build your docs in additional formats such as PDF and ePub
-formats:
-    - pdf
+# formats:
+#    - pdf
 #    - epub
 
 # Optional but recommended, declare the Python requirements required

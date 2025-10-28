@@ -1,20 +1,43 @@
-.. kkcalc documentation master file, created by
-   sphinx-quickstart on Wed Aug 28 07:56:21 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+:html_theme.sidebar_secondary.remove: true
 
-Welcome to kkcalc's documentation!
-==================================
+.. include:: ../README.rst
+
+.. list-table:: KKCalc Features
+  :widths: 20 80
+  :header-rows: 1
+
+  * - **Feature**
+    - **Description**
+  * - Extension \& Scaling
+    - | Extend and normalise your NEXAFS/XANES the Henke and Briggs/Lighthill atomic scattering databases.
+      | Achieve smooth baselines and more accurate transforms.
+      | Stitch together multiple datasets.
+  * - Relativistic Correction
+    - Use material composition to automatically calculate the relativistic correction $\mathcal{f}^{0}$.
+  * - Visualization
+    - PyQt6 GUI for processing
+  * - Typing
+    - | Enumerated NEXAFS detection sources.
+      | Type hints for all functions and classes.
+
+Links
+#####
+
+Please raise any `issues <https://github.com/xraysoftmat/kkcalc/issues>`_ here.
+
+- Development (Github): https://github.com/xraysoftmat/kkcalc/
+- Documentation (ReadtheDocs): https://kkcalc.readthedocs.io/
+- PyPI: https://pypi.python.org/pypi/kkcalc/
+
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :hidden:
 
-   modules
+    source/install
+    source/tutorials/index
+    source/contributing
+    CHANGELOG
+    TODOLIST
+    source/api
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. hello?

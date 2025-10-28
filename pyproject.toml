@@ -1,53 +1,59 @@
 ## What system to build the project with? I.e. Setuptools, Wheel, Poetry, etc.
-## Using `setuptools` here.
-
 [build-system]
 requires = [
-    "setuptools>=60",
-    "setuptools-scm>=8.0" # includes git datafiles to be included in the package.
+    # "uv >= 0.7.20", # Current version as of 2025-July
+    "hatchling"
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
 
 [project]
 # Project information
 name = "KKCalc"
 version = "0.8.0"
-description = "Kramers-Kronig transforms for optical data, via API or GUI interfaces."
-readme = "README.md"
-# license = {file = "LICENSE.txt"}
-license = {text = "MIT License"}
+description = "Kramers-Kronig transforms for optical data."
+readme = "README.rst"
+license = {file = "LICENSE"}
 keywords = ["Kramers-Kronig", "Optical Data", "X-ray", "Spectroscopy", "Transform", "Contrast"]
+authors = [
+    {name = "Benjamin Watts", email = "benjamin.watts@gmail.com"},
+    {name = "Matthew Gebert", email = "mattheuu.gebert@gmail.com"}
+]
+maintainers = [
+    {name = "Matthew Gebert", email="mattheuu.gebert@gmail.com"}
+]
 
 # Project compatibility:
 requires-python = ">=3.12"
 dependencies = [
-    "numpy", # Basic array and matrix operations
-    "scipy", # Used for constants
+    "numpy~=2.3.4", # Basic array and matrix operations
+    "scipy~=1.16.2", # Used for constants, interpolation and fitting.
 ]
+optional-dependencies.gui = [
+    "PyQt6~=6.10.0", # For GUI
+    "matplotlib~=3.10.7", # For plotting
+]
+
 classifiers = [
-    "Developement Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
 ]
 
-# Author information
-authors = [
-    {name = "Benjamin Watts", email = "benjamin.watts@gmail.com"},
-    {name = "Matthew Gebert", email = "mattheuu.gebert@gmail.com"}
-]
-
 [project.urls]
 # Website, documentation and other continuous integration URLS.
-code = "https://github.com/benajamin/kkcalc"
+code = "https://github.com/xraysoftmat/kkcalc" # code = "https://github.com/benajamin/kkcalc"
 documentation = "https://kkcalc.readthedocs.io/en/latest/"
 
+# [project.optional-dependencies]
+# gui = [
+#     "PyQt6~=6.10.0", # For GUI
+#     "matplotlib~=3.10.7", # For plotting
+# ]
 
 [dependency-groups]
 # Dependency groups for optional dependencies.
 all = [
-    {include-group = "gui"},
-    {include-group = "docs"},
     {include-group = "dev"},
 ]
 
@@ -58,20 +64,61 @@ dev = [
     "pytest",
     "python-semantic-release",
     "commitizen",
+    "ruff",
     "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
-    "black",
-]
-gui = [
-    "PyQt6", # For GUI
-    "matplotlib", # For plotting
+    "PyInstaller", # For building executables
     "pandas", # For data format / handling
 ]
+gui = [
+    "PyQt6~=6.10.0", # For GUI
+    "matplotlib~=3.10.7", # For plotting
+]
+
 docs = [
     "sphinx",
-    # "sphinx-rtd-theme",
+    "sphinx-pyproject",
+    "sphinx-copybutton",
+    "intersphinx-registry", # to reference other projects in sphinx
     "pydata-sphinx-theme",
     "numpydoc",
+    "matplotlib",
 ]
+
+#######################################################
+#############  Package Build configurations  ##########
+#######################################################
+
+# Use "hatchling build" as the build command.
+[tool.hatch.build]
+directory = "./dist" # Output directory for built packages
+targets.sdist.include = [
+    "kkcalc/**",
+    # "examples/data/**",
+]
+targets.sdist.exclude = [
+    "docs/*",
+    "tests/*",
+    "kkcalc/asf_database/data/*", # Exclude raw data files from package
+    "kkcalc/asf_database/db_generator_script.py", # Exclude db generator script
+]
+
+
+
+#######################################################
+#############  Pre-commit configurations  #############
+#######################################################
+
+## Linting
+# Ruff
+[tool.ruff] # Same as Black formatting.
+line-length = 88
+indent-width = 4
+
+[tool.ruff.format] # Same as Black formatting.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 # ------------------- NUMPYDOC -------------------
 [tool.numpydoc_validation]
@@ -111,89 +158,105 @@ update_changelog_on_bump = true
 tag_format = "v$major.$minor.$patch$prerelease.$devrelease"
 
 # ---------- Semantic Release for versioning ------------
+# Python-Sem-Ver
+[tool.semantic_release.branches.main]
+match = "(main|master)"
+prerelease_token = "rc"
+prerelease = false
+
 [tool.semantic_release]
-version_variables = ["pyproject.toml:project:version"]
+version_toml = ["pyproject.toml:project.version"]
+# build_command = "python -m build --sdist --wheel ."
+commit_parser = "conventional"
+build_command = "pip install uv && uv build --sdist --wheel . --out-dir dist"
+commit_message = """
+chore(release): Release `core@{version}` [skip ci]
+Automatically generated by python-semantic-release
+"""
+allow_zero_version = true
 
-# TODO: Integrate python-semantic-release for this package.
-# assets = []
-# build_command_env = []
-# commit_message = "{version}\n\nAutomatically generated by python-semantic-release"
-# commit_parser = "angular"
-# logging_use_named_masks = false
-# major_on_zero = true
-# allow_zero_version = true
-# repo_dir = "D:\\Github\\kkcalc"
-# no_git_verify = false
-# tag_format = "v{version}"
+[tool.semantic_release.branches.beta]
+# Matches branches with the prefixes 'feat/', 'fix/', or 'perf/'.
+match = "^(feat|fix|perf)/.+"
+prerelease = true
+prerelease_token = "beta"
 
-# [tool.semantic_release.branches.main]
-# match = "(main|master)"
-# prerelease_token = "rc"
-# prerelease = false
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "docs/CHANGELOG.rst"
+output_format = "rst" # or "md" for Markdown format
 
-# [tool.semantic_release.changelog]
-# template_dir = "templates"
-# changelog_file = "CHANGELOG.md"
-# exclude_commit_patterns = []
+[tool.semantic_release.changelog]
+# Recommended patterns for conventional commits parser that is scope aware
+exclude_commit_patterns = [
+    '''chore(?:\([^)]*?\))?: .+''',
+    '''ci(?:\([^)]*?\))?: .+''',
+    '''refactor(?:\([^)]*?\))?: .+''',
+    '''style(?:\([^)]*?\))?: .+''',
+    '''test(?:\([^)]*?\))?: .+''',
+    '''build\((?!deps\): .+)''',
+    '''Initial [Cc]ommit.*''',
+    '''wip(?:\([^)]*?\))?: .+''',
+]
 
-# [tool.semantic_release.changelog.environment]
-# block_start_string = "{%"
-# block_end_string = "%}"
-# variable_start_string = "{{"
-# variable_end_string = "}}"
-# comment_start_string = "{#"
-# comment_end_string = "#}"
-# trim_blocks = false
-# lstrip_blocks = false
-# newline_sequence = "\n"
-# keep_trailing_newline = false
-# extensions = []
-# autoescape = true
-
-# [tool.semantic_release.commit_author]
-# env = "GIT_COMMIT_AUTHOR"
-# default = "semantic-release <semantic-release>"
-
-# [tool.semantic_release.commit_parser_options]
-# allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
-# minor_tags = ["feat"]
-# patch_tags = ["fix", "perf"]
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+# other_allowed_tags = ["build", "chore", "ci", "docs", "style", "refactor", "test"]
+# allowed_tags = ["feat", "fix", "perf", "build", "chore", "ci", "docs", "style", "refactor", "test"]
 # default_bump_level = 0
-
-# [tool.semantic_release.remote]
-# name = "origin"
-# type = "github"
-# ignore_token_for_push = false
-# insecure = false
-
-# [tool.semantic_release.publish]
-# dist_glob_patterns = ["dist/*"]
-# upload_to_vcs_release = true
+parse_squash_commits = true
+ignore_merge_commits = true
 
 
-### OLD SETUP.PY FILE ###
+#######################################################
+#############  Sphinx Doc configurations  #############
+#######################################################
 
-# import setuptools
+[tool.sphinx-pyproject]
+html_theme = "pydata_sphinx_theme"
 
-# with open("README.rst", "r") as fh:
-#     long_description = fh.read()
+[tool.sphinx-pyproject.html_theme_options]
+    # ...
+    navbar_start = ["navbar-logo"]
+    navbar_center = ["navbar-nav"]
+    navbar_end = ["theme-switcher", "navbar-icon-links"]
+    navbar_persistent = ["search-button"]
+    navbar_align = "content"
+    show_nav_level = 2
+    navigation_depth = 4
+    # ...
+    secondary_sidebar_items = ["page-toc", "edit-this-page", "sourcelink"]
+    # ...
+    article_footer_items = []
+    #...
+    footer_start = ["copyright", "sphinx-version"]
+    footer_end = ["theme-version"]
+    #...
+    show_prev_next = true
 
-# setuptools.setup(
-#     name="kkcalc",
-#     version="0.7.5",
-#     author="Benjamin Watts",
-#     author_email="benjamin.watts@gmail.com",
-#     description="A calculator for the Kramers Kronig transform of X-ray spectra",
-#     long_description=long_description,
-#     long_description_content_type="text/x-rst",
-#     url="https://github.com/benajamin/kkcalc",
-#     packages=setuptools.find_packages(),
-#     package_data={'kkcalc': ['*.json']},
-#     install_requires=['numpy', 'scipy'],
-#     classifiers=(
-#         "Programming Language :: Python :: 3.6",
-#         "License :: OSI Approved :: zlib/libpng License  ",
-#         "Topic :: Scientific/Engineering :: Physics",
-#         "Operating System :: OS Independent",
-#     ),
-# )
+# Array item:
+[[tool.sphinx-pyproject.html_theme_options.icon_links]]
+    name = "GitHub"
+    url = "https://github.com/xraysoftmat/kkcalc"
+    icon = "fab fa-github-square"
+    type = "fontawesome"
+
+[tool.sphinx-pyproject.html_sidebars]
+  "**" = ["sidebar-nav-bs", "sidebar-ethical-ads"] # default
+
+[tool.sphinx-pyproject.html_context]
+    default_mode = "light"
+    default_dark_mode = false
+    default_language = "en"
+    default_version = "latest"
+    display_github = true
+    github_user = "xraysoftmat"
+    github_repo = "kkcalc"
+    github_version = "main"
+    doc_path = "docs"
+
+# Esbonio Sphinx extension for VS Code integration - https://docs.esbon.io
+[tool.esbonio.sphinx]
+    # buildCommand = ["sphinx-build", "-M", "dirhtml", "./docs", "./docs/_build"]
+    buildCommand = ["sphinx-build", "-M", "html", "./docs", "./docs/_build"]
+    pythonCommand = ["${venv:kkcalc}"]
