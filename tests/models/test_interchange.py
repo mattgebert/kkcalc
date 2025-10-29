@@ -1,5 +1,7 @@
 """
-Tests the conversion between `asf` and `asp` objects.
+Model tests for conversions between polynomial and factor representations.
+
+I.e. Between `asf` and `asp` objects.
 """
 
 import numpy as np
