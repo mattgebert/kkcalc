@@ -69,7 +69,13 @@ class kk_gui(QtWidgets.QWidget):
         self.setWindowTitle("Kramers-Kronig Calculator")
 
         windowIconPath = os.path.join(
-            os.path.dirname(__file__), "..\..\docs\source\_static\logo2.png"
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "docs",
+            "source",
+            "_static",
+            "logo2.png",
         )
         if os.path.exists(windowIconPath):
             self.setWindowIcon(QtGui.QIcon(windowIconPath))

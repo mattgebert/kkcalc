@@ -1,7 +1,16 @@
+"""
+The GUI module for kkcalc.
+
+Provides a
+"""
+
 from kkcalc.gui.kk_gui import kk_gui
 
 
 def kkcalc_app():
+    """
+    An example application using the kk_gui module.
+    """
     import PyQt6.QtWidgets as QtWidgets
 
     # Create the Application
@@ -23,3 +32,7 @@ def kkcalc_app():
 
     # Run the application
     app.exec()
+
+
+if __name__ == "__main__":
+    kkcalc_app()
