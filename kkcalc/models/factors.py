@@ -705,7 +705,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A Pandas DataFrame with the energies and factors.
 
         Raises
-        -------
+        ------
         ImportError
             If Pandas is not installed.
         """
@@ -1763,7 +1763,7 @@ class asf_im(asf):
 
     @property
     def NEXAFS(self) -> np.ndarray:
-        """
+        r"""
         Convert atomic scattering factors to NEXAFS representation.
 
         This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
@@ -1785,7 +1785,7 @@ class asf_im(asf):
         return conversions.ASF_to_NEXAFS(self.energies, self.factors)
 
     def to_NEXAFS(self) -> tuple[np.ndarray, np.ndarray]:
-        """
+        r"""
         A tuple of energies and NEXAFS photoabsorption values.
 
         This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
@@ -1813,7 +1813,7 @@ class asf_im(asf):
         scale_to_database: bool = False,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
-        """
+        r"""
         Convert NEXAFS data to imaginary absorption atomic scattering factors (ASF).
 
         This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
@@ -2494,7 +2494,7 @@ class asf_complex(asf_abstract, atomic_scattering):
 
     @property
     def NEXAFS(self) -> np.ndarray:
-        """
+        r"""
         Convert atomic scattering factors to NEXAFS representation.
 
         This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`
@@ -2515,7 +2515,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         return self.im.NEXAFS
 
     def to_NEXAFS(self) -> tuple[np.ndarray, np.ndarray]:
-        """
+        r"""
         A tuple of energies and NEXAFS photoabsorption values.
 
         This convesion treats NEXAFS as equivalent to the `atomic photoabsorption cross section`

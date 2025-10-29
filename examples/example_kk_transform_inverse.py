@@ -1,3 +1,7 @@
+"""
+An example script showing the KK transform inverse process.
+"""
+
 if __name__ == "__main__":
     import os
     import numpy as np

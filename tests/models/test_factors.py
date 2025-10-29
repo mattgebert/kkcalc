@@ -6,7 +6,7 @@ import pytest
 import warnings
 from kkcalc import models, stoichiometry as kk_stoich
 
-from .test_stoich import fractional_stoichs as fs
+from ..test_stoich import fractional_stoichs as fs
 
 
 class TestFactors:
