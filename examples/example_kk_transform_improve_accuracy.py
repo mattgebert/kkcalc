@@ -1,4 +1,6 @@
 """
+An example demonstrating the use of `improve_accuracy` in kk_transform.
+
 This example demonstrates how to use the `improve_accuracy` option in the `kk_transform` method
 of the `asp_db_extended` model to improve the accuracy of the Kramers-Kronig transform at a K-Edge.
 The dataset is the Polystryene Carbon K-Edge.

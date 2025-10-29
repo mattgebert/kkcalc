@@ -135,7 +135,7 @@ def parse_BL_file(briggs_file: str) -> dict[int, npt.NDArray]:
 
 
 def BL_to_ASF(E: npt.ArrayLike, coeffs: npt.NDArray, Atomic_mass: float) -> npt.NDArray:
-    """
+    r"""
     The conversion factor from Biggs and Lighthill coefficients to Henke scattering factors.
 
     Biggs and Lighthill offers photoelectric cross-section (PECS) with the sum of
@@ -191,7 +191,7 @@ def BL_to_ASF(E: npt.ArrayLike, coeffs: npt.NDArray, Atomic_mass: float) -> npt.
 
 
 def Coeffs_to_ASF(E: npt.ArrayLike, coeffs: npt.NDArray) -> npt.NDArray:
-    """
+    r"""
     Calculate Henke scattering factors from polynomial coefficients.
 
     Uses the linear n=1, n=0 coefficients from Henke data, and the

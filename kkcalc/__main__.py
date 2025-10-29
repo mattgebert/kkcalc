@@ -5,22 +5,16 @@ See the `main` function for the main entry point.
 Use `python -m kkcalc` to run the program.
 """
 
-import os, numpy as np, PyQt6.QtWidgets as QtWidgets
+# Standard Library Imports
+import os, io
 import traceback
 import pkgutil
-import io
 
-# Create a GUI instance to print a log of the temp filepath
-temp_gui = QtWidgets.QApplication([])
-error_dialog = QtWidgets.QErrorMessage()
-cwd = os.getcwd()
-temp_files = os.listdir(cwd)
-error_dialog.showMessage(
-    f"Current working directory: {cwd}\nTemporary files: {temp_files}"
-)
-temp_gui.exec()
+# External Imports
+import numpy as np
+import PyQt6.QtWidgets as QtWidgets
 
-
+# Internal Imports
 from kkcalc.gui.kk_gui import kk_gui
 from kkcalc.models import asf_im
 
@@ -91,7 +85,13 @@ if __name__ == "__main__":
         # Prepare the message: the error and the traceback
         msg = f"An error occurred, causing kkcalc to crash.:\
                \n{str(e)}\
-               \n{traceback.format_exc()}\
                \nPlease report this issue at https://github.com/xraysoftmat/kkcalc/issues"
         error_dialog.showMessage(msg)
+
+        # Add the detail
+        tb = f"{traceback.format_exc()}"
+        layout = error_dialog.layout()
+        if layout is not None:
+            layout.addWidget(QtWidgets.QLabel("Detailed traceback:"))
+            layout.addWidget(QtWidgets.QLabel(tb))
         error_dialog.exec()

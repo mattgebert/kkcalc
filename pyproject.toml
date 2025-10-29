@@ -29,8 +29,8 @@ dependencies = [
     "scipy~=1.16.2", # Used for constants, interpolation and fitting.
 ]
 optional-dependencies.gui = [
-    "PyQt6~=6.10.0", # For GUI
-    "matplotlib~=3.10.7", # For plotting
+    "PyQt6~=6.10", # For GUI
+    "matplotlib~=3.10", # For plotting
 ]
 
 classifiers = [
@@ -67,11 +67,12 @@ dev = [
     "ruff",
     "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
     "PyInstaller", # For building executables
-    "pandas", # For data format / handling
 ]
+
 gui = [
-    "PyQt6~=6.10.0", # For GUI
-    "matplotlib~=3.10.7", # For plotting
+    "PyQt6~=6.10", # For GUI
+    "matplotlib~=3.10", # For plotting
+    "pandas~=2.3", # For loading data files
 ]
 
 docs = [

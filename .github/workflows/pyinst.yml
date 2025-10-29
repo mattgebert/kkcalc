@@ -1,9 +1,12 @@
 # This workflow will build a set of executable package for the GUI aspect of the project upon release.
 # Uses PyInstaller to create the executable.
 # This workflow should be run by other workflows, not manually, so the output artifacts can be attached to releases.
+# Pillow is used to convert png icons to the appropriate format for each OS.
+# Outputs:
+# - `NAME` : The name of the built executable package without file extension.
 
 name: kkcalc GUI 💻 (PyInstaller Executable Build)
-run-name: ${{ github.actor }} - kkcalc GUI 💻 (PyInstaller Executable Build) @${{ github.event.release.tag }}
+run-name: ${{ github.actor }} - kkcalc GUI 💻 ${{ github.event.inputs.os }}
 
 on:
   workflow_dispatch:
@@ -19,11 +22,12 @@ on:
         default: 'Windows'
 
 jobs:
-  build-gui-exe:
-    runs-on: ${{ matrix.os }}-latest
-    strategy:
-      matrix:
-        os: ["${{ github.event.inputs.os }}"]
+  PyInstaller-Build:
+    runs-on: ${{ github.event.inputs.os }}-latest
+    # Alternative, can use `$ {{ matrix.os }}` from the strategy below
+    # strategy:
+    #   matrix:
+    #     os: ["${{ github.event.inputs.os }}"]
 
     steps:
     - name: Checkout repository
@@ -32,50 +36,70 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.13'
+        python-version: '3.12'
 
     - name: Install dependencies
+      id: install-deps
+      shell: bash
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller
+        pip install pyinstaller Pillow
+        pip install . --group gui -v
+        echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")"
+        echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")" >> $GITHUB_ENV
 
-    - name: Make spec file with PyInstaller
-      run:
-        >
-        pyi-makespec .\kkcalc\__main__.py
-        --name "kkcalc-${{ github.event.release.tag }}-${{ matrix.os}}"
-        --onefile
-        --windowed
-        --add-data "kkcalc/data;kkcalc/data"
-        --add-data "kkcalc/asf_database/ASF.json.gz;kkcalc/asf_database"
-        --icon "docs/source/_static/logo2.png"
+    - name: Build executable name variable
+      id: build-name
+      shell: bash
+      run: |
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ github.event.inputs.os}}"
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ github.event.inputs.os}}" >> $GITHUB_ENV
+        echo "NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ github.event.inputs.os}}" >> $GITHUB_OUTPUT
+
+    ## Alternative way to make spec file and build, kept for reference.
+    ## Does not provide functionality to remove unwanted DLLs like the custom spec file does.
+    ## Resulting executable is about 15 MB larger in size.
+    # - name: Make spec file with PyInstaller
+    #   run:
+    #     >
+    #     pyi-makespec .\kkcalc\__main__.py
+    #     --name "${{ env.BUILD_NAME }}"
+    #     --onefile
+    #     --windowed
+    #     --add-data "kkcalc/data;kkcalc/data"
+    #     --add-data "kkcalc/asf_database/ASF.json.gz;kkcalc/asf_database"
+    #     --icon "docs/source/_static/logo2.png"
+    #
+    # - name: Build executable with PyInstaller
+    #   run: |
+    #     pyinstaller "${{ env.BUILD_NAME }}.spec"
 
     - name: Build executable with PyInstaller
       run: |
-        pyinstaller kkcalc-gui.spec
+        pyinstaller .github/kkcalc-gui.spec -- -n "${{ env.BUILD_NAME }}"
 
     # Conditionally upload artifacts based on OS
     # Only using windows at the moment!
     - name: Cache Windows Executable Artifacts
-      if: matrix.os == 'Windows'
+      if: github.event.inputs.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
-        name: kkcalc-gui-win64
-        path: dist\kkcalc-${{ github.event.release.tag }}-Windows.exe
+        name: ${{ env.BUILD_NAME }}
+        path: dist/${{ env.BUILD_NAME }}.exe
         overwrite: true
 
     - name: Cache MacOS Executable Artifacts
-      if: matrix.os == 'MacOS'
+      if: github.event.inputs.os == 'MacOS'
       uses: actions/upload-artifact@v4
       with:
-        name: kkcalc-gui-macos
-        path: kkcalc-gui.app
+        name: ${{ env.BUILD_NAME }}
+        path: dist/${{ env.BUILD_NAME }}
         overwrite: true
 
     - name: Cache Linux Executable Artifacts
-      if: matrix.os == 'Ubuntu'
+      if: github.event.inputs.os == 'Ubuntu'
       uses: actions/upload-artifact@v4
       with:
-        name: kkcalc-gui-linux
-        path: kkcalc-gui
+        name: ${{ env.BUILD_NAME }}
+        path: dist/${{ env.BUILD_NAME }}
         overwrite: true
