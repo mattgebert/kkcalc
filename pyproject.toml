@@ -161,7 +161,7 @@ tag_format = "v$major.$minor.$patch$prerelease.$devrelease"
 # ---------- Semantic Release for versioning ------------
 # Python-Sem-Ver
 [tool.semantic_release.branches.main]
-match = "(main|master)"
+match = "(main|master|v2)"
 prerelease_token = "rc"
 prerelease = false
 
