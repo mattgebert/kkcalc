@@ -2037,6 +2037,51 @@ class asp_complex(asp_abstract, atomic_scattering):
         # Initialise atomic scattering object
         atomic_scattering.__init__(self, **common_kwargs)
 
+    # Override the attomic scattering properties to propogate to the real & imaginary parts
+    @atomic_scattering.density.setter
+    def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).density.fset(self, density)
+        # Propogate to components
+        self._re.density = density
+        self._im.density = density
+
+    @atomic_scattering.number_density.setter
+    def number_density(
+        self, number_density: float | None
+    ) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).number_density.fset(self, number_density)
+        # Propogate to components
+        self._re.number_density = number_density
+        self._im.number_density = number_density
+
+    @atomic_scattering.formula_mass.setter
+    def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).formula_mass.fset(self, formula_mass)
+        # Propogate to components
+        self._re.formula_mass = formula_mass
+        self._im.formula_mass = formula_mass
+
+    @atomic_scattering.stoichiometry.setter
+    def stoichiometry(
+        self, stoich: kk_stoichiometry | str | None
+    ) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction from atomic_scattering
+        super(asp_complex, self.__class__).stoichiometry.fset(self, stoich)
+        # Propogate to components
+        self._re.stoichiometry = stoich
+        self._im.stoichiometry = stoich
+
+    @atomic_scattering.name.setter
+    def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).name.fset(self, name)
+        # Propogate to components
+        self._re.name = name
+        self._im.name = name
+
     @asp_abstract.energies.getter
     def energies(self) -> npt.NDArray:
         """
