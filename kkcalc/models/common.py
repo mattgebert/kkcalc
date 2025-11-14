@@ -261,10 +261,19 @@ class atomic_scattering(atomic_scattering_abstract):
             )
 
         # Assign in reverse order of importance.
-        self.stoichiometry = stoichiometry  # can infer a formula mass
-        self.formula_mass = formula_mass
-        self.density = density
-        self.number_density = number_density
+        atomic_scattering.stoichiometry.fset(
+            self, stoichiometry
+        )  # can infer a formula mass
+        if formula_mass is not None and stoichiometry is not None:
+            warnings.warn(
+                "Competing information provided for `formula mass` given a `stoichiometry`. "
+                "`Stoichiometry` information precedes `formula mass`.",
+                UserWarning,
+            )
+        else:
+            self._formula_mass = formula_mass
+        self._density = density
+        self._number_density = number_density
 
         # Finally assign if the material has been extended by the KKCalc database.
         self._is_extended = is_extended  # has to be done after the other assignments, otherwise cannot set stoichiometry.
@@ -284,7 +293,7 @@ class atomic_scattering(atomic_scattering_abstract):
         -------
         str
             The Material/sample name. If no name but a `stoichiometry` is provided,
-            returns the stoichiometry string. If no `s`toichiometry` either, then returns `None`.
+            returns the stoichiometry string. If no `stoichiometry` either, then returns `None`.
         """
         if self._name is None:
             if self.stoichiometry is not None:
@@ -469,7 +478,7 @@ class atomic_scattering(atomic_scattering_abstract):
             if stoich is not None:
                 # Generate a formula mass from the stoichiometry.
                 # Modify private attribute before stoichiometry, to avoid immutable error.
-                self.formula_mass = stoich.formula_mass
+                self._formula_mass = stoich.formula_mass
                 if self.density is not None:
                     # Update / generate a number density from the stoichiometry
                     # and density, regardless of the current number density.
@@ -569,11 +578,17 @@ class atomic_scattering(atomic_scattering_abstract):
             Copy of the class instance.
         """
         cls = self.__class__
-        return cls(
+        obj = cls(
             name=self.name,
-            number_density=self.number_density,
-            density=self.density,
-            stoichiometry=self.stoichiometry,
-            formula_mass=self.formula_mass,
+            number_density=None,
+            density=None,
+            stoichiometry=None,
+            formula_mass=None,
             is_extended=self.is_extended,
         )
+        # Copy over private attributes to avoid recalculations/warnings.
+        obj._number_density = self._number_density
+        obj._density = self._density
+        obj._stoichiometry = self._stoichiometry
+        obj._formula_mass = self._formula_mass
+        return obj
