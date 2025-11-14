@@ -7,8 +7,16 @@ Includes:
 - Extended atomic scattering polynomials
 """
 
-import pytest
+# Stdlib
 import warnings
+import pkgutil
+import io
+
+# External
+import pytest
+import numpy as np
+
+# Internal
 from kkcalc.models import (
     asp_db_im,
     asp_db_re,
@@ -16,11 +24,11 @@ from kkcalc.models import (
     asp_db_re_extended,
     asp_db_complex,
     asp_db_complex_extended,
+    asf_im,
 )
 from kkcalc.asf_database.db_loader import load_asf_database
-
 from ..test_stoich import basic_stoichs as bs
-import numpy as np
+from kkcalc import stoichiometry as kk_stoich
 
 
 class TestDatabaseLoading:
@@ -74,3 +82,74 @@ class TestDatabasePolynomials:
         density = 1.33
         poly = model(stoich, density=density)
         assert poly.stoichiometry == stoich
+
+
+class TestDbScaling:
+    """Tests that ensure the consistency of scaling functions"""
+
+    @pytest.mark.parametrize("fix_distortions", [False, True])
+    @pytest.mark.parametrize(
+        "merge_domain",
+        [
+            None,
+            (275.0, 390.0),
+            # (280.0, 290.0),
+        ],
+    )
+    def test_scaling_consistency(
+        self,
+        merge_domain: None | tuple[float, float],
+        fix_distortions: bool,
+    ):
+        """
+        Test that the scaling between the following functions is consistent:
+        - `asp_db_abstract.scale_data`
+        - `asp_db_extended.extend_data_with_db`
+        """
+
+        # Load example data
+        PS_datafile = pkgutil.get_data(
+            "kkcalc",
+            "data/PS_004_-dc.txt",
+        )
+        PS_data = np.genfromtxt(
+            io.BytesIO(PS_datafile),
+            skip_header=4,
+        )
+        PS_energies, PS_NEXAFS = PS_data[:, 0], PS_data[:, 1]
+
+        PS_stoich = kk_stoich(bs.POLYMER_PS)
+        density = 1.05  # g/cm^3
+
+        # Create an ASF dataset
+        PS_asf_dataset = asf_im.from_NEXAFS(
+            PS_energies, PS_NEXAFS, stoichiometry=PS_stoich
+        )
+
+        # Get a database of the elements in the stoichiometry
+        PS_asp_database = asp_db_im(PS_stoich, density=density)
+
+        # Create an extended polynomial
+        PS_asf_extended = asp_db_im_extended(
+            data_asf=PS_asf_dataset,
+            database=PS_asp_database,
+            fix_distortions=fix_distortions,
+            merge_domain=merge_domain,
+        )
+
+        # Data covers 275 to 390 eV
+        PS_asf_dataset_scaled = PS_asf_dataset.copy()
+        PS_asf_dataset_scaled.scale_to_database(
+            fix_distortions=fix_distortions,
+            merge_domain=merge_domain,
+        )
+
+        # Check the two methods give the same result in the overlapping region
+        PS_asf_extended = PS_asf_extended.to_asf(
+            PS_asf_dataset_scaled.energies,
+        )
+
+        assert np.allclose(
+            PS_asf_extended.factors,
+            PS_asf_dataset_scaled.factors,
+        )
