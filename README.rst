@@ -20,9 +20,9 @@
 .. |Coveralls| image:: https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2
     :alt: Coverage Status
     :target: https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2
-.. |Pre-commit| image:: https://results.pre-commit.ci/badge/github/xraysoftmat/kkcalc/main.svg
+.. |Pre-commit| image:: https://results.pre-commit.ci/badge/github/xraysoftmat/kkcalc/v2.svg
     :alt: pre-commit.ci status
-    :target: https://results.pre-commit.ci/latest/github/xraysoftmat/KKCalc/main
+    :target: https://results.pre-commit.ci/latest/github/xraysoftmat/KKCalc/v2
 
 .. |tool-semver| image:: https://img.shields.io/badge/versioning-Python%20SemVer-blue.svg
     :alt: Python SemVer

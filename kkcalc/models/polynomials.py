@@ -687,8 +687,10 @@ class asp(asp_abstract, atomic_scattering):
 
         if issubclass(cls, (asp_db_abstract, asp_db_extended)):
             obj = self.copy(**kwargs)  # Use kwargs not common_kwargs due to copying.
-            obj.energies = energies
-            obj.coefs = coefs
+            # Set internal attributes to avoid length warnings
+            assert len(energies) - 1 == len(coefs)
+            obj._energies = energies
+            obj._coefs = coefs
             return obj
         else:
             common_kwargs = self._properties_dict
@@ -738,8 +740,10 @@ class asp(asp_abstract, atomic_scattering):
             index = (self.energies >= domain[0]) & (self.energies <= domain[1])
             new_energies = obj.energies[index]
             new_coefs = obj.coefs[index[:-1] & index[1:]]
-            obj.energies = new_energies
-            obj.coefs = new_coefs
+            # Set internal attributes to avoid length warnings
+            assert len(new_energies) - 1 == len(new_coefs)
+            obj._energies = new_energies
+            obj._coefs = new_coefs
             return obj
         else:
             # Add domain values in the existing energies if not already present:
@@ -766,8 +770,10 @@ class asp(asp_abstract, atomic_scattering):
 
             if issubclass(cls, (asp_db_abstract, asp_db_extended)):
                 obj = self.copy(**kwargs)
-                obj.energies = energies
-                obj.coefs = coefs
+                # Set internal attributes to avoid length warnings
+                assert len(energies) - 1 == len(coefs)
+                obj._energies = energies
+                obj._coefs = coefs
                 return obj
             else:
                 common_kwargs = self._properties_dict
@@ -1096,7 +1102,7 @@ class asp_im(asp):
         target_energies: npt.NDArray[np.floating | np.integer] | None = None,
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
-        relativistic_correction: float = 0,
+        relativistic_correction: float | None = None,
         tolerance: float = kk_transforms.DEF_TOL,
         max_iter: int = kk_transforms.DEF_ITER,
     ) -> "asf_re":
@@ -1117,9 +1123,9 @@ class asp_im(asp):
             This uses the `kk_algorithms.improve_accuracy` algorithm.
         stoichiometry : stoichiometry | None, optional
             The stoichiometry object for the material, by default None
-            Used to calcualte the relativistic correction.
-        relativistic_correction : float, optional
-            The relativistic correction factor to apply to the calculation, by default 0.
+            Used to calculate the relativistic correction.
+        relativistic_correction : float | None, optional
+            The relativistic correction factor to apply to the calculation, by default None.
             Can also be calculated by providing the `stoich` parameter.
         tolerance : float, optional
             Used if `improve_accuracy` is enabled. The tolerance for the accuracy improvement algorithm, by default 1e-2.
@@ -1133,6 +1139,10 @@ class asp_im(asp):
         """
         # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
         # Check parameters for/to-define relativistic correction
+        energies = self.energies
+        coefs = self.coefs
+        assert energies is not None and coefs is not None
+
         if stoichiometry is not None and relativistic_correction is not None:
             raise ValueError(
                 "Cannot provide both stoichiometry and relativistic correction."
@@ -1151,18 +1161,20 @@ class asp_im(asp):
         elif self.stoichiometry is not None:
             stoichiometry = self.stoichiometry
             relativistic_correction = self.stoichiometry.relativistic_correction
+        # At this point, relativistic_correction must be defined.
+        assert relativistic_correction is not None
 
         real_factors = kk_transforms.KK_PP(
             target_energies=(
-                target_energies if target_energies is not None else self.energies
+                target_energies if target_energies is not None else energies
             ),
-            energies=self.energies,
-            imag_coefs=self.coefs,
+            energies=energies,
+            imag_coefs=coefs,
             relativistic_correction=relativistic_correction,
         )
 
         # Collate data
-        imp_energies = target_energies if target_energies is not None else self.energies
+        imp_energies = target_energies if target_energies is not None else energies
         imp_real_factors = real_factors
 
         # Perform accuracy improvement if requested
@@ -1232,6 +1244,13 @@ class asp_im(asp):
         """
         from kkcalc.models.polynomials import asp_complex
 
+        common_kwargs = self._properties_dict
+        common_kwargs.update(kwargs)
+        common_kwargs.update(stoichiometry=stoichiometry)
+        # Set default target energies to the object's energies if None
+        target_energies = np.asarray(
+            target_energies if target_energies is not None else self.energies
+        )
         re = self.kk_transform(
             target_energies=target_energies,
             improve_accuracy=improve_accuracy,
@@ -1242,8 +1261,6 @@ class asp_im(asp):
         )
         im = self.extend_energies(re.energies)
         # Create complex object
-        common_kwargs = self._properties_dict
-        common_kwargs.update(kwargs)
         return asp_complex(re=re.to_ASP(), im=im, **common_kwargs)
 
     def calculate_complex_factors(
@@ -1274,7 +1291,7 @@ class asp_im(asp):
             The stoichiometry object for the material, by default None
             Used to calcualte the relativistic correction.
         relativistic_correction : float, optional
-            The relativistic correction factor to apply to the calculation, by default False.
+            The relativistic correction factor to apply to the calculation, by default None.
             Can also be calculated by providing the `stoich` parameter.
         tolerance : float, optional
             Used if `improve_accuracy` is enabled. The tolerance for the accuracy improvement algorithm, by default 1e-2.
@@ -1298,9 +1315,13 @@ class asp_im(asp):
 
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)  # type: ignore #PROPERTIES_DICT_NO_STOICH is a subset of PROPERTIES_DICT
+        # Set default target energies to the object's energies if None
+        target_energies = np.asarray(
+            target_energies if target_energies is not None else self.energies
+        )
         # Calculate the KK transform
         re = self.kk_transform(
-            target_energies=np.asarray(target_energies),
+            target_energies=target_energies,
             improve_accuracy=improve_accuracy,
             stoichiometry=stoichiometry,
             relativistic_correction=relativistic_correction,
@@ -1716,9 +1737,13 @@ class asp_re(asp):
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)  # type: ignore #PROPERTIES_DICT_NO_STOICH is a subset of PROPERTIES_DICT
         common_kwargs.update(stoichiometry=stoichiometry)
+        # Set the default target energies to the object's energies if None
+        target_energies = np.asarray(
+            target_energies if target_energies is not None else self.energies
+        )
         # Calculate the imaginary part
         im = self.kk_transform_inv(
-            target_energies=np.asarray(target_energies),
+            target_energies=target_energies,
             improve_accuracy=improve_accuracy,
             stoichiometry=stoichiometry,
             relativistic_correction=relativistic_correction,
@@ -1781,9 +1806,13 @@ class asp_re(asp):
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)  # type: ignore #PROPERTIES_DICT_NO_STOICH is a subset of PROPERTIES_DICT
         common_kwargs.update(stoichiometry=stoichiometry)
+        # Set default target energies to the object's energies if None
+        target_energies = np.asarray(
+            target_energies if target_energies is not None else self.energies
+        )
         # Calculate the KK transform
         im = self.kk_transform_inv(
-            target_energies=np.asarray(target_energies),
+            target_energies=target_energies,
             improve_accuracy=improve_accuracy,
             stoichiometry=stoichiometry,
             relativistic_correction=relativistic_correction,
@@ -1882,12 +1911,18 @@ class asp_complex(asp_abstract, atomic_scattering):
     """
     Container for a combined pair (real & imaginary) of atomic scattering polynomials.
 
+    The default behaviour is to truncate the energies to the common domain, as the
+    real and imaginary databases often have different energy domains.
+
     Parameters
     ----------
     re : asp_re | asp
         The real part of the atomic scattering factor.
     im : asp_im | asp
         The imaginary part of the atomic scattering factor.
+    truncate : bool, optional
+        If True, then the energies will be truncated to the common domain
+        between the real and imaginary parts. Default is True.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments for the `kkcalc.models.common.atomic_scattering` class.
         Default values are copied from the real part object unless `None` (then the imaginary part object).
@@ -1895,11 +1930,19 @@ class asp_complex(asp_abstract, atomic_scattering):
     """
 
     def __init__(
-        self, re: asp_re | asp, im: asp_im | asp, **kwargs: Unpack[PROPERTIES_DICT]
+        self,
+        re: asp_re | asp,
+        im: asp_im | asp,
+        truncate: bool = True,
+        **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         if np.any(re.energies.shape != im.energies.shape) or np.any(
             re.energies != im.energies
         ):
+            if not truncate:
+                raise ValueError(
+                    "Real and imaginary parts must have the same energy domains."
+                )
             # While this condition isn't essential, better to have the same energy intervals.
             re_min, re_max, im_min, im_max = (
                 re.energies.min(),
@@ -1907,11 +1950,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                 im.energies.min(),
                 im.energies.max(),
             )
-            # Raise a warning if the energy intervals are not the same
-            warnings.warn(
-                f"When generating `asp_complex`, the energy intervals of real ({re_min:0.2f}, {re_max:0.2f})"
-                f" and imaginary ({im_min:0.2f}, {im_max:0.2f}) components don't match."
-            )
+
             # Truncate to the common interval
             min_energy: float = max(re_min, im_min)
             max_energy: float = min(re_max, im_max)
@@ -1927,9 +1966,6 @@ class asp_complex(asp_abstract, atomic_scattering):
                     for en in re.energies
                 ]
             ):
-                warnings.warn(
-                    "Real energies are a subset of imaginary energies, truncating imaginary energies to match real."
-                )
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
                 im = im.truncate_energies(
                     (min_energy, max_energy)
@@ -1943,9 +1979,6 @@ class asp_complex(asp_abstract, atomic_scattering):
                     for en in im.energies
                 ]
             ):
-                warnings.warn(
-                    "Imaginary energies are a subset of real energies, truncating real energies to match imaginary."
-                )
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 re = re.truncate_energies(
                     (min_energy, max_energy)
@@ -1953,9 +1986,6 @@ class asp_complex(asp_abstract, atomic_scattering):
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
 
             else:  # if they are not subsets, then truncate to the common interval
-                warnings.warn(
-                    "Real and imaginary energies are not subsets of each other, truncating both to the common interval."
-                )
                 re = re.truncate_energies(
                     (min_energy, max_energy)
                 )  # Truncate to the common interval
@@ -2006,6 +2036,51 @@ class asp_complex(asp_abstract, atomic_scattering):
 
         # Initialise atomic scattering object
         atomic_scattering.__init__(self, **common_kwargs)
+
+    # Override the attomic scattering properties to propogate to the real & imaginary parts
+    @atomic_scattering.density.setter
+    def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).density.fset(self, density)
+        # Propogate to components
+        self._re.density = density
+        self._im.density = density
+
+    @atomic_scattering.number_density.setter
+    def number_density(
+        self, number_density: float | None
+    ) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).number_density.fset(self, number_density)
+        # Propogate to components
+        self._re.number_density = number_density
+        self._im.number_density = number_density
+
+    @atomic_scattering.formula_mass.setter
+    def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).formula_mass.fset(self, formula_mass)
+        # Propogate to components
+        self._re.formula_mass = formula_mass
+        self._im.formula_mass = formula_mass
+
+    @atomic_scattering.stoichiometry.setter
+    def stoichiometry(
+        self, stoich: kk_stoichiometry | str | None
+    ) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction from atomic_scattering
+        super(asp_complex, self.__class__).stoichiometry.fset(self, stoich)
+        # Propogate to components
+        self._re.stoichiometry = stoich
+        self._im.stoichiometry = stoich
+
+    @atomic_scattering.name.setter
+    def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asp_complex, self.__class__).name.fset(self, name)
+        # Propogate to components
+        self._re.name = name
+        self._im.name = name
 
     @asp_abstract.energies.getter
     def energies(self) -> npt.NDArray:
