@@ -19,6 +19,7 @@ from kkcalc.models.common import (
     atomic_scattering,
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
+    N_A,
 )
 from kkcalc.models.conversions import conversions
 from kkcalc.stoich import (
@@ -968,7 +969,11 @@ class asf(asf_abstract, atomic_scattering):
             return None
         return self._origin_data.copy()
 
-    def scale_to_database(self) -> None:
+    def scale_to_database(
+        self,
+        merge_domain: tuple[float, float] | None = None,
+        fix_distortions: bool = False,
+    ) -> None:
         """
         Scale the data to the Henke database reference.
 
@@ -976,6 +981,14 @@ class asf(asf_abstract, atomic_scattering):
         this method scales the atomic scattering factors to the database scale.
 
         Origin data is unmodified, but factors are modified.
+
+        Parameters
+        ----------
+        merge_domain : tuple[float, float], optional
+            Energy range (eV) over which to merge the data to the database.
+        fix_distortions : bool, optional
+            Whether to attempt to fix distortions in the data before scaling.
+            By default, False.
 
         Raises
         ------
@@ -988,14 +1001,22 @@ class asf(asf_abstract, atomic_scattering):
                 from kkcalc.models.db_models import asp_db_re
 
                 self.factors = asp_db_re.scale_data(
-                    self.energies, self.factors, self.stoichiometry
+                    self.energies,
+                    self.factors,
+                    self.stoichiometry,
+                    merge_domain,
+                    fix_distortions,
                 )
                 return
             elif isinstance(self, asf_im):
                 from kkcalc.models.db_models import asp_db_im
 
                 self.factors = asp_db_im.scale_data(
-                    self.energies, self.factors, self.stoichiometry
+                    self.energies,
+                    self.factors,
+                    self.stoichiometry,
+                    merge_domain,
+                    fix_distortions,
                 )
                 return
             raise ValueError(
@@ -2216,6 +2237,51 @@ class asf_complex(asf_abstract, atomic_scattering):
         # Initialise atomic scattering object
         atomic_scattering.__init__(self, **common_kwargs)
 
+    # Override the attomic scattering properties to propogate to the real & imaginary parts
+    @atomic_scattering.density.setter
+    def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asf_complex, self.__class__).density.fset(self, density)
+        # Propogate to components
+        self._re.density = density
+        self._im.density = density
+
+    @atomic_scattering.number_density.setter
+    def number_density(
+        self, number_density: float | None
+    ) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asf_complex, self.__class__).number_density.fset(self, number_density)
+        # Propogate to components
+        self._re.number_density = number_density
+        self._im.number_density = number_density
+
+    @atomic_scattering.formula_mass.setter
+    def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asf_complex, self.__class__).formula_mass.fset(self, formula_mass)
+        # Propogate to components
+        self._re.formula_mass = formula_mass
+        self._im.formula_mass = formula_mass
+
+    @atomic_scattering.stoichiometry.setter
+    def stoichiometry(
+        self, stoich: kk_stoichiometry | str | None
+    ) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction from atomic_scattering
+        super(asf_complex, self.__class__).stoichiometry.fset(self, stoich)
+        # Propogate to components
+        self._re.stoichiometry = stoich
+        self._im.stoichiometry = stoich
+
+    @atomic_scattering.name.setter
+    def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
+        # Repeat the same instruction
+        super(asf_complex, self.__class__).name.fset(self, name)
+        # Propogate to components
+        self._re.name = name
+        self._im.name = name
+
     @asf_abstract.energies.getter
     def energies(self) -> npt.NDArray[np.floating]:  # numpydoc ignore=PR02
         """
@@ -2489,7 +2555,7 @@ class asf_complex(asf_abstract, atomic_scattering):
                 return energy_subset, np.abs(re_diff) ** 2 + np.abs(im_diff) ** 2
         else:
             raise ValueError(
-                "Both objects must have beta values to calculate contrast."
+                "Both objects must have refractive values to calculate contrast, but there is not enough (density, stoichiometry) information."
             )
 
     @property
