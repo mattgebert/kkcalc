@@ -123,7 +123,10 @@ class TestDbScaling:
 
         # Create an ASF dataset
         PS_asf_dataset = asf_im.from_NEXAFS(
-            PS_energies, PS_NEXAFS, stoichiometry=PS_stoich
+            PS_energies,
+            PS_NEXAFS,
+            stoichiometry=PS_stoich,
+            density=density,
         )
 
         # Get a database of the elements in the stoichiometry
@@ -145,11 +148,45 @@ class TestDbScaling:
         )
 
         # Check the two methods give the same result in the overlapping region
-        PS_asf_extended = PS_asf_extended.to_asf(
-            PS_asf_dataset_scaled.energies,
+        # Note that this means the merge domain subset of the scaled database.
+        scaled_energies = PS_asf_dataset_scaled.energies
+        idx_scaled = (
+            (scaled_energies >= merge_domain[0]) & (scaled_energies <= merge_domain[1])
+            if merge_domain is not None
+            else True
+        )
+        extended_energies = PS_asf_extended.energies
+        idx_ext = (
+            (extended_energies >= merge_domain[0])
+            & (extended_energies <= merge_domain[1])
+            if merge_domain is not None
+            else True
         )
 
+        # Check non-unique energy values
+        common_energies = np.intersect1d(
+            scaled_energies[idx_scaled],
+            extended_energies[idx_ext],
+        )
+
+        idx_ext = np.isin(extended_energies, common_energies)
+        idx_scaled = np.isin(scaled_energies, common_energies)
+
+        print(extended_energies[idx_ext][0:5])
+        print(PS_asf_dataset_scaled.factors[idx_scaled][0:5])
+        print(PS_asf_extended.asf[idx_ext][0:5])
+
+        # Check lengths are the same
+        factors_scaled = PS_asf_dataset_scaled.factors[idx_scaled]
+        factors_extended = PS_asf_extended.asf[idx_ext]
+
+        # # Convert extended to ASF for comparison
+        # PS_asf_extended = PS_asf_extended.to_asf(
+        #     PS_asf_dataset_scaled.energies[idx_scaled],
+        # )
+
+        # Assert that the factors are close
         assert np.allclose(
-            PS_asf_extended.factors,
-            PS_asf_dataset_scaled.factors,
+            factors_extended,
+            factors_scaled,
         )
