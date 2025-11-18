@@ -124,6 +124,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         data_y: npt.ArrayLike,
         stoichiometry: kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
+        fix_distortions: bool = False,
     ) -> npt.NDArray:
         r"""
         Scale the user data to the database data.
@@ -140,13 +141,23 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         stoichiometry : stoichiometry | str
             The stoichiometry of the compound, i.e. the elemental composition.
         merge_domain : tuple[float, float] | None
-            The intersection energies of the user data and database data.
-            If None, the full range of the user data will be used.
+            The intersection energies (inclusive bounds) of `data_e` and database data.
+            If None, the full range of the user data will be used to scale.
+        fix_distortions : bool
+            Fits a gradient correction to the ASF data, to minimize offsets between the database
+            data and the ASF data. Provides the same functionality as used in
+            `asp_db_extended.extend_data_with_db`. Correction is calculated using the merge domain,
+            but is applied to the full data set.
 
         Returns
         -------
-        numpy.ndarray
-            The scaled user data.
+        factors: numpy.ndarray
+            Y-data scaled to the database data (at the merge domain boundaries).
+
+        See Also
+        --------
+        kkcalc.models.db_models.asp_db_extended.extend_data_with_db : Method to extend user data with
+            database data, where `merge_domain` truncates the data.
         """
         data_e = np.asarray(data_e)
         data_y = np.asarray(data_y)
@@ -176,7 +187,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
             if merge_domain[0] >= merge_domain[1]:
                 raise ValueError("Merge domain must be in increasing order")
             # Find the indices and values of the data_asf energies that are within the range of the db_asp energies
-            data_merge_lb_idx: int = np.argmax(data_e > merge_domain[0])
+            data_merge_lb_idx: int = np.argmax(data_e >= merge_domain[0])
             """
             First (lower bound) index of data within the merge domain
             """
@@ -214,9 +225,14 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                 + f"database energy range ({db_e.min()}, {db_e.max()})"
             )
 
+        db_merge_ub_end = data_merge_ub_idx + 1 if data_merge_ub_idx + 1 != 0 else None
+        """The upper bound index (exclusive) for slicing the data_y array."""
+
         # Calculate the corresponding y values using the polynomial coefs
-        db_asp_merge_range = asp.eval_asf_on_coefs(
-            target_energies=merge_domain, energies=db_e, coefs=db_coefs
+        db_asp_merge_range = tuple(
+            asp.eval_asf_on_coefs(
+                target_energies=merge_domain, energies=db_e, coefs=db_coefs
+            ).tolist()
         )
 
         ### Calculate the scale difference between the data_asf and db_asp
@@ -225,6 +241,46 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
             data_merge_range[1] - data_merge_range[0]
         )
         scaled_data_y = (data_y - data_merge_range[0]) * scale + db_asp_merge_range[0]
+
+        # Energy values within the merge domain to use for fitting
+        energies = data_e[
+            data_merge_lb_idx:db_merge_ub_end
+        ]  # essential to only use domain data to perform fit.
+
+        if fix_distortions:
+            # Perform a fit along the domain
+            db_y = asp.eval_asf_on_coefs(
+                target_energies=energies,
+                energies=db_e,
+                coefs=db_coefs,
+            )  # Find equivalent values of the db_asp energies to the data energies
+            guess_grad = (
+                -(data_merge_range[1] - data_merge_range[0])
+                / (db_asp_merge_range[1] - db_asp_merge_range[0])
+                / data_y[-1]
+            )
+            fit_func = asp_db_extended.grad_min
+            fit_y = scaled_data_y[
+                data_merge_lb_idx:db_merge_ub_end
+            ]  # essential to only use domain data to perform fit.
+
+            (grad,), _ = opt.leastsq(
+                func=fit_func,
+                x0=guess_grad,
+                args=(energies, fit_y, db_asp_merge_range, db_y),
+                # Minimizes difference to the db_y values.
+            )
+            # Reassign the scaled data, but use full energy domain to generate values.
+            scaled_data_y = db_asp_merge_range[0] + asp_db_extended.grad_min(
+                grad,
+                data_e,
+                scaled_data_y,
+                db_asp_merge_range,
+                db_y=0,  # No minimization here.
+                # Adjust merge indexes, so we can scale whole dataset.
+                idx0=data_merge_lb_idx,
+                idx1=data_merge_ub_idx,
+            )
 
         return scaled_data_y
 
@@ -545,7 +601,8 @@ class asp_db_complex(asp_complex):
         data_y: npt.ArrayLike,
         stoichiometry: kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
-    ) -> npt.NDArray[np.complex128]:
+        fix_distortions: bool = False,
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.complex128]]:
         """
         Scale the user data to the database data.
 
@@ -560,24 +617,36 @@ class asp_db_complex(asp_complex):
         merge_domain : tuple[float, float] | None
             The intersection energies of the user data and database data.
             If None, the full range of the user data will be used.
+        fix_distortions : bool
+            Flag to fix distortions in the user data. Provides the same functionality as used in
+            `asp_db_extended.extend_data_with_db`.
 
         Returns
         -------
-        numpy.ndarray
-            The scaled user data.
+        energies: numpy.ndarray
+            The truncated energies within the merge domain.
+        factors: numpy.ndarray
+            Atomic scattering factors scaled to the database data (at the merge domain boundaries).
         """
         # Separate the data into real and imaginary components
         data_e = np.asarray(data_e)
-        data_y = np.asarray(data_y)
+        data_y = np.asarray(data_y, dtype=np.complex128)
         data_re = data_y.real
         data_im = data_y.imag
         # Use the db to scale the data
-        data_re = asp_db_re.scale_data(data_e, data_re, stoichiometry, merge_domain)
-        data_im = asp_db_im.scale_data(data_e, data_im, stoichiometry, merge_domain)
+        energies, data_re = asp_db_re.scale_data(
+            data_e, data_re, stoichiometry, merge_domain, fix_distortions
+        )
+        energies2, data_im = asp_db_im.scale_data(
+            data_e, data_im, stoichiometry, merge_domain, fix_distortions
+        )
+        assert np.all(
+            energies == energies2
+        ), "Energies for real and imaginary components do not match after scaling."
         # Combine the data back into a complex array
         data_y = data_re + 1j * data_im
         # Return the scaled data
-        return data_y
+        return energies, data_y
 
 
 class asp_db_extended(asp):
@@ -825,10 +894,12 @@ class asp_db_extended(asp):
         db_coefs : npt.NDArray
             The atomic scattering factor polynomial coefficients of the database data.
         merge_domain : tuple[float, float] | None, optional
-            The energy domain within with to merge the data.
-            By default None, using full data domain.
+            The intersection energies (inclusive bounds) of `data_e` and database data.
+            If None, the full range of the user data will be used to scale.
         fix_distortions : bool, optional
-            Use a fit to correct distortions in the user data, by default False.
+            Fits a gradient correction to the ASF data, to minimize offsets between the database
+            data and the ASF data. Correction is calculated using the merge domain,
+            but is applied to the full data set.
 
         Returns
         -------
@@ -854,13 +925,13 @@ class asp_db_extended(asp):
             if merge_domain[0] >= merge_domain[1]:
                 raise ValueError("Merge domain must be in increasing order")
             # Find the indices and values of the data_asf energies that are within the range of the db_asp energies
-            data_merge_lb_idx: int = np.argmax(data_e > merge_domain[0])
+            data_merge_lb_idx: int = np.argmax(data_e >= merge_domain[0])
             """
-            First (lower bound) index of data within the merge domain
+            First (lower bound) index of data within (inclusive) the merge domain
             """
 
             data_merge_ub_idx: int = np.argmax(data_e > merge_domain[1]) - 1
-            """Last (upper bound) index of data within of the merge domain"""
+            """Last (upper bound) index of data within (inclusive) of the merge domain"""
 
             if data_merge_lb_idx == data_merge_ub_idx:
                 raise ValueError(
@@ -892,9 +963,14 @@ class asp_db_extended(asp):
                 + f"database energy range ({db_e.min()}, {db_e.max()})"
             )
 
+        db_merge_ub_end = data_merge_ub_idx + 1 if data_merge_ub_idx + 1 != 0 else None
+        """The upper bound index (exclusive) for slicing the data_y array."""
+
         # Calculate the corresponding y values using the polynomial coefs
-        db_asp_merge_range = asp.eval_asf_on_coefs(
-            target_energies=merge_domain, energies=db_e, coefs=db_coefs
+        db_asp_merge_range = tuple(
+            asp.eval_asf_on_coefs(
+                target_energies=merge_domain, energies=db_e, coefs=db_coefs
+            ).tolist()
         )
 
         ### Calculate the scale difference between the data_asf and db_asp
@@ -904,10 +980,15 @@ class asp_db_extended(asp):
         )
         scaled_data_y = (data_y - data_merge_range[0]) * scale + db_asp_merge_range[0]
 
+        # The energy values within the merge domain used for fitting
+        energies = data_e[
+            data_merge_lb_idx:db_merge_ub_end
+        ]  # essential to only use domain data to perform fit.
+
         if fix_distortions:
             # Perform a fit along the domain
             db_y = asp.eval_asf_on_coefs(
-                target_energies=data_e[data_merge_lb_idx:data_merge_ub_idx],
+                target_energies=energies,
                 energies=db_e,
                 coefs=db_coefs,
             )  # Find equivalent values of the db_asp energies to the data energies
@@ -917,27 +998,29 @@ class asp_db_extended(asp):
                 / data_y[-1]
             )
             fit_func = asp_db_extended.grad_min
-            fit_x = data_e[
-                data_merge_lb_idx:data_merge_ub_idx
-            ]  # essential to only use domain data to perform fit.
             fit_y = scaled_data_y[
-                data_merge_lb_idx:data_merge_ub_idx
+                data_merge_lb_idx:db_merge_ub_end
             ]  # essential to only use domain data to perform fit.
             (grad,), _ = opt.leastsq(
                 func=fit_func,
                 x0=guess_grad,
-                args=(fit_x, fit_y, db_asp_merge_range, db_y),
+                args=(energies, fit_y, db_asp_merge_range, db_y),
             )
-
             # Reassign the scaled data
-            merge_data_e = fit_x
+            merge_data_e = energies
             merge_data_y = db_asp_merge_range[0] + asp_db_extended.grad_min(
-                grad, fit_x, fit_y, db_asp_merge_range, 0
+                grad,
+                energies,
+                fit_y,
+                db_asp_merge_range,
+                db_y=0,
+                idx0=0,
+                idx1=-1,
             )
         else:
             # Construct the merge data to use
-            merge_data_e = data_e[data_merge_lb_idx:data_merge_ub_idx]
-            merge_data_y = scaled_data_y[data_merge_lb_idx:data_merge_ub_idx]
+            merge_data_e = energies
+            merge_data_y = scaled_data_y[data_merge_lb_idx:db_merge_ub_end]
 
         # Add merge domain to the merge data if not already present
         if merge_domain[0] != merge_data_e[0]:
@@ -968,34 +1051,55 @@ class asp_db_extended(asp):
         return merge_e, merge_coefs
 
     @staticmethod
-    def grad_min(grad, x, y, db_merge_range, db_y):
+    def grad_min(
+        grad,
+        x: npt.NDArray[np.float64],
+        y: npt.NDArray[np.float64],
+        db_merge_range: tuple[float, float],
+        db_y: npt.NDArray[np.float64] | float | int,
+        idx0: int = 0,
+        idx1: int = -1,
+    ) -> npt.NDArray[np.float64]:
         r"""
-        Minimum function to fit a general gradient of the data to the database.
+        Minimizing function to  a general gradient of the data to the database.
 
         .. math::
-            SomeFunctionHere TODO
+            \min\left(\frac{(y - y_{i_0}) - m (x - x_{i_0})}{y_{i_1} - y_{i_0} - m (x_{i_1} - x_{i_0})} \cdot (f_{db, max} - f_{db, min}) - f_{db}\right)
 
         Parameters
         ----------
         grad : float
             The gradient to fit.
-        x : numpy.ndarray
+        x : npt.NDArray[np.float64]
             The x data values to fit.
-        y : numpy.ndarray
+        y : npt.NDArray[np.float64]
             The y data values to fit.
         db_merge_range : tuple[float, float]
-            The range of the db_asp energies to fit.
-        db_y : numpy.ndarray
+            The range of the database atomic scattering factors at the domain endpoints.
+            This maps onto the amplitude of the gradient line.
+        db_y : npt.NDArray[np.float64] | float | int
             The database atomic scattering factor values (not coefs) to fit.
+        idx0 : int, optional
+            The starting index where the gradient difference is calculated as zero, by default 0.
+        idx1 : int, optional
+            The ending index where the gradient difference is normalised as one, by default -1.
 
         Returns
         -------
-        numpy.ndarray
+        npt.NDArray[np.float64]
             The difference between the fitted data and the database data.
         """
-        data_grad_diff = (y - y[0]) - grad * (x - x[0])  # 0 to some number
-        data_grad_diff_total = (y[-1] - y[0]) - grad * (x[-1] - x[0])  # some number
-        norm_grad_diff = data_grad_diff / data_grad_diff_total  # Evolves from 0 to 1
+        # Initial gradient from 0 point to a final value.
+        data_grad_diff = (y - y[idx0]) - grad * (x - x[idx0])  # 0 to some number
+        # Gradient over the whole domain.
+        data_grad_diff_total = (y[idx1] - y[idx0]) - grad * (
+            x[idx1] - x[idx0]
+        )  # some number
+        # Normalize the gradient as a function of the final total gradient.
+        norm_grad_diff = (
+            data_grad_diff / data_grad_diff_total
+        )  # Evolves from 0 to 1, from idx0 to idx1.
+        # Range of the database values over the domain.
         db_range = db_merge_range[1] - db_merge_range[0]  # Range of the database values
         # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
