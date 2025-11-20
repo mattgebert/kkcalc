@@ -4,7 +4,20 @@ Allows the modification of material properties such as name, stoichiometry, numb
 """
 
 from PyQt6 import QtWidgets, QtCore, QtGui
-from kkcalc.models import *
+from kkcalc.models import (
+    asf_abstract,
+    asp_abstract,
+    asf_re,
+    asf_im,
+    asf_complex,
+    asp_db_im_extended,
+    asp_db_re_extended,
+    asp_im,
+    asp_re,
+    asp_complex,
+    asp_db_im,
+    asp_db_extended,
+)
 from kkcalc.stoich import stoichiometry
 
 
@@ -302,7 +315,7 @@ class kk_object_modifier(QtWidgets.QWidget):
             if fm != obj.formula_mass:
                 obj.formula_mass = float(fm)
                 update = True
-        except:
+        except ValueError:
             pass
 
         # Signal if a change has been made.
@@ -339,7 +352,7 @@ class kk_object_modifier(QtWidgets.QWidget):
             return False
         try:
             stoichiometry(stoich)
-        except ValueError as e:
+        except ValueError:
             return False
         return True
 
@@ -532,7 +545,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         try:
             lb = float(self.merge_dom_lb_edit.text())
             ub = float(self.merge_dom_ub_edit.text())
-        except ValueError as e:
+        except ValueError:
             # Dialog to ask for bounds
             diag = QtWidgets.QDialog()
             diag.setWindowTitle("Cannot Extend Data")

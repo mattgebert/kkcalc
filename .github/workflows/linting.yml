@@ -40,9 +40,10 @@ jobs:
       run: |
         ruff check
 
-    - name: Analysing the code with black
-      run: |
-        black --check .
+    # Leave this here for legacy purposes. Try to use Ruff in the same style as Black.
+    # - name: Analysing the code with black
+    #   run: |
+    #     black --check .
 
     - name: Analysing the code with numpydoc
       run: | # Exclude test and gui files.

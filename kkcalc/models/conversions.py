@@ -13,7 +13,7 @@ from kkcalc.stoich import stoichiometry as kk_stoichiometry
 import numpy as np
 import numpy.typing as npt
 import warnings
-from typing import overload, Literal
+from typing import overload
 import scipy.constants as sc
 from scipy.constants import (
     Avogadro as N_A,

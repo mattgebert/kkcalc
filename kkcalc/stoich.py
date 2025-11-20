@@ -4,8 +4,14 @@ Module to define classes and properties relating to the chemical composition of 
 Includes
 """
 
+# Stdlib
 import re
+from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
+from __future__ import (
+    annotations,
+)  # Required to allow union of string and class in type hints
 
+# External
 has_periodictable: bool
 """Flag to indicate if the periodictable module is available."""
 try:
@@ -17,9 +23,8 @@ try:
 except ImportError:
     has_periodictable = False
 
-import numpy as np, numpy.typing as npt
-from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
-from kkcalc.asf_database import ASF_DATABASE, ASFElement
+# Internal
+from kkcalc.asf_database import ASF_DATABASE, ASFElement  # noqa: E402
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
@@ -28,7 +33,6 @@ if TYPE_CHECKING:
     from kkcalc.models.common import (
         PROPERTIES_DICT,
     )
-
 
 # Generate a list of atomic elements. Should already be sorted from the periodictable module.
 ELEMENTS: list[tuple[str, int, float]]

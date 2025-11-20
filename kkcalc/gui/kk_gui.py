@@ -7,9 +7,9 @@ The interface is built using the PyQt6 library.
 """
 
 from PyQt6 import QtWidgets, QtCore, QtGui
-import os, io
+import os
+import io
 import numpy as np
-import pandas as pd
 from matplotlib.widgets import SpanSelector
 import matplotlib.pyplot as plt
 import pkgutil
@@ -20,16 +20,10 @@ from kkcalc.gui.asf_loader import kk_object_list
 from kkcalc.models import (
     asf_abstract,
     asp_abstract,
-    asp_db_extended,
-    asp_db_im,
-    asp,
     asp_im,
     asp_re,
-    asp_complex,
-    asf,
     asf_im,
     asf_re,
-    asf_complex,
 )
 from kkcalc.stoich import stoichiometry
 
@@ -84,7 +78,7 @@ class kk_gui(QtWidgets.QWidget):
                 data = pkgutil.get_data("kkcalc", "logo2.png")
                 if data is not None:
                     self.setWindowIcon(QtGui.QIcon(io.BytesIO(data)))
-            except FileNotFoundError as e:
+            except FileNotFoundError:  # as e:
                 pass
 
         self._layout = QtWidgets.QHBoxLayout()
@@ -272,10 +266,6 @@ def demo_app():
     # Create the Application
     app = QtWidgets.QApplication([])
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
-
-    # Generate some example data
-    from kkcalc.models import asp_db_im
-    from kkcalc import stoichiometry
 
     PS_NAME = "Polystyrene"
     PS_STOICHIOMETRY = "CH"

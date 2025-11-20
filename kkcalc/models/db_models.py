@@ -7,8 +7,7 @@ Allows the calculation of atomic scattering factor data, generated for a given s
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
-import warnings
-from typing import Self, override, overload, Unpack, Required
+from typing import Self, override, overload, Unpack
 
 import abc
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
@@ -18,8 +17,6 @@ from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex
 from kkcalc.models.factors import asf, asf_im, asf_re, asf_complex
 from kkcalc.models.conversions import conversions
 from kkcalc.models.common import (
-    atomic_scattering,
-    atomic_scattering_abstract,
     PROPERTIES_DICT,
 )
 

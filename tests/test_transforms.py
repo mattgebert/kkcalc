@@ -6,7 +6,6 @@ The tested example functions are listed in `Hilbert Transforms` table from wikip
 https://en.wikipedia.org/wiki/Hilbert_transform#Table_of_selected_Hilbert_transforms
 """
 
-import pytest
 import numpy as np
 import kkcalc as kkc
 

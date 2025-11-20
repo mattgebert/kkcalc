@@ -6,7 +6,11 @@ if __name__ == "__main__":
     import os
     import numpy as np
     import matplotlib.pyplot as plt
-    from kkcalc.models import *
+    from kkcalc.models import (
+        asf_im,
+        asp_db_re,
+        asp_db_re_extended,
+    )
     from kkcalc import stoichiometry
 
     POLYSTYRENE = "CH"

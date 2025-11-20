@@ -23,11 +23,13 @@ Workflow to accomodate:
 Items 1-4 not usually performed by users. Items 5-7 must be integrated into KKcalc program.
 """
 
-import os, os.path
+import os
+import os.path
 import scipy.interpolate
 import json
 import numpy.typing as npt
 import numpy as np
+import gzip
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 classical_electron_radius = 2.81794029957951365441605230194258e-15  # meters
@@ -328,8 +330,6 @@ with open(output_path, "w") as f:
     json.dump(Database, f, indent=None)  # Indent: 1 for readability, None for compact.
 
 # Compress the database file
-import gzip
-
 with open(output_path, "rb") as f_in:
     with gzip.open(output_path + ".gz", "wb") as f_out:
         f_out.writelines(f_in)

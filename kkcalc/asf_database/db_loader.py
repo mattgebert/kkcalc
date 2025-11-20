@@ -6,12 +6,14 @@ By default, the database file is expected to be in the same directory as this mo
 Can load a compressed gzip version of the database for smaller distribution size.
 """
 
-import os, json
+import os
+import json
 import numpy as np
 import numpy.typing as npt
-from typing import Literal, Union, TypedDict
+from typing import TypedDict
 import gzip
-import pkgutil, io
+import pkgutil
+import io
 
 
 class ASFElement(TypedDict):

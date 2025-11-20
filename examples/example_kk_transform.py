@@ -2,7 +2,11 @@
 This example demonstrates how to perform a simple Kramers-Kronig transform on a dataset.
 """
 
-from kkcalc.models import *
+from kkcalc.models import (
+    asf_im,
+    asp_db_im,
+    asp_db_im_extended,
+)
 from kkcalc import stoichiometry
 import numpy as np
 import matplotlib.pyplot as plt
@@ -89,7 +93,7 @@ if __name__ == "__main__":
 
     # Finalize UI elements
     lines = l1 + l2 + l0
-    labels = [l.get_label() for l in lines]
+    labels = [line.get_label() for line in lines]
     ax0.legend(lines, labels)
     fig.tight_layout()
     plt.show()

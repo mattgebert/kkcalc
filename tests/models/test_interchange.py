@@ -6,14 +6,15 @@ I.e. Between `asf` and `asp` objects.
 
 import numpy as np
 import pytest
-import warnings
+
+# import warnings
 from kkcalc.models import (
     asp_db_im,
     asp_db_re,
-    asp_db_im_extended,
-    asp_db_re_extended,
+    # asp_db_im_extended,
+    # asp_db_re_extended,
     asp_db_complex,
-    asp_db_complex_extended,
+    # asp_db_complex_extended,
 )
 
 from ..test_stoich import basic_stoichs as bs

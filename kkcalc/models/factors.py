@@ -19,13 +19,11 @@ from kkcalc.models.common import (
     atomic_scattering,
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
-    N_A,
 )
 from kkcalc.models.conversions import conversions
 from kkcalc.stoich import (
     stoichiometry as kk_stoichiometry,
 )  # To prevent overlap use with the `stoichiometry` argument.
-from kkcalc.util import doc_copy
 from kkcalc.kk_transforms import DEF_ITER, DEF_TOL
 
 import numpy as np
@@ -33,7 +31,7 @@ import numpy.typing as npt
 import abc
 import warnings
 from enum import Enum
-from typing import Self, Union, Iterator, override, overload, Unpack, TypedDict, Any
+from typing import Self, Iterator, override, overload, Unpack, TypedDict
 
 try:
     import pandas as pd

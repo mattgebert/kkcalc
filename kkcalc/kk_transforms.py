@@ -2,16 +2,16 @@
 This module contains the Kramers-Kronig transform methods.
 """
 
-DEF_ITER: int = 50
-"""The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
-DEF_TOL: float = 1e-2
-"""The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
-
 import math
 import numpy as np
 import numpy.typing as npt
 import warnings
 from kkcalc.models.conversions import conversions
+
+DEF_ITER: int = 50
+"""The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
+DEF_TOL: float = 1e-2
+"""The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
 
 
 def KK_General_PP(
@@ -511,7 +511,7 @@ def improve_accuracy(
         improved = (re_err > tolerance) | (im_err > tolerance)
 
         # Manual override for the first midpoint index near 10 eV, which doesn't converge.
-        if improved[0] == True and idx_extra[0] == 1 and i > 20:
+        if improved[0] and idx_extra[0] == 1 and i > 20:
             improved[0] = False
 
         # Check if at satisfactory level
@@ -665,7 +665,7 @@ def improve_accuracy_inv(
         improved = im_err > tolerance  # | (re_err > tolerance)
 
         # Manual override for the first midpoint index near 10 eV, which doesn't converge.
-        if improved[0] == True and idx_extra[0] == 1 and i > 20:
+        if improved[0] and idx_extra[0] == 1 and i > 20:
             improved[0] = False
 
         # Check if at satisfactory level

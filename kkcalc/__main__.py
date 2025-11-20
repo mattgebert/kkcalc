@@ -6,7 +6,8 @@ Use `python -m kkcalc` to run the program.
 """
 
 # Standard Library Imports
-import os, io
+import os
+import io
 import traceback
 import pkgutil
 
@@ -31,7 +32,6 @@ def main():
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
 
     # Generate some example data
-    from kkcalc.models import asp_db_im
     from kkcalc import stoichiometry
 
     PS_NAME = "Polystyrene"

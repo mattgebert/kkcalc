@@ -7,10 +7,9 @@ import numpy as np
 import numpy.typing as npt
 import warnings
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Self, overload, Unpack, override, Iterable
+from typing import TYPE_CHECKING, Self, overload, Unpack, override
 import scipy.constants as sc
 
-from kkcalc.util import doc_copy
 from kkcalc.models.conversions import conversions
 from kkcalc.models.common import (
     atomic_scattering,
@@ -389,12 +388,12 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
                     columns=["Energy LB", "Energy UB", "A1", "A0", "A-1", "A-2", "A-3"],
                 )
             else:
-                l = min(self.energies.shape[0] - 1, self.coefs.shape[0])
+                idx = min(self.energies.shape[0] - 1, self.coefs.shape[0])
                 return pd.DataFrame(
                     np.c_[
-                        self.energies[:l],
-                        self.energies[1 : l + 1],
-                        *self.coefs.T[:, :l],
+                        self.energies[:idx],
+                        self.energies[1 : idx + 1],
+                        *self.coefs.T[:, :idx],
                     ],
                     columns=["Energy LB", "Energy UB", "A1", "A0", "A-1", "A-2", "A-3"],
                 )
@@ -576,7 +575,7 @@ class asp(asp_abstract, atomic_scattering):
         # Check input dimensions match
         if len(energies) != len(coefs) + 1:
             raise ValueError(
-                f"Pairs of energies define the intervals for each set of polynomial coefficients. "
+                "Pairs of energies define the intervals for each set of polynomial coefficients. "
                 + f"Number of coefficients ({len(coefs)}) does not match the number of energies ({len(energies)} - 1)."
             )
 

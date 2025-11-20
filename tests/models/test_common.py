@@ -34,7 +34,7 @@ class TestCommon:
         """Tests the creation of an `atomic_scattering` object, with expected errors."""
         # Create the object
         with warnings.catch_warnings(record=True) as w:
-            atomic_scattering = models.atomic_scattering(**kwargs)
+            _ = models.atomic_scattering(**kwargs)
 
         # Check each msg is included by at least one warning
         for msg in msgs:

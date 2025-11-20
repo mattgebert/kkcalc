@@ -2,7 +2,7 @@
 File for Atomic scattering viewer GUI, build in PyQt6
 """
 
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 from typing import Literal
 from kkcalc.models import asf_abstract, asp_abstract, asf_im, asf_re, asf_complex
-from kkcalc.models.factors import KK_Datatype, KK_DATATYPE_DOCS
+from kkcalc.models.factors import KK_Datatype
 import numpy.typing as npt
 import numpy as np
 import warnings
@@ -140,7 +140,9 @@ class asf_viewer(QtWidgets.QWidget):
         self._scattering_objects: list[type[asp_abstract] | type[asf_abstract]] = []
 
         # Connect the graph type change to the switch_graph_style function
-        graph_fn = lambda x: self.reset_graph()
+        def graph_fn(_):
+            self.reset_graph()
+
         self.graph_type_combo.currentIndexChanged.connect(graph_fn)
         self.x_scale_combo.currentIndexChanged.connect(graph_fn)
         self.y_datatype_combo.currentIndexChanged.connect(graph_fn)
