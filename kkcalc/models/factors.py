@@ -20,11 +20,11 @@ from kkcalc.models.common import (
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
 )
-from kkcalc.models.conversions import conversions
+from kkcalc import conversions
 from kkcalc.stoich import (
     stoichiometry as kk_stoichiometry,
 )  # To prevent overlap use with the `stoichiometry` argument.
-from kkcalc.kk_transforms import DEF_ITER, DEF_TOL
+from kkcalc.transforms import DEF_ITER, DEF_TOL
 
 import numpy as np
 import numpy.typing as npt

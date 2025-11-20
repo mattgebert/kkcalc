@@ -41,7 +41,7 @@ class TestKKTransforms:
         f1_poly = kkc.conversions.ASF_to_ASP(x1, f1)
 
         # Create a Kramers-Kronig transform
-        f2 = kkc.kk_transforms.KK_PP(x1, x1, f1_poly, 0)
+        f2 = kkc.transforms.KK_PP(x1, x1, f1_poly, 0)
 
         # Get the expected result (phase shift of -pi/2)
         f2_expected = np.cos(omega * x1 - np.pi / 2)
@@ -51,9 +51,9 @@ class TestKKTransforms:
         f2_sub_transform = f2[idx_subset]
         f2_sub_expected = f2_expected[idx_subset]
 
-        assert np.allclose(
-            f2_sub_transform, f2_sub_expected, atol=1e-6
-        ), "Kramers-Kronig transform of cosine did not match expected result."
+        assert np.allclose(f2_sub_transform, f2_sub_expected, atol=1e-6), (
+            "Kramers-Kronig transform of cosine did not match expected result."
+        )
 
     # def test_kk_transform_sq_reciporical(self):
     #     """

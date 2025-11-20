@@ -260,5 +260,5 @@ html_theme = "pydata_sphinx_theme"
 # Esbonio Sphinx extension for VS Code integration - https://docs.esbon.io
 [tool.esbonio.sphinx]
     # buildCommand = ["sphinx-build", "-M", "dirhtml", "./docs", "./docs/_build"]
-    buildCommand = ["sphinx-build", "-M", "html", "./docs", "./docs/_build"]
+    buildCommand = ["sphinx-build", "-M", "html", "./docs", "./docs/_build"] # sphinx-build -M html ./docs ./docs/_build
     pythonCommand = ["${venv:kkcalc}"]

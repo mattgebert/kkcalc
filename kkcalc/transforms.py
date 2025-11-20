@@ -6,12 +6,13 @@ import math
 import numpy as np
 import numpy.typing as npt
 import warnings
-from kkcalc.models.conversions import conversions
 
 DEF_ITER: int = 50
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
 """The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
+
+from kkcalc import conversions  # noqa E402
 
 
 def KK_General_PP(
@@ -221,16 +222,19 @@ def KK_General_PP_inv(
         Evaluated real coefficients of the atomic scattering factors at `target_energies`.
     """
     # Use the
-    return -target_energies * KK_General_PP(
-        target_energies=target_energies,
-        energies=energies,
-        # Moves coefficients one place to the right (equivalent to moving orders one to the left).
-        # This implies a change in coefficient with energy order.
-        # The new energy order is instead seen as [0, -1, -2, -3, 1] when multiplying by coefficients.
-        # TODO: Why?
-        imag_coefs=np.roll(real_coefs, 1, axis=1),
-        orders=orders,
-        relativistic_correction=-relativistic_correction,  # inverse the relativistic correction.
+    return (
+        -target_energies
+        * KK_General_PP(
+            target_energies=target_energies,
+            energies=energies,
+            # Moves coefficients one place to the right (equivalent to moving orders one to the left).
+            # This implies a change in coefficient with energy order.
+            # The new energy order is instead seen as [0, -1, -2, -3, 1] when multiplying by coefficients.
+            # TODO: Why?
+            imag_coefs=np.roll(real_coefs, 1, axis=1),
+            orders=orders,
+            relativistic_correction=-relativistic_correction,  # inverse the relativistic correction.
+        )
     )
 
 
@@ -307,9 +311,7 @@ def KK_PP(
         + coefs_T[2, :]
         - coefs_T[3, :] * E**-1
         + coefs_T[4, :] * E**-2
-    ) * np.log(
-        np.abs((X2 + E) / (X1 + E))
-    )
+    ) * np.log(np.abs((X2 + E) / (X1 + E)))
     #
     Symb_3 = (
         (1 - 1 * ((X2 == E) | (X1 == E)))

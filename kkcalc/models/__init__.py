@@ -13,6 +13,10 @@ Additionally, the database models are imported from the `kkcalc.asf_database.db_
 for model completeness.
 """
 
+# Import the conversions module
+from kkcalc import conversions
+from kkcalc import transforms as transforms
+
 # Import the common base models
 from kkcalc.models.common import (
     atomic_scattering_abstract,
@@ -22,6 +26,7 @@ from kkcalc.models.common import (
 )
 
 # Import the usage models
+from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abstract
 from kkcalc.models.factors import (
     asf_abstract,
     asf,
@@ -30,10 +35,6 @@ from kkcalc.models.factors import (
     asf_complex,
     KK_Datatype,
 )
-from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abstract
-
-# Import the conversions module
-from kkcalc.models.conversions import conversions
 
 # Import the database models
 from kkcalc.models.db_models import (
@@ -47,6 +48,10 @@ from kkcalc.models.db_models import (
 )
 
 __all__ = [
+    # Conversions module
+    "conversions",
+    # Kramers-Kronig Transforms module
+    "transforms",
     # Common models and types
     "atomic_scattering_abstract",
     "atomic_scattering",
@@ -65,8 +70,6 @@ __all__ = [
     "asp_im",
     "asp_re",
     "asp_complex",
-    # Conversions module
-    "conversions",
     # Database models
     "asp_db_im",
     "asp_db_re",

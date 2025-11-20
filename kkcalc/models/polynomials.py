@@ -10,14 +10,13 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Self, overload, Unpack, override
 import scipy.constants as sc
 
-from kkcalc.models.conversions import conversions
 from kkcalc.models.common import (
     atomic_scattering,
     atomic_scattering_abstract,
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
 )
-from kkcalc import kk_transforms
+from kkcalc import conversions, transforms
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
 
 if TYPE_CHECKING:
@@ -217,9 +216,9 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         if orders is not None:
             orders = np.asarray(orders)
 
-        assert np.all(
-            energies[:-1] <= energies[1:]
-        ), "Energies must be in increasing order."
+        assert np.all(energies[:-1] <= energies[1:]), (
+            "Energies must be in increasing order."
+        )
         # Find where the energies are located in the object's energies.
         indices = np.asarray(
             np.searchsorted(energies, target_energies) - 1
@@ -1102,8 +1101,8 @@ class asp_im(asp):
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
         relativistic_correction: float | None = None,
-        tolerance: float = kk_transforms.DEF_TOL,
-        max_iter: int = kk_transforms.DEF_ITER,
+        tolerance: float = transforms.DEF_TOL,
+        max_iter: int = transforms.DEF_ITER,
     ) -> "asf_re":
         """
         Generate the real part of the atomic scattering factors.
@@ -1163,7 +1162,7 @@ class asp_im(asp):
         # At this point, relativistic_correction must be defined.
         assert relativistic_correction is not None
 
-        real_factors = kk_transforms.KK_PP(
+        real_factors = transforms.KK_PP(
             target_energies=(
                 target_energies if target_energies is not None else energies
             ),
@@ -1178,7 +1177,7 @@ class asp_im(asp):
 
         # Perform accuracy improvement if requested
         if improve_accuracy and max_iter > 0:
-            imp_energies, imp_real_factors = kk_transforms.improve_accuracy(
+            imp_energies, imp_real_factors = transforms.improve_accuracy(
                 energies=imp_energies,
                 real_asf=imp_real_factors,
                 imag_coefs=self.coefs,
@@ -1199,8 +1198,8 @@ class asp_im(asp):
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
         relativistic_correction: float | None = None,
-        tolerance: float = kk_transforms.DEF_TOL,
-        max_iter: int = kk_transforms.DEF_ITER,
+        tolerance: float = transforms.DEF_TOL,
+        max_iter: int = transforms.DEF_ITER,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> "asp_complex":
         """
@@ -1268,8 +1267,8 @@ class asp_im(asp):
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
         relativistic_correction: float | None = None,
-        tolerance: float = kk_transforms.DEF_TOL,
-        max_iter: int = kk_transforms.DEF_ITER,
+        tolerance: float = transforms.DEF_TOL,
+        max_iter: int = transforms.DEF_ITER,
         **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
     ) -> "asf_complex":
         """
@@ -1591,8 +1590,8 @@ class asp_re(asp):
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
         relativistic_correction: float | None = None,
-        tolerance: float = kk_transforms.DEF_TOL,
-        max_iter: int = kk_transforms.DEF_ITER,
+        tolerance: float = transforms.DEF_TOL,
+        max_iter: int = transforms.DEF_ITER,
     ) -> "asf_im":
         """
         Transform the real polynomial coefficients to imaginary factors.
@@ -1652,7 +1651,7 @@ class asp_re(asp):
             assert relativistic_correction is not None
 
         # Calculate the imaginary part of the atomic scattering factors
-        imag_factors = kk_transforms.KK_PP_inv(
+        imag_factors = transforms.KK_PP_inv(
             target_energies=(
                 target_energies if target_energies is not None else self.energies
             ),
@@ -1668,7 +1667,7 @@ class asp_re(asp):
 
         # Perform accuracy improvement if requested
         if improve_accuracy:
-            imp_energies, imp_imag_factors = kk_transforms.improve_accuracy_inv(
+            imp_energies, imp_imag_factors = transforms.improve_accuracy_inv(
                 energies=imp_energies,
                 real_coefs=imp_real_coefs,
                 imag_asf=imp_imag_factors,
@@ -1689,8 +1688,8 @@ class asp_re(asp):
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
         relativistic_correction: float | None = None,
-        tolerance: float = kk_transforms.DEF_TOL,
-        max_iter: int = kk_transforms.DEF_ITER,
+        tolerance: float = transforms.DEF_TOL,
+        max_iter: int = transforms.DEF_ITER,
         **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
     ) -> "asp_complex":
         """
@@ -1759,8 +1758,8 @@ class asp_re(asp):
         improve_accuracy: bool = True,
         stoichiometry: kk_stoichiometry | None = None,
         relativistic_correction: float | None = None,
-        tolerance: float = kk_transforms.DEF_TOL,
-        max_iter: int = kk_transforms.DEF_ITER,
+        tolerance: float = transforms.DEF_TOL,
+        max_iter: int = transforms.DEF_ITER,
         **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
     ) -> "asf_complex":
         """
@@ -2199,7 +2198,8 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_refractive(
-        self, target_energies: float | int  # numpydoc ignore=GL08
+        self,
+        target_energies: float | int,  # numpydoc ignore=GL08
     ) -> complex: ...
 
     def eval_refractive(
