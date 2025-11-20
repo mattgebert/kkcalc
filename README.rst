@@ -11,7 +11,7 @@
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
    :alt: pypi
-.. |PyPI Version2| image:: https://img.shields.io/pypi/v/kkcalc2?label=KKCalc v2&logo=pypi
+.. |PyPI Version2| image:: https://img.shields.io/pypi/v/kkcalc2?label=KKCalc%20v2&logo=pypi
     :target: https://pypi.org/project/kkcalc2/
     :alt: pypi
 .. |PyTest| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml/badge.svg

@@ -1,14 +1,12 @@
-name: kkcalc tests
+name: Tests 🔧 (PyTest, Coveralls)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
   cancel-in-progress: true
 
 on:
-  push:
-    branches: [v2]
-  pull_request:
-    branches: [v2]
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   test:
@@ -16,14 +14,12 @@ jobs:
     strategy:
       matrix:
         os: [Ubuntu]
-        python-version: ["3.13", "3.12"]
+        python-version: ["3.14", "3.13", "3.12"]
         # sphinx-version:
         #   ["sphinx==6.0", "sphinx==6.2", "sphinx==7.0", "sphinx>=7.3"]
         include:
             - os: Windows
-              python-version: "3.13"
-            - os: Windows
-              python-version: "3.12"
+              python-version: "3.X" # replace X with latest supported on Windows
             # sphinx-version: "sphinx" # version shouldn't really matter here
     defaults:
       run:

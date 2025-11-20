@@ -1,0 +1,2 @@
+name: Linting 📜 (NumpyDoc, Ruff & Black)
+run-name: ${{ github.actor }} - Linting 📜 (NumpyDoc, Ruff & Black)

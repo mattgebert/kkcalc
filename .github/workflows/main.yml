@@ -1,0 +1,33 @@
+# This workflow is the master workflow that runs all other workflows in the correct order, particularly for generating releases.
+
+name: Master 👑 Workflow
+run-name: ${{ github.actor }} - Master 👑 Workflow
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+  pull_request:
+
+jobs:
+    linting:
+        uses: ./.github/workflows/linting.yml
+
+    testing:
+        uses: ./.github/workflows/tests.yml
+
+    docs:
+        uses: ./.github/workflows/docs.yml
+
+    # TODO: Can add other OS builds here as needed...
+    pyinstaller-build:
+        uses: ./.github/workflows/pyinst.yml
+        needs: [testing]
+        with:
+          os: 'Windows'
+
+    semantic-versioning:
+        uses: ./.github/workflows/semver.yml
+        needs: [linting, testing, docs, pyinstaller-build]

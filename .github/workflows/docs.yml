@@ -1,0 +1,43 @@
+name: Documentation 🔎 (Sphinx and PyData)
+
+run-name: ${{ github.actor }} - Documentation 🔎 (Sphinx and PyData)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}-docs
+  cancel-in-progress: true
+
+on:
+  workflow_call:
+
+jobs:
+  build_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install . --group docs
+
+      - name: Build Sphinx html documentation
+        run: |
+          sphinx-build -M html ./docs ./docs/_build
+
+      - name: Build Sphinx dirhtml documentation
+        run: |
+          sphinx-build -M dirhtml ./docs ./docs/_build
+
+      - name: Build Sphinx latex documentation
+        run: |
+          sphinx-build -M latex ./docs ./docs/_build
+
+      # Add commands to generate and process coverage reports using sphinx-reports or similar
+      - name: Sphinx Coverage
+        run: |
+          sphinx-build -M coverage ./docs ./docs/_build

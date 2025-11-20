@@ -2,7 +2,7 @@ name: Python 🐍 Semantic Versioning
 run-name: ${{ github.actor }} - Python 🐍 Semantic Versioning
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.ref_name }}-release
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.ref_name }}
   cancel-in-progress: false
 
 on:
@@ -22,9 +22,20 @@ on:
           - beta
           - rc
         default: 'beta'
+      gui:
+        required: true
+        description: 'Generate GUI Executable?'
+        default: true
+        type: boolean
+
   push:
   pull_request:
-
+  workflow_call:
+    inputs:
+      gui-artifacts:
+        description: 'Name of GUI Artifacts from PyInstaller Build'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -68,7 +79,7 @@ jobs:
       - name: Setup | Checkout Repository on Release Branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.ref | github.head_ref }}
           fetch-depth: 0
 
       - name: Setup | Force release branch to be at workflow sha
@@ -119,6 +130,38 @@ jobs:
       #   with:
       #     name: distribution-artifacts
       #     path: dist
+
+      # Either get or generate the GUI artefacts if requested
+      - name: Action | Download GUI Artefacts
+        id: gui-download
+        if: ${{ github.event == 'workflow_call' && github.event.inputs.gui-artifacts != '' }}
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ github.event.inputs.gui-artifacts }}
+          path: dist/gui/${{ github.event.inputs.gui-artifacts }}
+      # Note, this should generate the GUI artifacts in dist/gui/Windows
+      - name: Action | PyIntaller GUI Build
+        id: gui-build
+        if: ${{ github.event == 'workflow_dispatch' && env.gui == 'true' }}
+        uses: ./.github/workflows/pyinst.yml
+        with:
+          os: 'Windows'
+      # Check the GUI artifacts were generated, and list the files in the directory
+      - name: Verify | GUI Artifacts Exist
+        if: ${{ github.event == 'workflow_dispatch' && env.gui == 'true' }}
+        run: |
+          if [ ! -d "./dist/gui" ]; then
+            echo "Error: GUI artifacts directory './dist/gui' does not exist."
+            exit 1
+          fi
+          if [ -z "$(ls -A ./dist/gui)" ]; then
+            echo "Error: GUI artifacts directory './dist/gui' is empty."
+            exit 1
+          fi
+          echo "GUI artifacts found:"
+          ls -la ./dist/gui
+          echo "GUI artifacts verified in './dist/gui'."
+
       - name: Action | Semantic Version Release
         id: release
         # Adjust tag with desired version if applicable.
