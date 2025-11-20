@@ -16,11 +16,22 @@ repos:
     -   id: mixed-line-ending
     -   id: trailing-whitespace
 
-# Black - for standard code formatting
--   repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-    -   id: black
+# # Black - for standard code formatting
+# -   repo: https://github.com/psf/black
+#     rev: 24.10.0
+#     hooks:
+#     -   id: black
+
+# Ruff - for code linting and style checking
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.14.5
+  hooks:
+    # Run the linter.
+    - id: ruff-check
+      args: [ --fix]
+    # Run the formatter.
+    - id: ruff-format
 
 # NumPyDoc - for docstring validation
 -   repo: https://github.com/numpy/numpydoc
