@@ -430,8 +430,9 @@ class asf_viewer(QtWidgets.QWidget):
                             y_min = y.min() if y_min is None else min(y_min, y.min())
                             y_max = y.max() if y_max is None else max(y_max, y.max())
                     # Add margins to the y-min and y-max
-                    y_min, y_max = y_min - 0.05 * (y_max - y_min), y_max + 0.05 * (
-                        y_max - y_min
+                    y_min, y_max = (
+                        y_min - 0.05 * (y_max - y_min),
+                        y_max + 0.05 * (y_max - y_min),
                     )
                     ax.set_ylim(y_min, y_max)
 

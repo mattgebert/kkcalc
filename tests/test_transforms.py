@@ -51,9 +51,9 @@ class TestKKTransforms:
         f2_sub_transform = f2[idx_subset]
         f2_sub_expected = f2_expected[idx_subset]
 
-        assert np.allclose(
-            f2_sub_transform, f2_sub_expected, atol=1e-6
-        ), "Kramers-Kronig transform of cosine did not match expected result."
+        assert np.allclose(f2_sub_transform, f2_sub_expected, atol=1e-6), (
+            "Kramers-Kronig transform of cosine did not match expected result."
+        )
 
     # def test_kk_transform_sq_reciporical(self):
     #     """

@@ -771,7 +771,7 @@ class conversions:
         ):
             raise ValueError(
                 f"Number of coefficients sets ({len(coefs)}) "
-                + f"does not match the number of energies ({len(energies)-1} or {len(energies)})."
+                + f"does not match the number of energies ({len(energies) - 1} or {len(energies)})."
             )
 
         # Create an array of energy powers for each coefficient.

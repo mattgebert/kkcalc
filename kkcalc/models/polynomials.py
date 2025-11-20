@@ -217,9 +217,9 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         if orders is not None:
             orders = np.asarray(orders)
 
-        assert np.all(
-            energies[:-1] <= energies[1:]
-        ), "Energies must be in increasing order."
+        assert np.all(energies[:-1] <= energies[1:]), (
+            "Energies must be in increasing order."
+        )
         # Find where the energies are located in the object's energies.
         indices = np.asarray(
             np.searchsorted(energies, target_energies) - 1
@@ -2199,7 +2199,8 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_refractive(
-        self, target_energies: float | int  # numpydoc ignore=GL08
+        self,
+        target_energies: float | int,  # numpydoc ignore=GL08
     ) -> complex: ...
 
     def eval_refractive(

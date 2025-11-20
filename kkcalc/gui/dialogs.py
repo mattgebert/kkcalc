@@ -112,7 +112,6 @@ class factor_dtype_dialog(QtWidgets.QDialog):
 
 
 class import_data_dialog(QtWidgets.QDialog):
-
     DEFAULT_X_LABEL = "Energy (eV)"
     DEFAULT_Y_LABEL = "Amplitude (A.U.)"
 
@@ -608,8 +607,9 @@ class import_data_dialog(QtWidgets.QDialog):
             self.error_show()
             return
         try:
-            _, cols = int(self.result_rows_edit.text()), int(
-                self.result_cols_edit.text()
+            _, cols = (
+                int(self.result_rows_edit.text()),
+                int(self.result_cols_edit.text()),
             )
         except ValueError:
             self.error_edit.setText("Data requires two dimensions, for X|Y columns.")
@@ -697,7 +697,6 @@ class import_data_dialog(QtWidgets.QDialog):
 
 
 if __name__ == "__main__":
-
     import sys
 
     app = QtWidgets.QApplication(sys.argv)

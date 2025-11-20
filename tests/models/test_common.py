@@ -76,9 +76,9 @@ class TestCommon:
             ]
         )
 
-        assert (
-            f"{fm:0.2f}" == f"{fm_calc:0.2f}"
-        ), f"Formula mass {fm} != {fm_calc} at 2 decimal places."
+        assert f"{fm:0.2f}" == f"{fm_calc:0.2f}", (
+            f"Formula mass {fm} != {fm_calc} at 2 decimal places."
+        )
 
         old_density = atomic_scattering.density
         # Modify the formula mass
@@ -86,9 +86,9 @@ class TestCommon:
         # Remove the stoichiometry
         atomic_scattering.stoichiometry = None
         # Check the density has updated
-        assert (
-            old_density * 2 == atomic_scattering.density
-        ), "Density did not update correctly after formula mass change."
+        assert old_density * 2 == atomic_scattering.density, (
+            "Density did not update correctly after formula mass change."
+        )
 
 
 class TestPolynomial:
