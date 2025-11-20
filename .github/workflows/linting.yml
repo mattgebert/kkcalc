@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         os: [Ubuntu]
-        python-version: ["3.13", "3.12", "3.11"]
+        python-version: ["3.13", "3.12"]
         include:
           - os: Windows
             python-version: "3.13"

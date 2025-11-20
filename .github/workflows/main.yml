@@ -12,26 +12,31 @@ on:
   pull_request:
 
 jobs:
-    linting:
-        uses: ./.github/workflows/linting.yml
+  linting:
+    name: Linting 📜 (NumpyDoc, Ruff & Black)
+    uses: ./.github/workflows/linting.yml
 
-    testing:
-        uses: ./.github/workflows/tests.yml
+  testing:
+    name: Tests 🔧 (PyTest, Coveralls)
+    uses: ./.github/workflows/tests.yml
 
-    docs:
-        uses: ./.github/workflows/docs.yml
+  docs:
+    name: Documentation 🔎 (Sphinx and PyData)
+    uses: ./.github/workflows/docs.yml
 
-    # TODO: Can add other OS builds here as needed...
-    pyinstaller-build:
-        uses: ./.github/workflows/pyinst.yml
-        needs: [testing]
-        with:
-          os: 'Windows'
+  # TODO: Can add other OS builds here as needed...
+  pyinstaller-build:
+    name: kkcalc GUI 💻 (PyInstaller Executable Build)
+    uses: ./.github/workflows/pyinst.yml
+    needs: [testing]
+    with:
+      os: 'Windows'
 
-    # Add write permissions to allow semantic-versioning to create tags/releases
-    semantic-versioning:
-        uses: ./.github/workflows/semver.yml
-        needs: [linting, testing, docs, pyinstaller-build]
-        permissions:
-          contents: write
-          id-token: write
+  # Add write permissions to allow semantic-versioning to create tags/releases
+  semantic-versioning-and-build:
+    name: Python 🐍 Semantic Versioning
+    uses: ./.github/workflows/semver.yml
+    needs: [linting, testing, docs, pyinstaller-build]
+    permissions:
+      contents: write
+      id-token: write

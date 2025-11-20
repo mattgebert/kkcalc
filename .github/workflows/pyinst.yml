@@ -17,24 +17,24 @@ on:
     inputs:
       os:
         description: 'Operating System Build'
-        required: false
+        required: true
         type: choice
         options:
           - Windows
           - MacOS
           - Ubuntu
         default: 'Windows'
-
   workflow_call:
     inputs:
       os:
         description: 'Operating System Build'
         required: true
         type: string
+        default: 'Windows'
 
 jobs:
   PyInstaller-Build:
-    runs-on: ${{ github.event.inputs.os }}-latest
+    runs-on: ${{ inputs.os }}-latest
     # Alternative, can use `$ {{ matrix.os }}` from the strategy below
     # strategy:
     #   matrix:
@@ -63,9 +63,9 @@ jobs:
       id: build-name
       shell: bash
       run: |
-        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ github.event.inputs.os}}"
-        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ github.event.inputs.os}}" >> $GITHUB_ENV
-        echo "NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ github.event.inputs.os}}" >> $GITHUB_OUTPUT
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}"
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_ENV
+        echo "NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_OUTPUT
 
     ## Alternative way to make spec file and build, kept for reference.
     ## Does not provide functionality to remove unwanted DLLs like the custom spec file does.
@@ -92,7 +92,7 @@ jobs:
     # Conditionally upload artifacts based on OS
     # Only using windows at the moment!
     - name: Cache Windows Executable Artifacts
-      if: github.event.inputs.os == 'Windows'
+      if: inputs.os == 'Windows'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.BUILD_NAME }}
@@ -101,7 +101,7 @@ jobs:
         retention-days: 30
 
     - name: Cache MacOS Executable Artifacts
-      if: github.event.inputs.os == 'MacOS'
+      if: inputs.os == 'MacOS'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.BUILD_NAME }}
@@ -110,7 +110,7 @@ jobs:
         retention-days: 30
 
     - name: Cache Linux Executable Artifacts
-      if: github.event.inputs.os == 'Ubuntu'
+      if: inputs.os == 'Ubuntu'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.BUILD_NAME }}

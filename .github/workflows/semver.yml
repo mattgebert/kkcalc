@@ -1,3 +1,5 @@
+# This workflow automatically releases pre-release versions,
+# but only releases stable versions when triggered manually.
 name: Python 🐍 Semantic Versioning
 run-name: ${{ github.actor }} - Python 🐍 Semantic Versioning
 
@@ -84,50 +86,54 @@ jobs:
         run: |
           git reset --hard ${{ github.sha }}
 
-      - name: Evaluate | Verify upstream has NOT changed
-        # Last chance to abort before causing an error as another PR/push was applied to
-        # the upstream branch while this workflow was running. This is important
-        # because we are committing a version change (--commit). You may omit this step
-        # if you have 'commit: false' in your configuration.
-        #
-        # You may consider moving this to a repo script and call it from this step instead
-        # of writing it in-line.
-        shell: bash
-        run: |
-          set +o pipefail
+      # This code was originally in python-semantic-release 10.2.0 but does not appear in
+      # newer 10.5.2 version.
+      # https://python-semantic-release.readthedocs.io/en/latest/configuration/automatic-releases/github-actions.html
+      # - name: Evaluate | Verify upstream has NOT changed
+      #   # Last chance to abort before causing an error as another PR/push was applied to
+      #   # the upstream branch while this workflow was running. This is important
+      #   # because we are committing a version change (--commit). You may omit this step
+      #   # if you have 'commit: false' in your configuration.
+      #   #
+      #   # You may consider moving this to a repo script and call it from this step instead
+      #   # of writing it in-line.
+      #   shell: bash
+      #   if: ${{ github.event_name != 'workflow_dispatch' }}
+      #   run: |
+      #     set +o pipefail
 
-          UPSTREAM_BRANCH_NAME="$(git status -sb | head -n 1 | cut -d' ' -f2 | grep -E '\.{3}' | cut -d'.' -f4)"
-          printf '%s\n' "Upstream branch name: $UPSTREAM_BRANCH_NAME"
+      #     UPSTREAM_BRANCH_NAME="$(git status -sb | head -n 1 | cut -d' ' -f2 | grep -E '\.{3}' | cut -d'.' -f4)"
+      #     printf '%s\n' "Upstream branch name: $UPSTREAM_BRANCH_NAME"
 
-          set -o pipefail
+      #     set -o pipefail
 
-          if [ -z "$UPSTREAM_BRANCH_NAME" ]; then
-              printf >&2 '%s\n' "::error::Unable to determine upstream branch name!"
-              exit 1
-          fi
+      #     if [ -z "$UPSTREAM_BRANCH_NAME" ]; then
+      #         printf >&2 '%s\n' "::error::Unable to determine upstream branch name!"
+      #         exit 1
+      #     fi
 
-          git fetch "${UPSTREAM_BRANCH_NAME%%/*}"
+      #     git fetch "${UPSTREAM_BRANCH_NAME%%/*}"
 
-          if ! UPSTREAM_SHA="$(git rev-parse "$UPSTREAM_BRANCH_NAME")"; then
-              printf >&2 '%s\n' "::error::Unable to determine upstream branch sha!"
-              exit 1
-          fi
+      #     if ! UPSTREAM_SHA="$(git rev-parse "$UPSTREAM_BRANCH_NAME")"; then
+      #         printf >&2 '%s\n' "::error::Unable to determine upstream branch sha!"
+      #         exit 1
+      #     fi
 
-          HEAD_SHA="$(git rev-parse HEAD)"
+      #     HEAD_SHA="$(git rev-parse HEAD)"
 
-          if [ "$HEAD_SHA" != "$UPSTREAM_SHA" ]; then
-              printf >&2 '%s\n' "[HEAD SHA] $HEAD_SHA != $UPSTREAM_SHA [UPSTREAM SHA]"
-              printf >&2 '%s\n' "::error::Upstream has changed, aborting release..."
-              exit 1
-          fi
+      #     if [ "$HEAD_SHA" != "$UPSTREAM_SHA" ]; then
+      #         printf >&2 '%s\n' "[HEAD SHA] $HEAD_SHA != $UPSTREAM_SHA [UPSTREAM SHA]"
+      #         printf >&2 '%s\n' "::error::Upstream has changed, aborting release..."
+      #         exit 1
+      #     fi
 
-          printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
+      #     printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
 
-      # - name: Delete Previous | Distribution Artifacts
-      #   uses: actions/delete-artifact@v4 ???
-      #   with:
-      #     name: distribution-artifacts
-      #     path: dist
+      # # - name: Delete Previous | Distribution Artifacts
+      # #   uses: actions/delete-artifact@v4 ???
+      # #   with:
+      # #     name: distribution-artifacts
+      # #     path: dist
 
       # Either get or generate the GUI artefacts if requested
       - name: Action | Download GUI Artefacts
@@ -144,9 +150,9 @@ jobs:
         uses: ./.github/workflows/pyinst.yml
         with:
           os: 'Windows'
+
       # Check the GUI artifacts were generated, and list the files in the directory
       - name: Verify | GUI Artifacts Exist
-        if: ${{ github.event == 'workflow_dispatch' && env.gui == 'true' }}
         run: |
           if [ ! -d "./dist/gui" ]; then
             echo "Error: GUI artifacts directory './dist/gui' does not exist."
@@ -164,7 +170,7 @@ jobs:
         id: release
         # Adjust tag with desired version if applicable.
         # https://python-semantic-release.readthedocs.io/en/stable/configuration/automatic-releases/github-actions.html
-        uses: python-semantic-release/python-semantic-release@v10.2.0
+        uses: python-semantic-release/python-semantic-release@v10.5.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           git_committer_name: "github-actions"
