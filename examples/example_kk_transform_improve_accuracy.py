@@ -62,7 +62,6 @@ if __name__ == "__main__":
         ax = axs[j]
 
         for i in range(0, 5):
-
             # Perform the transfom with i improvement iterations
             PS_extended_real = asp_obj.kk_transform(
                 relativistic_correction=ps_stoich.relativistic_correction,

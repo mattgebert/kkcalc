@@ -10,7 +10,7 @@ WrappedFunctionDecorator: TypeAlias = Callable[[Callable[P, T]], Callable[P, T]]
 
 # Decorator for copying docstrings
 def doc_copy(
-    template_func: Callable[..., Any] | property
+    template_func: Callable[..., Any] | property,
 ) -> WrappedFunctionDecorator[P, T]:
     """
     Copy the doc string of the given function to the decorated function.

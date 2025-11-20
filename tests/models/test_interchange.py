@@ -48,12 +48,12 @@ class TestDbAspToAsf:
         # Convert to asf
         asf = poly.to_asf()
         # Check the asf object
-        assert np.isclose(
-            asf.density, density, rtol=1e-5
-        ), "The density should match the input density."
-        assert (
-            asf.stoichiometry == stoich
-        ), "The stoichiometry should match the input stoichiometry."
+        assert np.isclose(asf.density, density, rtol=1e-5), (
+            "The density should match the input density."
+        )
+        assert asf.stoichiometry == stoich, (
+            "The stoichiometry should match the input stoichiometry."
+        )
         if isinstance(poly, (asp_db_im, asp_db_complex)):
             assert asf.betas is not None, "The asf object should have betas defined."
         if isinstance(poly, (asp_db_re, asp_db_complex)):

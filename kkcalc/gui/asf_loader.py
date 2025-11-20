@@ -411,7 +411,9 @@ class kk_object_list(QtWidgets.QWidget):
                 if (i - 1) not in self._objs:
                     self._objs[i - 1] = obj
                 else:
-                    raise ValueError(f"Row {i-1} already exists in the object mapping.")
+                    raise ValueError(
+                        f"Row {i - 1} already exists in the object mapping."
+                    )
                 if i in self._visible_rows:
                     self._visible_rows.remove(i)
                     self._visible_rows.add(i - 1)
