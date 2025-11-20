@@ -1,5 +1,5 @@
 # This workflow is the master workflow that runs all other workflows in the correct order, particularly for generating releases.
-
+#
 name: Master 👑 Workflow
 run-name: ${{ github.actor }} - Master 👑 Workflow
 
@@ -28,6 +28,10 @@ jobs:
         with:
           os: 'Windows'
 
+    # Add write permissions to allow semantic-versioning to create tags/releases
     semantic-versioning:
         uses: ./.github/workflows/semver.yml
         needs: [linting, testing, docs, pyinstaller-build]
+        permissions:
+          contents: write
+          id-token: write

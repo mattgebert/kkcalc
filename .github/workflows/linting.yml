@@ -1,2 +1,49 @@
 name: Linting 📜 (NumpyDoc, Ruff & Black)
 run-name: ${{ github.actor }} - Linting 📜 (NumpyDoc, Ruff & Black)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}-linting
+  cancel-in-progress: true
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os: [Ubuntu]
+        python-version: ["3.14", "3.13", "3.12", "3.11"]
+        include:
+          - os: Windows
+            python-version: "3.14"
+          - os: macOS
+            python-version: "3.14"
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpydoc black ruff
+
+    - name: Analysing the code with Ruff
+      run: |
+        ruff check
+
+    - name: Analysing the code with black
+      run: |
+        black --check .
+
+    - name: Analysing the code with numpydoc
+      run: | # Exclude test and gui files.
+        numpydoc lint --config . $(git ls-files -- '*.py' ':!:*tests/*' ':!:*gui/*')
