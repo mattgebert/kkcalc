@@ -19,6 +19,21 @@ import io
 class ASFElement(TypedDict):
     """
     Atomic Scattering Factor data for a single element.
+
+    Attributes
+    ----------
+    E : npt.NDArray
+        Photon energies corresponding to the scattering factor data points.
+    Im : npt.NDArray
+        Imaginary part piecewise polynomial coefficients of the scattering factor.
+    Re : npt.NDArray
+        Real part coefficients of the scattering factor.
+    name : str
+        The full name of the element.
+    symbol : str
+        The chemical symbol of the element.
+    mass : float
+        The atomic mass of the element.
     """
 
     E: npt.NDArray

@@ -99,7 +99,7 @@ targets.sdist.include = [
 targets.sdist.exclude = [
     "docs/*",
     "tests/*",
-    "kkcalc/asf_database/data/*", # Exclude raw data files from package
+    "kkcalc/asf_database/db_data/*", # Exclude raw data files from package
     "kkcalc/asf_database/db_generator_script.py", # Exclude db generator script
 ]
 

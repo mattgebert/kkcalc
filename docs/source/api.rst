@@ -14,6 +14,8 @@ The submodules are
 
 .. autosummary::
 
-   kkcalc.models
-   kkcalc.kk_transforms
    kkcalc.stoich
+   kkcalc.models
+   kkcalc.transforms
+   kkcalc.conversions
+   kkcalc.asf_database
