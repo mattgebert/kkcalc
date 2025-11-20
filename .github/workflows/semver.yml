@@ -2,7 +2,7 @@ name: Python 🐍 Semantic Versioning
 run-name: ${{ github.actor }} - Python 🐍 Semantic Versioning
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.ref_name }}
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.ref_name }}-semver
   cancel-in-progress: false
 
 on:
@@ -28,8 +28,6 @@ on:
         default: true
         type: boolean
 
-  push:
-  pull_request:
   workflow_call:
     inputs:
       gui-artifacts:
@@ -78,9 +76,9 @@ jobs:
       # prevents accidentally releasing un-evaluated changes.
       - name: Setup | Checkout Repository on Release Branch
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref || github.ref }}
-          fetch-depth: 0
+        # with:
+          # ref: ${{ github.head_ref || github.ref }}
+          # fetch-depth: 0
 
       - name: Setup | Force release branch to be at workflow sha
         run: |

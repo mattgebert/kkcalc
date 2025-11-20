@@ -9,7 +9,7 @@ name: kkcalc GUI 💻 (PyInstaller Executable Build)
 run-name: ${{ github.actor }} - kkcalc GUI 💻 ${{ github.event.inputs.os }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}-pyinstaller
   cancel-in-progress: false
 
 on:
@@ -47,7 +47,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     - name: Install dependencies
       id: install-deps
