@@ -21,6 +21,8 @@ jobs:
             - os: Windows
               python-version: "3.13" # replace with latest supported on Windows
             # sphinx-version: "sphinx" # version shouldn't really matter here
+            - os: macOS
+              python-version: "3.13" # replace with latest supported on macOS
     defaults:
       run:
         shell: bash -eo pipefail {0} # Fail on any error (-e), fail on any failed command in a pipeline.
