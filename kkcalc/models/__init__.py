@@ -38,6 +38,7 @@ from kkcalc.models.factors import (
 
 # Import the database models
 from kkcalc.models.db_models import (
+    asp_db_abstract,
     asp_db_im,
     asp_db_re,
     asp_db_complex,
@@ -71,6 +72,7 @@ __all__ = [
     "asp_re",
     "asp_complex",
     # Database models
+    "asp_db_abstract",
     "asp_db_im",
     "asp_db_re",
     "asp_db_complex",
