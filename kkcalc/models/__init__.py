@@ -26,6 +26,10 @@ from kkcalc.models.common import (
 )
 
 # Import the usage models
+import kkcalc.models.polynomials as polynomials
+import kkcalc.models.factors as factors
+import kkcalc.models.common as common
+import kkcalc.models.db_models as db_models
 from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abstract
 from kkcalc.models.factors import (
     asf_abstract,
@@ -53,6 +57,11 @@ __all__ = [
     "conversions",
     # Kramers-Kronig Transforms module
     "transforms",
+    # Class modules
+    "polynomials",
+    "factors",
+    "common",
+    "db_models",
     # Common models and types
     "atomic_scattering_abstract",
     "atomic_scattering",

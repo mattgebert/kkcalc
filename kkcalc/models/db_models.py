@@ -1101,7 +1101,7 @@ class asp_db_extended(asp):
         # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
 
-    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> "asp_db_extended":
+    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Create a copy of the current object.
 
@@ -1121,13 +1121,19 @@ class asp_db_extended(asp):
             if hasattr(kwargs[key], "copy"):
                 kwargs[key] = kwargs[key].copy()
         # Create the copy
-        return asp_db_extended(
+        obj = self.__class__(
             data_asf=self.dataset_asf.copy(),
             database=self.database_asp.copy(),
             merge_domain=self.merge_domain,
             fix_distortions=self.fix_distortions,
             **kwargs,
         )
+        # Need to copy the energies and coefs to ensure exact match
+        # even though constructor should generate same data.
+        # These may have updated with extend/truncate operations.
+        obj._energies = self.energies.copy()
+        obj._coefs = self.coefs.copy()
+        return obj
 
 
 class asp_db_im_extended(asp_db_extended, asp_im):

@@ -645,6 +645,11 @@ class asp(asp_abstract, atomic_scattering):
         -------
         asp
             A new `asp` object with the same polynomial coefficients, but defined on the new `energies`.
+
+        Raises
+        ------
+        ValueError
+            If `new_energies` are not a subset of existing `energies`.
         """
         # Check energies are a subset
         en_min, en_max = self.energies.min(), self.energies.max()
@@ -728,8 +733,10 @@ class asp(asp_abstract, atomic_scattering):
         ):
             raise ValueError("Domain values must be within the existing energies.")
 
-        # Get the class and creation kwargs
-        cls = type(self)
+        # Get the class
+        cls = self.__class__
+
+        print(self.__class__.__name__, self.energies.shape)
 
         if domain[0] in self.energies and domain[1] in self.energies:
             # If the domain is already in the energies, just return a copy of the object
@@ -1256,10 +1263,20 @@ class asp_im(asp):
             relativistic_correction=relativistic_correction,
             tolerance=tolerance,
             max_iter=max_iter,
-        )
+        ).to_ASP()
         im = self.extend_energies(re.energies)
+
+        # if the energies don't match, truncate.
+        if im.energies.shape != re.energies.shape or not np.all(
+            im.energies == re.energies
+        ):
+            common_e_max = min(im.energies.max(), re.energies.max())
+            common_e_min = max(im.energies.min(), re.energies.min())
+            im = im.truncate_energies(domain=(common_e_min, common_e_max))
+            re = re.truncate_energies(domain=(common_e_min, common_e_max))
+
         # Create complex object
-        return asp_complex(re=re.to_ASP(), im=im, **common_kwargs)
+        return asp_complex(re=re, im=im, **common_kwargs)
 
     def calculate_complex_factors(
         self,
