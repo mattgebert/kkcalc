@@ -61,12 +61,13 @@ jobs:
 
   # Add write permissions to allow semantic-versioning to create tags/releases
   semantic-versioning-and-build:
-    name: Python 🐍 Semantic Versioning
+    name: Python 🐍 Semantic Versioning (Write)
     uses: ./.github/workflows/semver.yml
     needs: [linting, testing, docs, pyinstaller-build, branch_check]
     # If pyinstaller-build is skipped, stil run:
-    if: ${{ always() && needs.linting.result == 'success' && needs.testing.result == 'success' && needs.docs.result == 'success' }}
+    if: ${{ always() && needs.linting.result == 'success' && needs.testing.result == 'success' && needs.docs.result == 'success'}}
     permissions:
+      # Enforce read-only permissions on PRs, write sem-ver runs permissions otherwise
       contents: write
       id-token: write
     with:

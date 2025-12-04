@@ -16,8 +16,15 @@ import numpy as np
 import PyQt6.QtWidgets as QtWidgets
 
 # Internal Imports
-from kkcalc.gui.kk_gui import kk_gui
-from kkcalc.models import asf_im
+hasQT: bool
+try:
+    import PyQt6  # noqa: F401
+    from kkcalc.gui.kk_gui import kk_gui
+    from kkcalc.models import asf_im
+
+    hasQT = True
+except ImportError:
+    hasQT = False
 
 
 def main():
@@ -75,18 +82,23 @@ def main():
     app.exec()
 
 
-if __name__ == "__main__":
+def main_with_traceback():
+    """
+    Run the main function but catch errors.
+    """
     try:
         main()
     except Exception as e:
         # Create a QT window to display the error
         app = QtWidgets.QApplication([])
+        app.setApplicationName("kkcalc: Kramers-Kronig Calculator (Error)")
         error_dialog = QtWidgets.QErrorMessage()
         # Prepare the message: the error and the traceback
         msg = f"An error occurred, causing kkcalc to crash.:\
                \n{str(e)}\
                \nPlease report this issue at https://github.com/xraysoftmat/kkcalc/issues"
         error_dialog.showMessage(msg)
+        app.exec()
 
         # Add the detail
         tb = f"{traceback.format_exc()}"
@@ -95,3 +107,19 @@ if __name__ == "__main__":
             layout.addWidget(QtWidgets.QLabel("Detailed traceback:"))
             layout.addWidget(QtWidgets.QLabel(tb))
         error_dialog.exec()
+
+
+if __name__ == "__main__":
+    if not hasQT:
+        # Use stdlib python graphics to show the error.
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()  # Hide the main window
+        messagebox.showerror(
+            "KKCalc Error",
+            "PyQt6 is not installed. Please install PyQt6 to run KKCalc.",
+        )
+    else:
+        main_with_traceback()

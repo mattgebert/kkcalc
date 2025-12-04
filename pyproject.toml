@@ -51,6 +51,14 @@ documentation = "https://kkcalc.readthedocs.io/en/latest/"
 #     "matplotlib~=3.10.7", # For plotting
 # ]
 
+[project.scripts]
+# Command line entry points.
+
+[project.gui-scripts]
+# GUI entry points for the command line
+kkcalc = "kkcalc.__main__:main"
+kkcalc_tr = "kkcalc.__main__:main_with_traceback"
+
 [dependency-groups]
 # Dependency groups for optional dependencies.
 all = [
@@ -103,6 +111,12 @@ targets.sdist.exclude = [
     "kkcalc/asf_database/db_generator_script.py", # Exclude db generator script
 ]
 
+[tool.hatch.envs.dev]
+dependency-groups = ["dev"]
+post-install-commands = [
+    # Install pre-commit hooks
+    "pre-commit install --install-hooks",
+]
 
 
 #######################################################
@@ -179,7 +193,9 @@ assets = ['dist/gui/*']
 
 [tool.semantic_release.branches.beta]
 # Matches branches with the prefixes 'feat/', 'fix/', or 'perf/'.
-match = "^(feat|fix|perf)/.+"
+# match = "^(feat|Feat|fix|Fix|perf|Perf)/.+"
+# Set to match anything other than main/master/v2
+match = "^(?!main$|master$|v2$).+"
 prerelease = true
 prerelease_token = "beta"
 
