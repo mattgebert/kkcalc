@@ -159,14 +159,23 @@ jobs:
       # Check the GUI artifacts were generated, and list the files in the directory
       - name: Verify | GUI Artifacts Exist
         run: |
+          if [ ! -d "./dist" ]; then
+            echo "Error: GUI artifacts directory './dist' does not exist."
+            exit ${{ env.gui == 'true' && 1 || 0 }}
+          fi
+          if [ -z "$(ls -A ./dist)" ]; then
+            echo "Error: GUI artifacts directory './dist' is empty."
+            exit ${{ env.gui == 'true' && 1 || 0 }}
+          fi
+          echo "Distribution folders:"
           ls -la ./dist
           if [ ! -d "./dist/gui" ]; then
             echo "Error: GUI artifacts directory './dist/gui' does not exist."
-            exit ${{ env.gui == 'true' }}
+            exit ${{ env.gui == 'true' && 1 || 0 }}
           fi
           if [ -z "$(ls -A ./dist/gui)" ]; then
             echo "Error: GUI artifacts directory './dist/gui' is empty."
-            exit ${{ env.gui == 'true' }}
+            exit ${{ env.gui == 'true' && 1 || 0 }}
           fi
           echo "GUI artifacts found:"
           ls -la ./dist/gui
