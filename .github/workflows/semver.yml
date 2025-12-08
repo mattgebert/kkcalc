@@ -1,0 +1,379 @@
+# This workflow automatically releases pre-release versions,
+# but only releases stable versions when triggered manually.
+name: Python 🐍 Semantic Versioning
+run-name: ${{ github.actor }} - Python 🐍 Semantic Versioning
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.ref_name }}-semver
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: 'Run as a prerelease?'
+        required: true
+        type: boolean
+        default: true
+      prerelease_token:
+        description: 'Token for prerelease'
+        required: false
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+        default: 'beta'
+      gui:
+        description: 'Generate GUI Executable?'
+        required: true
+        default: true
+        type: boolean
+
+  workflow_call:
+    inputs:
+      gui-artifacts:
+        description: 'Name of GUI Artifacts from PyInstaller Build'
+        required: false
+        type: string
+      gui:
+        description: 'Generate GUI Executable?'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  semver-release:
+    name: Run Python 🐍 Semantic Version to stamp distribution 📦
+    # Only run this job on the master account.
+    runs-on: ubuntu-latest
+    # defaults: # https://github.com/actions/upload-artifact/issues/232#issuecomment-1065422577
+    #   run:
+    #     working-directory: ./kkcalc
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.is_released.outputs.released }}
+
+    steps:
+      - name: Use workflow inputs for pre-release
+        shell: bash
+        if: ${{ github.event == 'workflow_dispatch' }}
+        run: |
+          echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_ENV
+          echo "prerelease_token=${{ github.event.inputs.prerelease_token }}" >> $GITHUB_ENV
+      - name: Set default value for pre-release
+        shell: bash
+        if: ${{ github.event != 'workflow_dispatch' }}
+        run: |
+          echo "prerelease=true" >> $GITHUB_ENV
+          echo "prerelease_token=beta" >> $GITHUB_ENV
+      - name: Display pre-release input
+        shell: bash
+        run: |
+          echo "Python SemVer pre-release?: $prerelease"
+
+      - name: Display Ref Info
+        shell: bash
+        run: |
+          echo "GitHub Ref: ${{ github.ref }}"
+          echo "GitHub Ref Name: ${{ github.ref_name }}"
+          echo "GitHub Commit SHA: ${{ github.sha }}"
+          echo "GitHub Event Name: ${{ github.event_name }}"
+          echo "PR GitHub Base Ref (PR Destination): ${{ github.base_ref }}"
+          echo "PR GitHub Head Ref (PR Source): ${{ github.head_ref }}"
+          echo "PR Source URL: ${{ github.event.pull_request.head.repo.html_url }}"
+
+      # Note: We checkout the repository at the branch that triggered the workflow
+      # with the entire history to ensure to match PSR's release branch detection
+      # and history evaluation.
+      # However, we forcefully reset the branch to the workflow sha because it is
+      # possible that the branch was updated while the workflow was running. This
+      # prevents accidentally releasing un-evaluated changes.
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-tags: true # Ensure tags are fetched for semantic-release
+          show-progress: true
+
+          # Need to checkout a branch, so that semver can appropriately do the release.
+          # Using the base_ref for pull requests, and ref for pushes/dispatches.
+          ref: ${{ ( github.event_name == 'pull_request' && github.base_ref) || github.ref }}
+
+          # ref: ${{ github.sha}} # Should this be github.head_ref || github.ref_name ?
+          # ref: ${{ github.sha }}
+          # ref: ${{ github.head_ref || github.sha || github.ref_name }}
+          # repository: ${{ github.repository }}
+
+        # with:
+          # ref: ${{ github.head_ref || github.ref }}
+          # fetch-depth: 0
+
+      # REMOVED: As cannot run permissions conditionally.
+      # Because a checked out PR has a detached HEAD, we need to merge the PR changes
+      # manually to the target branch to ensure the correct code is present for the release.
+      # - name: Security | Ensure PR only has read privelages
+      #   if: ${{ github.event_name == 'pull_request' }}
+      #   run: |
+      #     echo "Ensuring GITHUB_TOKEN cannot write to repository"
+      #     GIT_TERMINAL_PROMPT=0 git push --dry-run &>/dev/null
+
+      - name: Setup | Merge PR to Target on PR Event
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git remote -vv
+          git remote add origin-pr "${{ github.event.pull_request.head.repo.html_url }}"
+          git fetch origin-pr
+          git merge ${{ github.event.pull_request.head.sha }} --no-edit
+
+      - name: Setup | Force release branch to be at workflow sha
+        if : ${{ github.event_name != 'pull_request' }}
+        run: |
+          git reset --hard ${{ github.sha }}
+        # Add an extra fetch step to make sure we have all history for semantic-release to evaluate.
+        # This was an error with the SHA: f80e68723d6de2358700ed773f3ba9073723bdb8 which was a revert.
+
+
+
+      # Either get or generate the GUI artifacts if requested
+      - name: Action | Download GUI Artifacts
+        id: gui-download
+        if: ${{ github.event == 'workflow_call' && github.event.inputs.gui-artifacts != '' }}
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ github.event.inputs.gui-artifacts }}
+          path: dist/gui/${{ github.event.inputs.gui-artifacts }}
+      # Note, this should generate the GUI artifacts in dist/gui/Windows
+      - name: Action | PyIntaller GUI Build
+        id: gui-build
+        if: ${{ github.event == 'workflow_dispatch' && env.gui == 'true' }}
+        uses: ./.github/workflows/pyinst.yml
+        with:
+          os: 'Windows'
+
+      # Check the GUI artifacts were generated, and list the files in the directory
+      - name: Verify | GUI Artifacts Exist
+        run: |
+          if [ ! -d "./dist" ]; then
+            echo "Error: GUI artifacts directory './dist' does not exist."
+            exit ${{ env.gui == 'true' && 1 || 0 }}
+          fi
+          if [ -z "$(ls -A ./dist)" ]; then
+            echo "Error: GUI artifacts directory './dist' is empty."
+            exit ${{ env.gui == 'true' && 1 || 0 }}
+          fi
+          echo "Distribution folders:"
+          ls -la ./dist
+          if [ ! -d "./dist/gui" ]; then
+            echo "Error: GUI artifacts directory './dist/gui' does not exist."
+            exit ${{ env.gui == 'true' && 1 || 0 }}
+          fi
+          if [ -z "$(ls -A ./dist/gui)" ]; then
+            echo "Error: GUI artifacts directory './dist/gui' is empty."
+            exit ${{ env.gui == 'true' && 1 || 0 }}
+          fi
+          echo "GUI artifacts found:"
+          ls -la ./dist/gui
+          echo "GUI artifacts verified in './dist/gui'."
+
+      - name: Action | Semantic Version Release
+        id: release
+        # Adjust tag with desired version if applicable.
+        # https://python-semantic-release.readthedocs.io/en/stable/configuration/automatic-releases/github-actions.html
+        uses: python-semantic-release/python-semantic-release@v10.5.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
+          build: true
+          prerelease: ${{ env.prerelease == 'true' }}
+          prerelease_token: ${{ env.prerelease_token }}
+          changelog: true
+          verbosity: 2
+          # Do not actually perform any release actions if:
+          # 1. Not the main repository owner
+          # 2. This is a pull request event - the release should only occur on push to main/release branches
+          no_operation_mode: ${{ (github.repository_owner != 'xraysoftmat' && github.repository_owner != 'benajamin') || github.event_name == 'pull_request' }}
+
+      - name: Env | Check if released and log conditionals
+        id: is_released
+        run: |
+          echo "Success: ${{ steps.release.outcome }} ;  ${{ steps.release.outcome == 'success' }}"
+          echo "Ownership: ${{ github.repository_owner }} ; ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}"
+          echo "Released: ${{ steps.release.outputs.released }}"
+          echo "Branch: ${{ github.ref }}; ${{ github.ref == 'refs/heads/main' }}"
+          echo "Push: ${{ github.event_name }} ; ${{ github.event_name == 'push' }}"
+          echo "released=${{ github.event_name == 'push' && steps.release.outcome && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/v2') && steps.release.outputs.released && (github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin') && steps.release.outcome == 'success' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Display | Release Information
+        if: |
+          success() && steps.is_released.outputs.released
+        run: |
+          echo "Process Release: ${{ steps.is_released.outputs.released }}"
+          echo "Release Tag: ${{ steps.release.outputs.tag }}"
+          echo "Release Version: ${{ steps.release.outputs.version }}"
+          echo "Release Branch: ${{ github.ref_name }}"
+          echo "Release Prerelease: ${{ env.prerelease }}"
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.2.0
+        if: |
+          success() && steps.is_released.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.release.outputs.tag }}
+
+      - name: Upload | Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        if: |
+          success() &&
+          steps.is_released.outputs.released == 'true'
+        with:
+          name: distribution-artifacts
+          path: ./dist
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.2.0
+        if: |
+          success() && steps.is_released.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.release.outputs.tag }}
+
+  pypi-deploy-kkcalc:
+    # 1. Separate out the deploy step from the publish step to run each step at
+    #    the least amount of token privilege
+    # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
+    #    and it won't require reversing the release.
+
+    name: Publish Python 🐍 distribution 📦 release to PyPI
+    runs-on: ubuntu-latest
+    needs: semver-release # match the job name above
+    if: |
+      success() &&
+      needs.semver-release.outputs.released == 'true' &&
+      github.event_name != 'pull_request' &&
+      github.repository_owner == 'benajamin'
+    defaults:
+      run:
+        working-directory: ./kkcalc
+    # Only run this job on the master account, only publish to PyPI on tag pushes
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/kkcalc
+
+    steps:
+      - name: Setup | Download Build Artifacts
+        uses: actions/download-artifact@v4
+        id: artifact-download
+        with:
+          name: distribution-artifacts # Match the name used in the upload step
+          path: kkcalc/dist # Match the path used in the upload step
+
+      - name: Publish package distribution 📦 to PyPI
+        if: ${{ github.repository_owner == 'benajamin'}}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: kkcalc/dist
+
+  pypi-deploy-kkcalc2:
+    # 1. Separate out the deploy step from the publish step to run each step at
+    #    the least amount of token privilege
+    # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
+    #    and it won't require reversing the release.
+    name: Publish v2 Python 🐍 distribution 📦 release to PyPI
+    runs-on: ubuntu-latest
+    needs: semver-release # match the job name above
+    if: |
+      success() &&
+      needs.semver-release.outputs.released == 'true' &&
+      github.event_name != 'pull_request' &&
+      github.repository_owner == 'xraysoftmat'
+    defaults:
+      run:
+        working-directory: ./kkcalc
+    # Only run this job on the master account, only publish to PyPI on tag pushes
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/kkcalc2
+
+    steps:
+      - name: Setup | Download Build Artifacts
+        uses: actions/download-artifact@v4
+        id: artifact-download
+        with:
+          name: distribution-artifacts # Match the name used in the upload step
+          path: kkcalc/dist # Match the path used in the upload step
+
+      - name: Publish package distribution 📦 to PyPI
+        if: ${{ github.repository_owner == 'xraysoftmat'}}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: kkcalc/dist
+
+
+
+      # This code was originally in python-semantic-release 10.2.0 but does not appear in
+      # newer 10.5.2 version. This would occur before the semantic release step.
+      # https://python-semantic-release.readthedocs.io/en/latest/configuration/automatic-releases/github-actions.html
+      # - name: Evaluate | Verify upstream has NOT changed
+      #   # Last chance to abort before causing an error as another PR/push was applied to
+      #   # the upstream branch while this workflow was running. This is important
+      #   # because we are committing a version change (--commit). You may omit this step
+      #   # if you have 'commit: false' in your configuration.
+      #   #
+      #   # You may consider moving this to a repo script and call it from this step instead
+      #   # of writing it in-line.
+      #   shell: bash
+      #   if: ${{ github.event_name != 'workflow_dispatch' }}
+      #   run: |
+      #     set +o pipefail
+
+      #     UPSTREAM_BRANCH_NAME="$(git status -sb | head -n 1 | cut -d' ' -f2 | grep -E '\.{3}' | cut -d'.' -f4)"
+      #     printf '%s\n' "Upstream branch name: $UPSTREAM_BRANCH_NAME"
+
+      #     set -o pipefail
+
+      #     if [ -z "$UPSTREAM_BRANCH_NAME" ]; then
+      #         printf >&2 '%s\n' "::error::Unable to determine upstream branch name!"
+      #         exit 1
+      #     fi
+
+      #     git fetch "${UPSTREAM_BRANCH_NAME%%/*}"
+
+      #     if ! UPSTREAM_SHA="$(git rev-parse "$UPSTREAM_BRANCH_NAME")"; then
+      #         printf >&2 '%s\n' "::error::Unable to determine upstream branch sha!"
+      #         exit 1
+      #     fi
+
+      #     HEAD_SHA="$(git rev-parse HEAD)"
+
+      #     if [ "$HEAD_SHA" != "$UPSTREAM_SHA" ]; then
+      #         printf >&2 '%s\n' "[HEAD SHA] $HEAD_SHA != $UPSTREAM_SHA [UPSTREAM SHA]"
+      #         printf >&2 '%s\n' "::error::Upstream has changed, aborting release..."
+      #         exit 1
+      #     fi
+
+      #     printf '%s\n' "Verified upstream branch has not changed, continuing with release..."
+
+      # # - name: Delete Previous | Distribution Artifacts
+      # #   uses: actions/delete-artifact@v4 ???
+      # #   with:
+      # #     name: distribution-artifacts
+      # #     path: dist

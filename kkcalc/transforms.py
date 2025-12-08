@@ -2,16 +2,17 @@
 This module contains the Kramers-Kronig transform methods.
 """
 
+import math
+import numpy as np
+import numpy.typing as npt
+import warnings
+
 DEF_ITER: int = 50
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
 """The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
 
-import math
-import numpy as np
-import numpy.typing as npt
-import warnings
-from kkcalc.models.conversions import conversions
+from kkcalc import conversions  # noqa E402
 
 
 def KK_General_PP(
@@ -221,16 +222,19 @@ def KK_General_PP_inv(
         Evaluated real coefficients of the atomic scattering factors at `target_energies`.
     """
     # Use the
-    return -target_energies * KK_General_PP(
-        target_energies=target_energies,
-        energies=energies,
-        # Moves coefficients one place to the right (equivalent to moving orders one to the left).
-        # This implies a change in coefficient with energy order.
-        # The new energy order is instead seen as [0, -1, -2, -3, 1] when multiplying by coefficients.
-        # TODO: Why?
-        imag_coefs=np.roll(real_coefs, 1, axis=1),
-        orders=orders,
-        relativistic_correction=-relativistic_correction,  # inverse the relativistic correction.
+    return (
+        -target_energies
+        * KK_General_PP(
+            target_energies=target_energies,
+            energies=energies,
+            # Moves coefficients one place to the right (equivalent to moving orders one to the left).
+            # This implies a change in coefficient with energy order.
+            # The new energy order is instead seen as [0, -1, -2, -3, 1] when multiplying by coefficients.
+            # TODO: Why?
+            imag_coefs=np.roll(real_coefs, 1, axis=1),
+            orders=orders,
+            relativistic_correction=-relativistic_correction,  # inverse the relativistic correction.
+        )
     )
 
 
@@ -307,9 +311,7 @@ def KK_PP(
         + coefs_T[2, :]
         - coefs_T[3, :] * E**-1
         + coefs_T[4, :] * E**-2
-    ) * np.log(
-        np.abs((X2 + E) / (X1 + E))
-    )
+    ) * np.log(np.abs((X2 + E) / (X1 + E)))
     #
     Symb_3 = (
         (1 - 1 * ((X2 == E) | (X1 == E)))
@@ -511,7 +513,7 @@ def improve_accuracy(
         improved = (re_err > tolerance) | (im_err > tolerance)
 
         # Manual override for the first midpoint index near 10 eV, which doesn't converge.
-        if improved[0] == True and idx_extra[0] == 1 and i > 20:
+        if improved[0] and idx_extra[0] == 1 and i > 20:
             improved[0] = False
 
         # Check if at satisfactory level
@@ -665,7 +667,7 @@ def improve_accuracy_inv(
         improved = im_err > tolerance  # | (re_err > tolerance)
 
         # Manual override for the first midpoint index near 10 eV, which doesn't converge.
-        if improved[0] == True and idx_extra[0] == 1 and i > 20:
+        if improved[0] and idx_extra[0] == 1 and i > 20:
             improved[0] = False
 
         # Check if at satisfactory level

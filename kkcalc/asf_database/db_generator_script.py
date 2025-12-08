@@ -23,11 +23,15 @@ Workflow to accomodate:
 Items 1-4 not usually performed by users. Items 5-7 must be integrated into KKcalc program.
 """
 
-import os, os.path
+import os
+import os.path
 import scipy.interpolate
 import json
 import numpy.typing as npt
 import numpy as np
+import gzip
+import pkgutil
+import io
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 classical_electron_radius = 2.81794029957951365441605230194258e-15  # meters
@@ -35,10 +39,19 @@ Plancks_constant = 4.1356673310e-15  # eV*seconds
 speed_of_light = 2.99792458e8  # meters per second
 Avogadro_constant = 6.02214129e23
 
-Elements_DATA = [
-    line.strip("\r\n").split()
-    for line in open(os.path.join(BASEDIR, "data", "elements.dat"))
-]
+try:
+    data_resource = pkgutil.get_data(
+        "kkcalc",
+        "asf_database/db_data/elements.dat",
+    )
+    with io.BytesIO(data_resource) as f:
+        Elements_DATA = [line.decode("utf-8").strip("\r\n").split() for line in f]
+except IOError:
+    # Try a relative path if pkgutil fails (e.g. when running the script directly)
+    Elements_DATA = [
+        line.strip("\r\n").split()
+        for line in open(os.path.join(BASEDIR, "db_data", "elements.dat"))
+    ]
 Database = dict()
 
 
@@ -72,7 +85,7 @@ def LoadData(filename: str) -> npt.NDArray:
     return np.array(data)
 
 
-def parse_BL_file(briggs_file: str) -> dict[int, npt.NDArray]:
+def parse_BL_file(briggs_file: str | io.BytesIO) -> dict[int, npt.NDArray]:
     """
     Parse a Biggs and Lighthill (BL) file.
 
@@ -94,9 +107,22 @@ def parse_BL_file(briggs_file: str) -> dict[int, npt.NDArray]:
     """
     continue_norm = True  # Normalise the Biggs and Lighthill data as the published scattering factors do, rather than as Henke et al says.
     BLfile = {}
-    if os.path.exists(briggs_file) is False:
-        raise FileNotFoundError(f"Biggs and Lighthill file not found: {briggs_file}")
-    for line in open(briggs_file):
+    # Read the file
+    if isinstance(briggs_file, str):
+        if os.path.exists(briggs_file) is False:
+            raise FileNotFoundError(
+                f"Biggs and Lighthill file not found: {briggs_file}"
+            )
+        with open(briggs_file, "r") as f:
+            lines = f.readlines()
+    elif isinstance(briggs_file, io.BytesIO):
+        briggs_file.seek(0)  # Ensure we're at the start of the BytesIO stream
+        lines = briggs_file.readlines()
+        lines = [line.decode("utf-8") for line in lines]
+    else:
+        raise TypeError("briggs_file must be a string path or a BytesIO object.")
+    # Process the lines
+    for line in lines:
         try:
             values = [float(f) for f in line.split()]
             if values[3] > 10:
@@ -230,9 +256,20 @@ def Coeffs_to_ASF(E: npt.ArrayLike, coeffs: npt.NDArray) -> npt.NDArray:
 
 
 ###########################################################################################################
-BL_data = parse_BL_file(
-    briggs_file=os.path.join(BASEDIR, "data", "original_biggs_file.dat")
+
+data = pkgutil.get_data(
+    "kkcalc",
+    "asf_database/db_data/original_biggs_file.dat",
 )
+if data is not None:
+    file = io.BytesIO(data)
+else:
+    # Try a relative path if pkgutil fails (e.g. when running the script directly)
+    file = os.path.join(BASEDIR, "db_data", "original_biggs_file.dat")
+    if not os.path.exists(file):
+        raise FileNotFoundError("Biggs and Lighthill file not found in package data.")
+
+BL_data = parse_BL_file(briggs_file=file)
 
 # for z, symbol, name, atomic_mass, Henke_file in [Elements_DATA[0]]:
 for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
@@ -245,7 +282,7 @@ for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
 
     # Get basic data
     # print("Load nff data from:", os.path.join(BASEDIR, 'data', Henke_file))
-    data_path = os.path.join(BASEDIR, "data", Henke_file)
+    data_path = os.path.join(BASEDIR, "db_data", Henke_file)
     asf_RawData = LoadData(data_path)
     if min(asf_RawData[1:-1, 0] - asf_RawData[0:-2, 0]) < 0:
         print(
@@ -328,8 +365,6 @@ with open(output_path, "w") as f:
     json.dump(Database, f, indent=None)  # Indent: 1 for readability, None for compact.
 
 # Compress the database file
-import gzip
-
 with open(output_path, "rb") as f_in:
     with gzip.open(output_path + ".gz", "wb") as f_out:
         f_out.writelines(f_in)

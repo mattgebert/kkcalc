@@ -7,8 +7,7 @@ Allows the calculation of atomic scattering factor data, generated for a given s
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
-import warnings
-from typing import Self, override, overload, Unpack, Required
+from typing import Self, override, overload, Unpack
 
 import abc
 from kkcalc.stoich import stoichiometry as kk_stoichiometry
@@ -16,10 +15,8 @@ from kkcalc.stoich import stoichiometry as kk_stoichiometry
 # Import from submodules of models, as models.py will also call these classes.
 from kkcalc.models.polynomials import asp, asp_im, asp_re, asp_complex
 from kkcalc.models.factors import asf, asf_im, asf_re, asf_complex
-from kkcalc.models.conversions import conversions
+from kkcalc import conversions
 from kkcalc.models.common import (
-    atomic_scattering,
-    atomic_scattering_abstract,
     PROPERTIES_DICT,
 )
 
@@ -383,9 +380,9 @@ class asp_db_re(asp_db_abstract, asp_re):
                     sum_re += n * db_re  # Multiply by stoichiometry n
                     # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
                     if ASF_DATABASE[z]["E"][counters[j] + 1] == energy:
-                        counters[
-                            j
-                        ] += 1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+                        counters[j] += (
+                            1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+                        )
                 # Store the sum of the elemental factors at the current energy
                 re_factors[i] = sum_re
 
@@ -485,9 +482,9 @@ class asp_db_im(asp_db_abstract, asp_im):
                     sum_im += n * db_im_coefs  # Multiply by stoichiometry n
                     # Check if the next energy matches the currently used elemental energy, i.e. end of the valid interval.
                     if ASF_DATABASE[z]["E"][counters[j] + 1] == energy:
-                        counters[
-                            j
-                        ] += 1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+                        counters[j] += (
+                            1  # Increment counter[j] by 1 if the energy matches, to move to the next energy window
+                        )
                 # Store the sum of the imaginary coefficients at the current energy
                 im_coefs[i, :] = sum_im
 
@@ -555,7 +552,7 @@ class asp_db_complex(asp_complex):
                 asp_complex.__init__(self, re_db, im_db, **kwargs)
             else:
                 raise ValueError(
-                    f"Number of energies -1 ({len(energies)-1}) and coefs ({len(coefs)}) must match."
+                    f"Number of energies -1 ({len(energies) - 1}) and coefs ({len(coefs)}) must match."
                 )
         else:
             # Use asp_re and asp_im to generate the complex component
@@ -640,9 +637,9 @@ class asp_db_complex(asp_complex):
         energies2, data_im = asp_db_im.scale_data(
             data_e, data_im, stoichiometry, merge_domain, fix_distortions
         )
-        assert np.all(
-            energies == energies2
-        ), "Energies for real and imaginary components do not match after scaling."
+        assert np.all(energies == energies2), (
+            "Energies for real and imaginary components do not match after scaling."
+        )
         # Combine the data back into a complex array
         data_y = data_re + 1j * data_im
         # Return the scaled data
@@ -743,7 +740,7 @@ class asp_db_extended(asp):
                             md1_ub > md2_lb and md1_ub < md2_ub
                         ):
                             raise ValueError(
-                                f"Merge domains must not overlap. #{i} ({md1}) and #{j+i+1} ({md2}) overlap.)"
+                                f"Merge domains must not overlap. #{i} ({md1}) and #{j + i + 1} ({md2}) overlap.)"
                             )
 
             elif merge_domain is None:
@@ -756,7 +753,7 @@ class asp_db_extended(asp):
                             md1_ub > md2_lb and md1_ub < md2_ub
                         ):
                             raise ValueError(
-                                f"ASF data energy domains must not overlap. #{i} ({d1}) and #{j+i+1} ({d2}) overlap.)"
+                                f"ASF data energy domains must not overlap. #{i} ({d1}) and #{j + i + 1} ({d2}) overlap.)"
                             )
 
             else:
@@ -1104,7 +1101,7 @@ class asp_db_extended(asp):
         # Difference between the gradient data scaled to the database range, and the database values.
         return norm_grad_diff * db_range - db_y
 
-    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> "asp_db_extended":
+    def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Create a copy of the current object.
 
@@ -1124,13 +1121,19 @@ class asp_db_extended(asp):
             if hasattr(kwargs[key], "copy"):
                 kwargs[key] = kwargs[key].copy()
         # Create the copy
-        return asp_db_extended(
+        obj = self.__class__(
             data_asf=self.dataset_asf.copy(),
             database=self.database_asp.copy(),
             merge_domain=self.merge_domain,
             fix_distortions=self.fix_distortions,
             **kwargs,
         )
+        # Need to copy the energies and coefs to ensure exact match
+        # even though constructor should generate same data.
+        # These may have updated with extend/truncate operations.
+        obj._energies = self.energies.copy()
+        obj._coefs = self.coefs.copy()
+        return obj
 
 
 class asp_db_im_extended(asp_db_extended, asp_im):
@@ -1265,7 +1268,6 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
         fix_distortions: bool = False,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
-
         # Convert the database to an asp_db_complex object
         if isinstance(database, str):
             stoichiometry = kk_stoichiometry(database)

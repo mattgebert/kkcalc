@@ -4,8 +4,14 @@ Module to define classes and properties relating to the chemical composition of 
 Includes
 """
 
+# Stdlib
+from __future__ import (
+    annotations,
+)  # Required to allow union of string and class in type hints
 import re
+from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
 
+# External
 has_periodictable: bool
 """Flag to indicate if the periodictable module is available."""
 try:
@@ -17,9 +23,8 @@ try:
 except ImportError:
     has_periodictable = False
 
-import numpy as np, numpy.typing as npt
-from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
-from kkcalc.asf_database import ASF_DATABASE, ASFElement
+# Internal
+from kkcalc.asf_database import ASF_DATABASE, ASFElement  # noqa: E402
 
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
@@ -28,7 +33,6 @@ if TYPE_CHECKING:
     from kkcalc.models.common import (
         PROPERTIES_DICT,
     )
-
 
 # Generate a list of atomic elements. Should already be sorted from the periodictable module.
 ELEMENTS: list[tuple[str, int, float]]
@@ -236,12 +240,8 @@ class stoichiometry:
                     )  # Could possibly use fractions.Fraction here to display 1/3 etc.
                     # Check if the number is an integer and != 1.
                     if (element[1] * 10) % 10 != 0
-                    else (
-                        # Integer
-                        str(int(element[1]))
-                        if element[1] != 1
-                        else ""
-                    )
+                    # Integer
+                    else (str(int(element[1])) if element[1] != 1 else "")
                 )
                 for element in self._composition
             ]
@@ -584,7 +584,7 @@ class stoichiometry:
 
     @staticmethod
     def _consolidate_elements(
-        composition: list[tuple[int, float]]
+        composition: list[tuple[int, float]],
     ) -> list[tuple[int, float]]:
         """
         Consolidate a list of elements and quantities into a unique list of elements and quantities.
@@ -775,7 +775,7 @@ if __name__ == "__main__":
         )
         if c == 1:
             print(
-                f"Testing bracketed formula: {stoich.composition[0]} == {9*0.1 + 9*0.9}? {stoich.composition[0][1] == 9*0.1 + 9*0.9}"
+                f"Testing bracketed formula: {stoich.composition[0]} == {9 * 0.1 + 9 * 0.9}? {stoich.composition[0][1] == 9 * 0.1 + 9 * 0.9}"
             )
 
     import pandas as pd

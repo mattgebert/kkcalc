@@ -26,9 +26,7 @@ ASF_DATABASE: dict[int, ASFElement] = (
     load_asf_database()
 )  # spectral data, plus atomic masses
 
-# __all__ = [
-#     ASF_DATABASE,
-# ]
+__all__ = ["ASF_DATABASE", "ASFElement"]
 
 # Example usage
 if __name__ == "__main__":

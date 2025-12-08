@@ -2,13 +2,11 @@
 A class that extends the asf_viewer class to display the contrast of a material.
 """
 
-from kkcalc.gui.asf_viewer import asf_viewer, GraphType
+from kkcalc.gui.asf_viewer import asf_viewer
 from kkcalc.models import asf_complex, asp_complex, KK_Datatype
-from PyQt6 import QtWidgets, QtCore, QtGui
+from PyQt6 import QtWidgets
 from typing import override
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoLocator
 
 
 class contrast_viewer(asf_viewer):

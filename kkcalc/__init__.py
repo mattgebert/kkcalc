@@ -14,7 +14,7 @@ of Kramer-Kronig transforms. In particular, the module provides the following cl
 
 import importlib.metadata
 from kkcalc.stoich import stoichiometry
-from kkcalc import kk_transforms
+from kkcalc import transforms
 from kkcalc.models import (
     conversions,
     polynomials,
@@ -98,15 +98,30 @@ if "installed_packages" in locs:
 __version__ = importlib.metadata.version("kkcalc")
 
 # Traversable items
-__all__ = [
-    "stoichiometry",
-    "kk_transforms",
-    "conversions",
-    "polynomials",
-    "KK_Datatype",
-    "factors",
-    "PROPERTIES_DICT",
-    "PROPERTIES_DICT_NO_STOICH",
-    "models",
-    "__version__",
-]
+if "kk_gui" in locals():
+    __all__ = [
+        "stoichiometry",
+        "transforms",
+        "conversions",
+        "polynomials",
+        "KK_Datatype",
+        "factors",
+        "PROPERTIES_DICT",
+        "PROPERTIES_DICT_NO_STOICH",
+        "models",
+        "__version__",
+        "kk_gui",
+    ]
+else:
+    __all__ = [
+        "stoichiometry",
+        "transforms",
+        "conversions",
+        "polynomials",
+        "KK_Datatype",
+        "factors",
+        "PROPERTIES_DICT",
+        "PROPERTIES_DICT_NO_STOICH",
+        "models",
+        "__version__",
+    ]

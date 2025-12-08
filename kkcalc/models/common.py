@@ -6,7 +6,7 @@ import abc
 import warnings
 from kkcalc.stoich import stoichiometry as kk_stoichiometry, CompositionAlias
 from scipy.constants import N_A
-from typing import Literal, Self, TypedDict
+from typing import Self, TypedDict
 
 
 class PROPERTIES_DICT_NO_STOICH(TypedDict, total=False):

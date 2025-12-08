@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from typing import Any
 from kkcalc.models.factors import KK_Datatype, KK_DATATYPE_DOCS
-import matplotlib as mpl, matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar,
@@ -112,7 +112,6 @@ class factor_dtype_dialog(QtWidgets.QDialog):
 
 
 class import_data_dialog(QtWidgets.QDialog):
-
     DEFAULT_X_LABEL = "Energy (eV)"
     DEFAULT_Y_LABEL = "Amplitude (A.U.)"
 
@@ -597,21 +596,22 @@ class import_data_dialog(QtWidgets.QDialog):
         # Check all conditions are met:
         try:
             x_col = int(self.x_column_select.text())
-        except:
+        except ValueError:
             self.error_edit.setText("Invalid X Column selection")
             self.error_show()
             return
         try:
             y_col = int(self.y_column_select.text())
-        except:
+        except ValueError:
             self.error_edit.setText("Invalid Y Column selection")
             self.error_show()
             return
         try:
-            rows, cols = int(self.result_rows_edit.text()), int(
-                self.result_cols_edit.text()
+            _, cols = (
+                int(self.result_rows_edit.text()),
+                int(self.result_cols_edit.text()),
             )
-        except:
+        except ValueError:
             self.error_edit.setText("Data requires two dimensions, for X|Y columns.")
             self.error_show()
             return
@@ -697,7 +697,6 @@ class import_data_dialog(QtWidgets.QDialog):
 
 
 if __name__ == "__main__":
-
     import sys
 
     app = QtWidgets.QApplication(sys.argv)

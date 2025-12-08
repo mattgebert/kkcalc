@@ -6,7 +6,11 @@ of the `asp_db_extended` model to improve the accuracy of the Kramers-Kronig tra
 The dataset is the Polystryene Carbon K-Edge.
 """
 
-from kkcalc.models import *
+from kkcalc.models import (
+    asf_im,
+    asp_db_im,
+    asp_db_im_extended,
+)
 from kkcalc import stoichiometry
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,7 +62,6 @@ if __name__ == "__main__":
         ax = axs[j]
 
         for i in range(0, 5):
-
             # Perform the transfom with i improvement iterations
             PS_extended_real = asp_obj.kk_transform(
                 relativistic_correction=ps_stoich.relativistic_correction,
@@ -88,13 +91,13 @@ if __name__ == "__main__":
                     PS_extended_real.energies,
                     PS_extended_real.factors,
                     alpha=0.4,
-                    label=f"Real Unimproved",
+                    label="Real Unimproved",
                 )
                 ax[1].plot(
                     PS_extended_real.energies,
                     PS_imag_factors,
                     alpha=0.4,
-                    label=f"Imag Unimproved",
+                    label="Imag Unimproved",
                 )
 
             # Scatter plot the new points
@@ -117,14 +120,14 @@ if __name__ == "__main__":
             PS_extended_real.factors,
             alpha=0.4,
             c=l1.get_facecolor(),
-            label=f"Real Final",
+            label="Real Final",
         )
         ax[1].plot(
             PS_extended_real.energies,
             PS_imag_factors,
             alpha=0.4,
             c=l2.get_facecolor(),
-            label=f"Imag Final",
+            label="Imag Final",
         )
 
         # Set x-axis limits to the K-Edge
@@ -137,7 +140,7 @@ if __name__ == "__main__":
         ax[1].legend()
 
     fig.suptitle(
-        f"Polystyrene Carbon K-Edge, Extended Database vs Raw Data KK Transforms"
+        "Polystyrene Carbon K-Edge, Extended Database vs Raw Data KK Transforms"
     )
     axs[0][0].set_title("Extended Transform")
     axs[0][1].set_title("Extended Imag")

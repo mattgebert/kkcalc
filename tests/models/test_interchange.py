@@ -6,14 +6,15 @@ I.e. Between `asf` and `asp` objects.
 
 import numpy as np
 import pytest
-import warnings
+
+# import warnings
 from kkcalc.models import (
     asp_db_im,
     asp_db_re,
-    asp_db_im_extended,
-    asp_db_re_extended,
+    # asp_db_im_extended,
+    # asp_db_re_extended,
     asp_db_complex,
-    asp_db_complex_extended,
+    # asp_db_complex_extended,
 )
 
 from ..test_stoich import basic_stoichs as bs
@@ -47,12 +48,12 @@ class TestDbAspToAsf:
         # Convert to asf
         asf = poly.to_asf()
         # Check the asf object
-        assert np.isclose(
-            asf.density, density, rtol=1e-5
-        ), "The density should match the input density."
-        assert (
-            asf.stoichiometry == stoich
-        ), "The stoichiometry should match the input stoichiometry."
+        assert np.isclose(asf.density, density, rtol=1e-5), (
+            "The density should match the input density."
+        )
+        assert asf.stoichiometry == stoich, (
+            "The stoichiometry should match the input stoichiometry."
+        )
         if isinstance(poly, (asp_db_im, asp_db_complex)):
             assert asf.betas is not None, "The asf object should have betas defined."
         if isinstance(poly, (asp_db_re, asp_db_complex)):
