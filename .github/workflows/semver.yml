@@ -86,6 +86,7 @@ jobs:
           echo "PR GitHub Base Ref (PR Destination): ${{ github.base_ref }}"
           echo "PR GitHub Head Ref (PR Source): ${{ github.head_ref }}"
           echo "PR Source URL: ${{ github.event.pull_request.head.repo.html_url }}"
+          echo "Workflow event: ${{ github.event_name}}"
 
       # Note: We checkout the repository at the branch that triggered the workflow
       # with the entire history to ensure to match PSR's release branch detection
@@ -105,15 +106,6 @@ jobs:
           # Need to checkout a branch, so that semver can appropriately do the release.
           # Using the base_ref for pull requests, and ref for pushes/dispatches.
           ref: ${{ ( github.event_name == 'pull_request' && github.base_ref) || github.ref }}
-
-          # ref: ${{ github.sha}} # Should this be github.head_ref || github.ref_name ?
-          # ref: ${{ github.sha }}
-          # ref: ${{ github.head_ref || github.sha || github.ref_name }}
-          # repository: ${{ github.repository }}
-
-        # with:
-          # ref: ${{ github.head_ref || github.ref }}
-          # fetch-depth: 0
 
       # REMOVED: As cannot run permissions conditionally.
       # Because a checked out PR has a detached HEAD, we need to merge the PR changes
@@ -139,12 +131,18 @@ jobs:
         # Add an extra fetch step to make sure we have all history for semantic-release to evaluate.
         # This was an error with the SHA: f80e68723d6de2358700ed773f3ba9073723bdb8 which was a revert.
 
-
+      - name: Log | Report the conditionals for GUI tracing
+        shell: bash
+        run: |
+          echo "GUI Input Event: ${{ github.event.inputs.gui || 'not set' }}"
+          echo "GUI Environment Variable: ${{ github.event.inputs.gui || 'not set' }}"
+          echo "Event Name: ${{ github.event_name }}"
+          echo "Artifacts Input: ${{ github.event.inputs.gui-artifacts || 'not set' }}"
 
       # Either get or generate the GUI artifacts if requested
       - name: Action | Download GUI Artifacts
         id: gui-download
-        if: ${{ github.event == 'workflow_call' && github.event.inputs.gui-artifacts != '' }}
+        if: ${{ github.event_name != 'workflow_dispatch' && github.event.inputs.gui-artifacts != '' }}
         uses: actions/download-artifact@v5
         with:
           name: ${{ github.event.inputs.gui-artifacts }}
@@ -152,7 +150,7 @@ jobs:
       # Note, this should generate the GUI artifacts in dist/gui/Windows
       - name: Action | PyIntaller GUI Build
         id: gui-build
-        if: ${{ github.event == 'workflow_dispatch' && env.gui == 'true' }}
+        if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name != 'workflow_dispatch' && github.event.inputs.gui-artifacts == '')) && github.event.inputs.gui == 'true' }}
         uses: ./.github/workflows/pyinst.yml
         with:
           os: 'Windows'
@@ -161,26 +159,34 @@ jobs:
       - name: Verify | GUI Artifacts Exist
         run: |
           if [ ! -d "./dist" ]; then
-            echo "Error: GUI artifacts directory './dist' does not exist."
-            exit ${{ env.gui == 'true' && 1 || 0 }}
+            echo "Error: GUI artifacts directory './dist' does not exist. Creating empty directory for checks."
+            mkdir -p ./dist/gui
+            exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+          else
+            if [ -z "$(ls -A ./dist)" ]; then
+              echo "Error: GUI artifacts directory './dist' is empty. Creating empty directory for checks."
+              mkdir -p ./dist/gui
+              exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+            else
+              echo "Distribution folders:"
+              ls -la ./dist
+              if [ ! -d "./dist/gui" ]; then
+                echo "Error: GUI artifacts directory './dist/gui' does not exist. Creating empty directory for checks."
+                mkdir -p ./dist/gui
+                exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+
+              else
+                if [ -z "$(ls -A ./dist/gui)" ]; then
+                  echo "Error: GUI artifacts directory './dist/gui' is empty."
+                  exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+                else
+                  echo "GUI artifacts found:"
+                  ls -la ./dist/gui
+                  echo "GUI artifacts verified in './dist/gui'."
+                fi
+              fi
+            fi
           fi
-          if [ -z "$(ls -A ./dist)" ]; then
-            echo "Error: GUI artifacts directory './dist' is empty."
-            exit ${{ env.gui == 'true' && 1 || 0 }}
-          fi
-          echo "Distribution folders:"
-          ls -la ./dist
-          if [ ! -d "./dist/gui" ]; then
-            echo "Error: GUI artifacts directory './dist/gui' does not exist."
-            exit ${{ env.gui == 'true' && 1 || 0 }}
-          fi
-          if [ -z "$(ls -A ./dist/gui)" ]; then
-            echo "Error: GUI artifacts directory './dist/gui' is empty."
-            exit ${{ env.gui == 'true' && 1 || 0 }}
-          fi
-          echo "GUI artifacts found:"
-          ls -la ./dist/gui
-          echo "GUI artifacts verified in './dist/gui'."
 
       - name: Action | Semantic Version Release
         id: release
@@ -192,8 +198,8 @@ jobs:
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
           build: true
-          prerelease: ${{ env.prerelease == 'true' }}
-          prerelease_token: ${{ env.prerelease_token }}
+          prerelease: ${{ (env.prerelease || 'true') == 'true' }}
+          prerelease_token: ${{ env.prerelease_token || 'beta' }}
           changelog: true
           verbosity: 2
           # Do not actually perform any release actions if:

@@ -20,9 +20,11 @@ jobs:
         include:
             - os: Windows
               python-version: "3.13" # replace with latest supported on Windows
+              if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
             # sphinx-version: "sphinx" # version shouldn't really matter here
             - os: macOS
               python-version: "3.13" # replace with latest supported on macOS
+              if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
     defaults:
       run:
         shell: bash -eo pipefail {0} # Fail on any error (-e), fail on any failed command in a pipeline.
