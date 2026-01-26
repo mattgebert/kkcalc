@@ -80,7 +80,7 @@ dev = [
 gui = [
     "PyQt6~=6.10", # For GUI
     "matplotlib~=3.10", # For plotting
-    "pandas~=2.3", # For loading data files
+    "pandas~=3.0", # For loading data files
 ]
 
 docs = [
