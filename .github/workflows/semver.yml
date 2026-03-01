@@ -8,13 +8,18 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
+      noop:
+        description: 'No operation mode to observe python-semantic-release output.'
+        required: false
+        type: boolean
+        default: false
       prerelease:
         description: 'Run as a prerelease?'
         required: true
         type: boolean
-        default: true
+        default: false
       prerelease_token:
         description: 'Token for prerelease'
         required: false
@@ -24,26 +29,13 @@ on:
           - beta
           - rc
         default: 'beta'
-      gui:
-        description: 'Generate GUI Executable?'
-        required: true
-        default: true
-        type: boolean
-
-  workflow_call:
-    inputs:
       gui-artifacts:
         description: 'Name of GUI Artifacts from PyInstaller Build'
         required: false
         type: string
-      gui:
-        description: 'Generate GUI Executable?'
-        required: true
-        default: true
-        type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   semver-release:
@@ -61,32 +53,13 @@ jobs:
     steps:
       - name: Use workflow inputs for pre-release
         shell: bash
-        if: ${{ github.event == 'workflow_dispatch' }}
         run: |
           echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_ENV
           echo "prerelease_token=${{ github.event.inputs.prerelease_token }}" >> $GITHUB_ENV
-      - name: Set default value for pre-release
-        shell: bash
-        if: ${{ github.event != 'workflow_dispatch' }}
-        run: |
-          echo "prerelease=true" >> $GITHUB_ENV
-          echo "prerelease_token=beta" >> $GITHUB_ENV
       - name: Display pre-release input
         shell: bash
         run: |
           echo "Python SemVer pre-release?: $prerelease"
-
-      - name: Display Ref Info
-        shell: bash
-        run: |
-          echo "GitHub Ref: ${{ github.ref }}"
-          echo "GitHub Ref Name: ${{ github.ref_name }}"
-          echo "GitHub Commit SHA: ${{ github.sha }}"
-          echo "GitHub Event Name: ${{ github.event_name }}"
-          echo "PR GitHub Base Ref (PR Destination): ${{ github.base_ref }}"
-          echo "PR GitHub Head Ref (PR Source): ${{ github.head_ref }}"
-          echo "PR Source URL: ${{ github.event.pull_request.head.repo.html_url }}"
-          echo "Workflow event: ${{ github.event_name}}"
 
       # Note: We checkout the repository at the branch that triggered the workflow
       # with the entire history to ensure to match PSR's release branch detection
@@ -116,44 +89,75 @@ jobs:
       #     echo "Ensuring GITHUB_TOKEN cannot write to repository"
       #     GIT_TERMINAL_PROMPT=0 git push --dry-run &>/dev/null
 
-      - name: Setup | Merge PR to Target on PR Event
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          git remote -vv
-          git remote add origin-pr "${{ github.event.pull_request.head.repo.html_url }}"
-          git fetch origin-pr
-          git merge ${{ github.event.pull_request.head.sha }} --no-edit
+      # - name: Setup | Merge PR to Target on PR Event
+      #   if: ${{ github.event_name == 'pull_request' }}
+      #   run: |
+      #     git remote -vv
+      #     git remote add origin-pr "${{ github.event.pull_request.head.repo.html_url }}"
+      #     git fetch origin-pr
+      #     git merge ${{ github.event.pull_request.head.sha }} --no-edit
 
-      - name: Setup | Force release branch to be at workflow sha
-        if : ${{ github.event_name != 'pull_request' }}
-        run: |
-          git reset --hard ${{ github.sha }}
-        # Add an extra fetch step to make sure we have all history for semantic-release to evaluate.
-        # This was an error with the SHA: f80e68723d6de2358700ed773f3ba9073723bdb8 which was a revert.
+      # - name: Setup | Force release branch to be at workflow sha
+      #   if : ${{ github.event_name != 'pull_request' }}
+      #   run: |
+      #     git reset --hard ${{ github.sha }}
+      #   # Add an extra fetch step to make sure we have all history for semantic-release to evaluate.
+      #   # This was an error with the SHA: f80e68723d6de2358700ed773f3ba9073723bdb8 which was a revert.
 
       - name: Log | Report the conditionals for GUI tracing
         shell: bash
         run: |
-          echo "GUI Input Event: ${{ github.event.inputs.gui || 'not set' }}"
-          echo "GUI Environment Variable: ${{ github.event.inputs.gui || 'not set' }}"
           echo "Event Name: ${{ github.event_name }}"
           echo "Artifacts Input: ${{ github.event.inputs.gui-artifacts || 'not set' }}"
 
-      # Either get or generate the GUI artifacts if requested
-      - name: Action | Download GUI Artifacts
-        id: gui-download
-        if: ${{ github.event_name != 'workflow_dispatch' && github.event.inputs.gui-artifacts != '' }}
-        uses: actions/download-artifact@v5
-        with:
-          name: ${{ github.event.inputs.gui-artifacts }}
-          path: dist/gui/${{ github.event.inputs.gui-artifacts }}
-      # Note, this should generate the GUI artifacts in dist/gui/Windows
-      - name: Action | PyIntaller GUI Build
-        id: gui-build
-        if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name != 'workflow_dispatch' && github.event.inputs.gui-artifacts == '')) && github.event.inputs.gui == 'true' }}
-        uses: ./.github/workflows/pyinst.yml
-        with:
-          os: 'Windows'
+      - name: Separate GUI Artifacts
+        # Splits Windows and MacOS GUI artifact names.
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.gui-artifacts }}" ]; then
+            IFS=',' read -ra ARTIFACTS <<< "${{ github.event.inputs.gui-artifacts }}"
+            for i in "${!ARTIFACTS[@]}"; do
+              echo "ARTIFACT_$i=${ARTIFACTS[$i]}" >> $GITHUB_ENV
+              echo "ARTIFACT_$i=${ARTIFACTS[$i]}"
+            done
+          else
+            echo "No GUI artifacts provided."
+          fi
+
+      # Download each artifact separately
+      - name: Download GUI Artifacts
+        shell: bash
+        run: |
+          if [ -n "${ARTIFACT_0}" ]; then
+            echo "Downloading artifact: ${ARTIFACT_0}"
+            gh release download "${ARTIFACT_0}" --repo "${{ github.repository }}" --dir "./dist/gui" || echo "Failed to download ${ARTIFACT_0}"
+          else
+            echo "No Windows GUI artifact to download."
+          fi
+
+          if [ -n "${ARTIFACT_1}" ]; then
+            echo "Downloading artifact: ${ARTIFACT_1}"
+            gh release download "${ARTIFACT_1}" --repo "${{ github.repository }}" --dir "./dist/gui" || echo "Failed to download ${ARTIFACT_1}"
+          else
+            echo "No MacOS GUI artifact to download."
+          fi
+
+      # # Either get or generate the GUI artifacts if requested
+      # - name: Action | Download GUI Artifacts
+      #   id: gui-download
+      #   if: ${{ github.event.inputs.gui-artifacts != '' }}
+      #   uses: actions/download-artifact@v5
+      #   with:
+      #     name: ${{ github.event.inputs.gui-artifacts }}
+      #     path: dist/gui/${{ github.event.inputs.gui-artifacts }}
+
+      # # Note, this should generate the GUI artifacts in dist/gui/Windows
+      # - name: Action | PyIntaller GUI Build
+      #   id: gui-build
+      #   if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name != 'workflow_dispatch' && github.event.inputs.gui-artifacts == '')) && github.event.inputs.gui == 'true' }}
+      #   uses: ./.github/workflows/pyinst.yml
+      #   with:
+      #     os: 'Windows'
 
       # Check the GUI artifacts were generated, and list the files in the directory
       - name: Verify | GUI Artifacts Exist
@@ -161,24 +165,24 @@ jobs:
           if [ ! -d "./dist" ]; then
             echo "Error: GUI artifacts directory './dist' does not exist. Creating empty directory for checks."
             mkdir -p ./dist/gui
-            exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+            exit ${{ 1 || 0 }}
           else
             if [ -z "$(ls -A ./dist)" ]; then
               echo "Error: GUI artifacts directory './dist' is empty. Creating empty directory for checks."
               mkdir -p ./dist/gui
-              exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+              exit ${{ 1 || 0 }}
             else
               echo "Distribution folders:"
               ls -la ./dist
               if [ ! -d "./dist/gui" ]; then
                 echo "Error: GUI artifacts directory './dist/gui' does not exist. Creating empty directory for checks."
                 mkdir -p ./dist/gui
-                exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+                exit ${{ 1 || 0 }}
 
               else
                 if [ -z "$(ls -A ./dist/gui)" ]; then
                   echo "Error: GUI artifacts directory './dist/gui' is empty."
-                  exit ${{ github.event.inputs.gui == 'true' && 1 || 0 }}
+                  exit ${{ 1 || 0 }}
                 else
                   echo "GUI artifacts found:"
                   ls -la ./dist/gui
@@ -198,14 +202,16 @@ jobs:
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
           build: true
-          prerelease: ${{ (env.prerelease || 'true') == 'true' }}
+          prerelease: ${{ (env.prerelease || 'false') == 'true' }}
           prerelease_token: ${{ env.prerelease_token || 'beta' }}
           changelog: true
+          commit: ${{ env.noop != 'true' }}
           verbosity: 2
           # Do not actually perform any release actions if:
           # 1. Not the main repository owner
           # 2. This is a pull request event - the release should only occur on push to main/release branches
-          no_operation_mode: ${{ (github.repository_owner != 'xraysoftmat' && github.repository_owner != 'benajamin') || github.event_name == 'pull_request' }}
+          # no_operation_mode: ${{ (github.repository_owner != 'xraysoftmat' && github.repository_owner != 'benajamin') || github.event_name == 'pull_request' }}
+          no_operation_mode: ${{ env.noop || 'false' }}
 
       - name: Env | Check if released and log conditionals
         id: is_released
@@ -228,14 +234,25 @@ jobs:
           echo "Release Prerelease: ${{ env.prerelease }}"
 
       - name: Publish | Upload to GitHub Release Assets
-        uses: python-semantic-release/publish-action@v10.2.0
+        uses: python-semantic-release/publish-action@v10.5.3
         if: |
           success() && steps.is_released.outputs.released == 'true'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.release.outputs.tag }}
+          no_operation_mode: ${{ env.noop || 'false' }}
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.5.3
+        if: |
+          success() && steps.is_released.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.release.outputs.tag }}
+          no_operation_mode: ${{ env.noop || 'false' }}
 
       - name: Upload | Distribution Artifacts
+        # For use in deploying to pypi
         uses: actions/upload-artifact@v4
         if: |
           success() &&
@@ -246,13 +263,6 @@ jobs:
           overwrite: true
           if-no-files-found: error
 
-      - name: Publish | Upload to GitHub Release Assets
-        uses: python-semantic-release/publish-action@v10.2.0
-        if: |
-          success() && steps.is_released.outputs.released == 'true'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.release.outputs.tag }}
 
   pypi-deploy-kkcalc:
     # 1. Separate out the deploy step from the publish step to run each step at
