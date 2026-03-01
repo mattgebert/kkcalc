@@ -20,9 +20,11 @@ jobs:
         include:
             - os: Windows
               python-version: "3.13" # replace with latest supported on Windows
+              if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
             # sphinx-version: "sphinx" # version shouldn't really matter here
             - os: macOS
               python-version: "3.13" # replace with latest supported on macOS
+              if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
     defaults:
       run:
         shell: bash -eo pipefail {0} # Fail on any error (-e), fail on any failed command in a pipeline.
@@ -37,7 +39,7 @@ jobs:
       - name: Setup environment
         run: |
           python -m pip install --upgrade pip wheel setuptools
-          python -m pip install coveralls
+          python -m pip install coverage
           python -m pip list
         #   python -m pip install ${{ matrix.sphinx-version }}
 
@@ -53,6 +55,13 @@ jobs:
       - name: Test coverage
         run: |
           coverage run --source=kkcalc -m pytest tests/
-          coveralls
+          coverage xml  # generates coverage.xml for Coveralls
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          format: cobertura
+          file: coverage.xml
+          github-token: ${{ secrets.GITHUB_TOKEN }}

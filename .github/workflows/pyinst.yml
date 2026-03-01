@@ -89,6 +89,12 @@ jobs:
       run: |
         pyinstaller .github/kkcalc-gui.spec -- -n "${{ env.BUILD_NAME }}"
 
+    - name : List built executable files
+      shell: bash
+      run: |
+        echo "Listing contents of dist directory:"
+        ls -la dist/
+
     # Conditionally upload artifacts based on OS
     # Only using windows at the moment!
     - name: Cache Windows Executable Artifacts
@@ -98,7 +104,13 @@ jobs:
         name: ${{ env.BUILD_NAME }}
         path: dist/${{ env.BUILD_NAME }}.exe
         overwrite: true
-        retention-days: 30
+        retention-days: 7
+
+    - name: Update Windows Executable Artifact Name Output
+    # This is needed to provide the correct file name (with .exe extension)
+    # to the semantic versioning workflow, which will attach the artifact to the release.
+      if: inputs.os == 'Windows'
+      run: echo "NAME=${{ env.BUILD_NAME }}.exe" >> $GITHUB_OUTPUT
 
     - name: Cache MacOS Executable Artifacts
       if: inputs.os == 'MacOS'
@@ -107,7 +119,7 @@ jobs:
         name: ${{ env.BUILD_NAME }}
         path: dist/${{ env.BUILD_NAME }}
         overwrite: true
-        retention-days: 30
+        retention-days: 7
 
     - name: Cache Linux Executable Artifacts
       if: inputs.os == 'Ubuntu'
@@ -116,4 +128,4 @@ jobs:
         name: ${{ env.BUILD_NAME }}
         path: dist/${{ env.BUILD_NAME }}
         overwrite: true
-        retention-days: 30
+        retention-days: 7

@@ -6,15 +6,11 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-  pull_request:
-    branches:
-      - main
   workflow_call:
   workflow_dispatch:
 
 jobs:
-  build:
+  lint:
     runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
@@ -23,8 +19,10 @@ jobs:
         include:
           - os: Windows
             python-version: "3.13"
+            if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
           - os: macOS
             python-version: "3.13"
+            if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
