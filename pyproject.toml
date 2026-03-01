@@ -25,7 +25,7 @@ maintainers = [
 # Project compatibility:
 requires-python = ">=3.12"
 dependencies = [
-    "numpy~=2.3.4", # Basic array and matrix operations
+    "numpy~=2.4.0", # Basic array and matrix operations
     "scipy~=1.16.2", # Used for constants, interpolation and fitting.
 ]
 optional-dependencies.gui = [
