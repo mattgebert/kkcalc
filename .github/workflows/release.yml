@@ -104,7 +104,7 @@ jobs:
     with:
       # Build a GUI when pushed to the 'main' branch, or when manually triggered with GUI option enabled.
       gui: ${{ ((github.event == 'workflow_dispatch') && inputs.gui) }}
-      gui-artefacts: "${{ needs.pyinstaller-build-windows.outputs.NAME }},${{ needs.pyinstaller-build-macos.outputs.NAME }}"
+      gui-artifacts: "${{ needs.pyinstaller-build-windows.outputs.NAME }},${{ needs.pyinstaller-build-macos.outputs.NAME }}"
       noop: ${{ inputs.noop }}
       prerelease: ${{ inputs.prerelease }}
       prerelease_token: ${{ inputs.prerelease_token }}
