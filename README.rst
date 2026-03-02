@@ -6,7 +6,9 @@
 
 |tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
 
-|PyPI Version| |PyPI Version2| |PyTest| |Coveralls| |Pre-commit| |Linting| |Documentation| |readthedocs|
+|PyPI Version| |PyPI Version2| |readthedocs| |Coveralls| |Pre-commit|
+
+|PyTest| |Linting| |Documentation| 
 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
@@ -23,7 +25,7 @@
 .. |Documentation| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/docs.yml/badge.svg
     :alt: Documentation
     :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/docs.yml
-.. |Coveralls| image:: https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2
+.. |Coveralls| image:: https://img.shields.io/coverallsCoverage/github/xraysoftmat/kkcalc?branch=v2&label=Coveralls
     :alt: Coverage Status
     :target: https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2
 .. |Pre-commit| image:: https://results.pre-commit.ci/badge/github/xraysoftmat/kkcalc/v2.svg
