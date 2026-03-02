@@ -4,9 +4,9 @@
 
 ``kkcalc`` is a comprehensive toolkit for calculating Kramers Kronig transforms of X-ray absorption/dispersion data, and is built to the feature-rich standards of `xraysoftmat <https://github.com/xraysoftmat>`_.
 
-|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc| |tool-readthedocs|
+|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
 
-|PyPI Version| |PyPI Version2| |PyTest| |Coveralls| |Pre-commit| |Linting|
+|PyPI Version| |PyPI Version2| |PyTest| |Coveralls| |Pre-commit| |Linting| |Documentation| |readthedocs|
 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
@@ -20,12 +20,18 @@
 .. |Linting| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/linting.yml/badge.svg
     :alt: Linting
     :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/linting.yml
+.. |Documentation| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/docs.yml/badge.svg
+    :alt: Documentation
+    :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/docs.yml
 .. |Coveralls| image:: https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2
     :alt: Coverage Status
     :target: https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2
 .. |Pre-commit| image:: https://results.pre-commit.ci/badge/github/xraysoftmat/kkcalc/v2.svg
     :alt: pre-commit.ci status
     :target: https://results.pre-commit.ci/latest/github/xraysoftmat/KKCalc/v2
+.. |readthedocs| image:: https://img.shields.io/readthedocs/kkcalc?version=latest&style=flat&label=ReadtheDocs
+    :alt: Documentation
+    :target: https://kkcalc.readthedocs.io/
 
 .. |tool-semver| image:: https://img.shields.io/badge/versioning-Python%20SemVer-blue.svg
     :alt: Python SemVer
@@ -39,9 +45,6 @@
 .. |tool-numpydoc| image:: https://img.shields.io/badge/doc_style-numpydoc-blue.svg
     :alt: Code doc: numpydoc
     :target: https://github.com/numpy/numpydoc
-.. |tool-readthedocs| image:: https://img.shields.io/readthedocs/kkcalc?version=latest&style=flat&label=ReadtheDocs
-    :alt: Documentation
-    :target: https://kkcalc.readthedocs.io/
 
 Introduction
 ############
