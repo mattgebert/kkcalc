@@ -6,23 +6,34 @@
 
 |tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
 
-|PyPI Version| |PyPI Version2| |PyTest| |Coveralls| |Pre-commit|
+|PyPI Version| |PyPI Version2| |readthedocs| |Coveralls| |Pre-commit|
+
+|PyTest| |Linting| |Documentation|
 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
    :alt: pypi
-.. |PyPI Version2| image:: https://img.shields.io/pypi/v/kkcalc2?label=KKCalc%20v2&logo=pypi
+.. |PyPI Version2| image:: https://img.shields.io/pypi/v/kkcalc2?label=KKCalc2&logo=pypi
     :target: https://pypi.org/project/kkcalc2/
     :alt: pypi
-.. |PyTest| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml/badge.svg
+.. |PyTest| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/tests.yml/badge.svg
     :alt: PyTest
     :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml
-.. |Coveralls| image:: https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2
+.. |Linting| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/linting.yml/badge.svg
+    :alt: Linting
+    :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/linting.yml
+.. |Documentation| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/docs.yml/badge.svg
+    :alt: Documentation
+    :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/docs.yml
+.. |Coveralls| image:: https://img.shields.io/coverallsCoverage/github/xraysoftmat/kkcalc?branch=v2&label=Coveralls
     :alt: Coverage Status
     :target: https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2
 .. |Pre-commit| image:: https://results.pre-commit.ci/badge/github/xraysoftmat/kkcalc/v2.svg
     :alt: pre-commit.ci status
     :target: https://results.pre-commit.ci/latest/github/xraysoftmat/KKCalc/v2
+.. |readthedocs| image:: https://img.shields.io/readthedocs/kkcalc?version=latest&style=flat&label=ReadtheDocs
+    :alt: Documentation
+    :target: https://kkcalc.readthedocs.io/
 
 .. |tool-semver| image:: https://img.shields.io/badge/versioning-Python%20SemVer-blue.svg
     :alt: Python SemVer
