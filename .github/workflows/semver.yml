@@ -22,13 +22,8 @@ on:
         default: false
       prerelease_token:
         description: 'Token for prerelease'
+        type: string
         required: false
-        type: choice
-        options:
-          - alpha
-          - beta
-          - rc
-        default: 'beta'
       gui-artifacts:
         description: 'Name of GUI Artifacts from PyInstaller Build'
         required: false
