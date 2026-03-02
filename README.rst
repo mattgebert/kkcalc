@@ -8,7 +8,7 @@
 
 |PyPI Version| |PyPI Version2| |readthedocs| |Coveralls| |Pre-commit|
 
-|PyTest| |Linting| |Documentation| 
+|PyTest| |Linting| |Documentation|
 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
