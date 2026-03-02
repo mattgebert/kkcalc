@@ -4,19 +4,22 @@
 
 ``kkcalc`` is a comprehensive toolkit for calculating Kramers Kronig transforms of X-ray absorption/dispersion data, and is built to the feature-rich standards of `xraysoftmat <https://github.com/xraysoftmat>`_.
 
-|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
+|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc| |tool-readthedocs|
 
-|PyPI Version| |PyPI Version2| |PyTest| |Coveralls| |Pre-commit|
+|PyPI Version| |PyPI Version2| |PyTest| |Coveralls| |Pre-commit| |Linting|
 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
    :alt: pypi
-.. |PyPI Version2| image:: https://img.shields.io/pypi/v/kkcalc2?label=KKCalc%20v2&logo=pypi
+.. |PyPI Version2| image:: https://img.shields.io/pypi/v/kkcalc2?label=KKCalc2&logo=pypi
     :target: https://pypi.org/project/kkcalc2/
     :alt: pypi
-.. |PyTest| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml/badge.svg
+.. |PyTest| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/tests.yml/badge.svg
     :alt: PyTest
     :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/test.yml
+.. |Linting| image:: https://github.com/xraysoftmat/kkcalc/actions/workflows/linting.yml/badge.svg
+    :alt: Linting
+    :target: https://github.com/xraysoftmat/kkcalc/actions/workflows/linting.yml
 .. |Coveralls| image:: https://coveralls.io/repos/github/xraysoftmat/kkcalc/badge.svg?branch=v2
     :alt: Coverage Status
     :target: https://coveralls.io/github/xraysoftmat/kkcalc?branch=v2
@@ -36,6 +39,9 @@
 .. |tool-numpydoc| image:: https://img.shields.io/badge/doc_style-numpydoc-blue.svg
     :alt: Code doc: numpydoc
     :target: https://github.com/numpy/numpydoc
+.. |tool-readthedocs| image:: https://img.shields.io/readthedocs/kkcalc?version=latest&style=flat&label=ReadtheDocs
+    :alt: Documentation
+    :target: https://kkcalc.readthedocs.io/
 
 Introduction
 ############
