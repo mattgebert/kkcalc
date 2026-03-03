@@ -7,6 +7,12 @@ CHANGELOG
 ..
     version list
 
+.. _changelog-v0.1.0:
+
+v0.1.0 (2026-03-03)
+===================
+
+
 .. _changelog-v0.1.0-beta.1:
 
 v0.1.0-beta.1 (2025-12-22)
