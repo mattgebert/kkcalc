@@ -17,14 +17,14 @@ on:
         type: boolean
       noop:
         description: 'No operation mode to observe python-semantic-release output.'
-        required: false
+        required: true
         type: boolean
-        default: false
+        default: true
       prerelease:
         description: 'Run as a prerelease?'
         required: true
         type: boolean
-        default: true
+        default: false
       prerelease_token:
         description: 'Token for prerelease'
         required: false
@@ -33,20 +33,21 @@ on:
           - alpha
           - beta
           - rc
-        default: 'beta'
+          - ''
+        default: ''
+      force_release_type:
+        description: 'Force a specific release type (major, minor, patch) instead of relying on commit messages.'
+        required: false
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+          - prerelease
+          - ''
+        default: ''
 
 jobs:
-  display_inputs:
-    name: Display Workflow Inputs
-    runs-on: ubuntu-latest
-    steps:
-      - name: Display inputs for debugging
-        run: |
-          echo "GUI Executable: ${{ inputs.gui }}"
-          echo "No-op Mode: ${{ inputs.noop }}"
-          echo "Prerelease: ${{ inputs.prerelease }}"
-          echo "Prerelease Token: ${{ inputs.prerelease_token }}"
-
   # # Check if we are on the 'main' branch or release branches:
   # branch_check:
   #   name: Branch Check 🔍
@@ -65,6 +66,18 @@ jobs:
   #           echo "Branch is_main: false"
   #         fi
 
+  display-details:
+    name: Log | Display Workflow Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log Inputs
+        run: |
+          echo "GUI Executable: ${{ inputs.gui }}"
+          echo "No-op Mode: ${{ inputs.noop }}"
+          echo "Prerelease: ${{ inputs.prerelease }}"
+          echo "Prerelease Token: ${{ inputs.prerelease_token || 'not set' }}"
+          echo "Force Release Type: ${{ inputs.force_release_type || 'not set' }}"
+
   linting:
     name: Linting 📜 (NumpyDoc, Ruff & Black)
     uses: ./.github/workflows/linting.yml
@@ -73,84 +86,191 @@ jobs:
     name: Tests 🔧 (PyTest, Coveralls)
     uses: ./.github/workflows/tests.yml
 
-  docs:
-    name: Documentation 🔎 (Sphinx and PyData)
-    uses: ./.github/workflows/docs.yml
+  # # # TODO: Can add other OS builds here as needed...
+  # pyinstaller-builds:
+  #   if : ${{ always() && inputs.gui }}
+  #   name: kkcalc GUI 💻 (PyInstaller Builds)
+  #   needs: [testing]
+  #   strategy:
+  #     matrix:
+  #       os: [Windows, MacOS]
+  #   runs-on: ${{ matrix.os }}-latest
 
-  display-conditional:
-    name: Display Conditional Logic for GUI Build
-    needs: [linting, testing, docs]
+  # Use Python Semantic Versioning to create a new version, then create GUIs, then create a proper release.
+  py-sem-rel-version:
+    name: PSR 🐍 Version
     runs-on: ubuntu-latest
-    steps:
-      - name: Display whether GUI build will run
-        run: |
-          if [ "${{ inputs.gui }}" = "true" ]; then
-            echo "GUI build will run."
-          else
-            echo "GUI build will be skipped."
-          fi
-
-  # # TODO: Can add other OS builds here as needed...
-  pyinstaller-build-windows:
-    if: ${{ inputs.gui == 'true' }}
-    name: kkcalc Windows GUI 💻 (PyInstaller Build)
-    uses: ./.github/workflows/pyinst.yml
-    needs: [testing]
-    with:
-      os: 'Windows'
-
-  pyinstaller-build-macos:
-    if: ${{ inputs.gui == 'true' }}
-    name: kkcalc MacOS GUI 💻 (PyInstaller Build)
-    uses: ./.github/workflows/pyinst.yml
-    needs: [testing]
-    with:
-      os: 'MacOS'
-
-  generate-gui-artifacts-var:
-    name: Generate GUI Artifacts Variable
-    needs: [pyinstaller-build-windows, pyinstaller-build-macos]
-    runs-on: ubuntu-latest
-    outputs:
-      gui_artifacts: ${{ steps.set_gui_artifacts.outputs.gui_artifacts }}
-    steps:
-      # Conditionally add each completed OS with a comma separator.
-      - id: set_gui_artifacts
-        run: |
-          GUI_ARTIFACTS=""
-          if [[ "${{ needs.pyinstaller-build-windows.result }}" == "success" ]]; then
-            GUI_ARTIFACTS="${{ needs.pyinstaller-build-windows.outputs.NAME }}"
-          fi
-          if [[ "${{ needs.pyinstaller-build-macos.result }}" == "success" ]]; then
-            if [[ -n "$GUI_ARTIFACTS" ]]; then
-              GUI_ARTIFACTS="$GUI_ARTIFACTS,${{ needs.pyinstaller-build-macos.outputs.NAME }}"
-            else
-              GUI_ARTIFACTS="${{ needs.pyinstaller-build-macos.outputs.NAME }}"
-            fi
-          fi
-          echo "GUI_ARTIFACTS=$GUI_ARTIFACTS" >> $GITHUB_OUTPUT
-          echo "Generated GUI_ARTIFACTS variable: $GUI_ARTIFACTS"
-
-  # pyinstaller-build-ubuntu:
-  #   if: ${{ inputs.gui == 'true' }}
-  #   name: kkcalc GUI 💻 (PyInstaller Executable Build)
-  #   uses: ./.github/workflows/pyinst.yml
-  #   needs: [testing, branch_check]
-  #   with:
-  #     os: 'Ubuntu'
-
-  # Add write permissions to allow semantic-versioning to create tags/releases
-  semantic-versioning-and-build:
-    name: Python 🐍 Semantic Versioning (Write)
-    uses: ./.github/workflows/semver.yml
-    needs: [linting, testing, docs, pyinstaller-build-windows, pyinstaller-build-macos]
-    # If pyinstaller-build is skipped, stil run:
-    if: ${{ always() && needs.linting.result == 'success' && needs.testing.result == 'success' && needs.docs.result == 'success'}}
+    needs: [linting, testing]
     permissions:
       contents: write
       id-token: write
+    outputs:
+      commit_sha: ${{ steps.version.outputs.commit }}
+      tag: ${{ steps.version.outputs.tag }}
+      released: ${{ steps.version.outputs.released }}
+    steps:
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-tags: true # Ensure tags are fetched for semantic-release
+          show-progress: true
+          # Need to checkout a branch, so that semver can appropriately do the release.
+          # Using the base_ref for pull requests, and ref for pushes/dispatches.
+          ref: ${{ ( github.event_name == 'pull_request' && github.base_ref) || github.ref }}
+
+      - name: PSR 🐍 Version
+        id: version
+        uses: python-semantic-release/python-semantic-release@v10.5.2
+        with:
+            github_token: ${{ secrets.GITHUB_TOKEN }}
+            git_committer_name: "github-actions"
+            git_committer_email: "actions@users.noreply.github.com"
+            build: true
+            prerelease: ${{ inputs.prerelease }}
+            changelog: true
+            verbosity: 2
+            no_operation_mode: ${{ inputs.noop }}
+            force: ${{ inputs.force_release_type }}
+
+  pyinstaller-builds:
+    name: kcalc GUI 💻 (PyInstaller Builds)
+    if : ${{ always() && inputs.gui && needs.py-sem-rel-version.result == 'success' }}
+    uses: ./.github/workflows/pyinst.yml
+    needs: [py-sem-rel-version]
+    strategy:
+      matrix:
+        os: [Windows, MacOS]
     with:
-      gui-artifacts: "${{ needs.pyinstaller-build-windows.outputs.NAME }},${{ needs.pyinstaller-build-macos.outputs.NAME }}"
-      noop: ${{ inputs.noop }}
-      prerelease: ${{ inputs.prerelease }}
-      prerelease_token: ${{ inputs.prerelease_token }}
+      os: ${{ matrix.os }}
+      sha: ${{ needs.py-sem-rel-version.outputs.commit_sha }}
+
+  docs:
+    needs: [py-sem-rel-version]
+    name: Documentation 🔎 (Sphinx and PyData)
+    uses: ./.github/workflows/docs.yml
+    with:
+      sha: ${{ needs.py-sem-rel-version.outputs.commit_sha }}
+
+  py-sem-rel-pub:
+    name: PSR 🐍 Publish
+    runs-on: ubuntu-latest
+    needs: [py-sem-rel-version, pyinstaller-builds, docs]
+    if: ${{ always() && needs.py-sem-rel-version.result == 'success' && needs.py-sem-rel-version.outputs.released && needs.docs.result == 'success' }}
+    steps:
+      - name: Log | PSR Version Outputs
+        run: |
+          echo "PSR Version Outputs:"
+          echo "Commit SHA: ${{ needs.py-sem-rel-version.outputs.commit_sha }}"
+          echo "Tag: ${{ needs.py-sem-rel-version.outputs.tag }}"
+          echo "Released: ${{ needs.py-sem-rel-version.outputs.released }}"
+
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-tags: true # Ensure tags are fetched for semantic-release
+          show-progress: true
+          # Need to checkout a branch, so that semver can appropriately do the release.
+          # Using the base_ref for pull requests, and ref for pushes/dispatches.
+          ref: ${{ needs.py-sem-rel-version.outputs.commit_sha }}
+
+      # Make dirs to ensure PSR can find paths even if no GUI build was done.
+      - name: Config | Make Dirs
+        run: |
+          mkdir -p ./dist/gui/
+          mkdir -p ./dist/docs/
+
+      - name: Download | Pyinstaller GUI Artifacts
+        if: ${{ always() && inputs.gui }}
+        uses: actions/download-artifact@v7
+        with:
+          pattern: "kkcalc-*-!(docs)*"
+          run-id: ${{ github.run_id }}
+          path: ./dist/gui/
+
+      - name: Download | Docs
+        if: ${{ always() && inputs.gui }}
+        uses: actions/download-artifact@v7
+        with:
+          pattern: "kkcalc-*-docs-*"
+          run-id: ${{ github.run_id }}
+          path: ./dist/docs/
+
+      - name: Publish | Upload to GitHub Release Assets
+        id: publish-assets
+        uses: python-semantic-release/publish-action@v10.5.3
+        if: |
+          success() && needs.py-sem-rel-version.outputs.released == 'true' && (!inputs.noop)
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.py-sem-rel-version.outputs.tag }}
+          no_operation_mode: ${{ inputs.noop || 'false' }}
+
+      - name: Upload | Distribution Artifacts
+        # For use in deploying to pypi
+        uses: actions/upload-artifact@v7
+        if: |
+          success() &&
+          needs.py-sem-rel-version.outputs.released == 'true' &&
+          (!inputs.noop)
+        with:
+          name: distribution-artifacts
+          path: ./dist
+          overwrite: true
+          if-no-files-found: error
+
+  pypi-deploy-kkcalc:
+    # 1. Separate out the deploy step from the publish step to run each step at
+    #    the least amount of token privilege
+    # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
+    #    and it won't require reversing the release.
+
+    name: Release Distribution 📦 to PyPI
+    runs-on: ubuntu-latest
+    needs: py-sem-rel-pub # match the job name above
+    if: |
+      success() &&
+      needs.py-sem-rel-pub.result == 'success' &&
+      (github.repository_owner == 'benajamin' || github.repository_owner == 'xraysoftmat')
+    defaults:
+      run:
+        working-directory: ./kkcalc
+    # Only run this job on the master account, only publish to PyPI on tag pushes
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: pypi
+      # url: "https://pypi.org/p/kkcalc" # Instead, add env reference based on account.
+
+    steps:
+      - name: Env | Set PyPI Repository URL
+        id: set-pypi-url
+        run: |
+          if [[ "${{ github.repository_owner }}" == "benajamin" ]]; then
+            echo "url=https://pypi.org/p/kkcalc" >> $GITHUB_ENV
+            echo "Set `url` to production PyPI for KKCalc (benajamin)."
+          elif [[ "${{ github.repository_owner }}" == "xraysoftmat" ]]; then
+            echo "url=https://pypi.org/p/kkcalc2" >> $GITHUB_ENV
+            echo "Set `url` to Test PyPI for KKCalc2 (xraysoftmat)."
+          else
+            echo "Error: Unrecognized repository owner '${{ github.repository_owner }}'. Cannot set `url`." >&2
+            exit 1
+
+      - name: Setup | Download Build Artifacts
+        uses: actions/download-artifact@v8
+        id: artifact-download
+        with:
+          name: distribution-artifacts # Match the name used in the upload step
+          path: kkcalc/dist # Match the path used in the upload step
+
+      - name: Publish | Package 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: kkcalc/dist

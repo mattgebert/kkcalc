@@ -8,18 +8,27 @@ concurrency:
 
 on:
   workflow_call:
-  push:
+    inputs:
+      sha:
+        description: 'The commit SHA to build from'
+        required: false
+        type: string
   pull_request:
+  # Add push reference, so that README.md badges confirm docs build status.
+  push:
 
 jobs:
   build_docs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
@@ -43,3 +52,21 @@ jobs:
       - name: Sphinx Coverage
         run: |
           sphinx-build -M coverage ./docs ./docs/_build
+
+      - name: Get version from pyproject.toml
+        id: get-version
+        run: |
+          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")"
+          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")" >> $GITHUB_ENV
+
+      # Upload the documentation artifacts
+      - name: Upload HTML Documentation
+        uses: actions/upload-artifact@v7
+        with:
+          name: kkcalc-${{ env.MODULE_VERSION }}-docs-html
+          path: docs/_build/html/
+
+      # - name: Upload Latex Documentation
+      #   uses: actions/upload-artifact@v7
+      #   with:
+      #     name: latex-docs

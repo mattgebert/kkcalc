@@ -3,16 +3,17 @@
 # This workflow should be run by other workflows, not manually, so the output artifacts can be attached to releases.
 # Pillow is used to convert png icons to the appropriate format for each OS.
 # Outputs:
-# - `NAME` : The name of the built executable package without file extension.
+# - `BUILD_NAME` : The name of the built executable package without file extension.
 
-name: kkcalc GUI 💻 (PyInstaller Executable Build)
-run-name: ${{ github.actor }} - kkcalc GUI 💻 ${{ github.event.inputs.os }}
+name: kkcalc GUI 💻 (PyInstaller App Build)
+run-name: ${{ github.actor }} - ${{ github.event.inputs.os }} kkcalc GUI 💻
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}-pyinstaller
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}-pyinstaller-${{ github.event.inputs.os }}
   cancel-in-progress: false
 
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       os:
@@ -31,10 +32,30 @@ on:
         required: true
         type: string
         default: 'Windows'
+      sha:
+        description: 'The commit SHA to build from'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      BUILD_NAME:
+        description: 'The name of the built executable package'
+        value: ${{ jobs.PyInstaller-Build.outputs.BUILD_NAME }}
+      OS:
+        description: 'The operating system the executable was built for'
+        value: ${{ jobs.PyInstaller-Build.outputs.OS }}
+      # ARTIFACT_ID:
+      #   description: 'The ID of the uploaded artifact containing the built executable'
+      #   value: ${{ jobs.PyInstaller-Build.outputs.ARTIFACT_ID }}
 
 jobs:
   PyInstaller-Build:
     runs-on: ${{ inputs.os }}-latest
+    outputs:
+      BUILD_NAME: ${{ steps.build-name.outputs.BUILD_NAME }}
+      OS: ${{ inputs.os }}
+      # ARTIFACT_ID: ${{ steps.upload-windows.outputs.artifact-id || steps.upload-mac.outputs.artifact-id || steps.upload-linux.outputs.artifact-id }}
+
     # Alternative, can use `$ {{ matrix.os }}` from the strategy below
     # strategy:
     #   matrix:
@@ -42,10 +63,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ inputs.sha || github.sha }}
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.13'
 
@@ -65,7 +88,7 @@ jobs:
       run: |
         echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}"
         echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_ENV
-        echo "NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_OUTPUT
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_OUTPUT
 
     ## Alternative way to make spec file and build, kept for reference.
     ## Does not provide functionality to remove unwanted DLLs like the custom spec file does.
@@ -85,6 +108,8 @@ jobs:
     #   run: |
     #     pyinstaller "${{ env.BUILD_NAME }}.spec"
 
+    ###################### Temporarily disable build to test workflow #########################
+
     - name: Build executable with PyInstaller
       run: |
         pyinstaller .github/kkcalc-gui.spec -- -n "${{ env.BUILD_NAME }}"
@@ -98,23 +123,19 @@ jobs:
     # Conditionally upload artifacts based on OS
     # Only using windows at the moment!
     - name: Cache Windows Executable Artifacts
+      id: upload-windows
       if: inputs.os == 'Windows'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.BUILD_NAME }}
         path: dist/${{ env.BUILD_NAME }}.exe
         overwrite: true
         retention-days: 7
 
-    - name: Update Windows Executable Artifact Name Output
-    # This is needed to provide the correct file name (with .exe extension)
-    # to the semantic versioning workflow, which will attach the artifact to the release.
-      if: inputs.os == 'Windows'
-      run: echo "NAME=${{ env.BUILD_NAME }}.exe" >> $GITHUB_OUTPUT
-
     - name: Cache MacOS Executable Artifacts
+      id: upload-mac
       if: inputs.os == 'MacOS'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.BUILD_NAME }}
         path: dist/${{ env.BUILD_NAME }}
@@ -122,10 +143,13 @@ jobs:
         retention-days: 7
 
     - name: Cache Linux Executable Artifacts
+      id: upload-linux
       if: inputs.os == 'Ubuntu'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.BUILD_NAME }}
         path: dist/${{ env.BUILD_NAME }}
         overwrite: true
         retention-days: 7
+
+    #############################################################################################
