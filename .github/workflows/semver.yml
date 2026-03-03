@@ -33,6 +33,17 @@ permissions:
   contents: write
 
 jobs:
+  log-inputs:
+    name: Log Workflow Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log inputs for debugging
+        run: |
+          echo "No-op Mode: ${{ inputs.noop }}"
+          echo "Prerelease: ${{ inputs.prerelease }}"
+          echo "Prerelease Token: ${{ inputs.prerelease_token || 'not set' }}"
+          echo "GUI Artifacts: ${{ inputs.gui-artifacts || 'not set' }}"
+
   semver-release:
     name: Run Python 🐍 Semantic Version to stamp distribution 📦
     # Only run this job on the master account.
@@ -75,30 +86,6 @@ jobs:
           # Using the base_ref for pull requests, and ref for pushes/dispatches.
           ref: ${{ ( github.event_name == 'pull_request' && github.base_ref) || github.ref }}
 
-      # REMOVED: As cannot run permissions conditionally.
-      # Because a checked out PR has a detached HEAD, we need to merge the PR changes
-      # manually to the target branch to ensure the correct code is present for the release.
-      # - name: Security | Ensure PR only has read privelages
-      #   if: ${{ github.event_name == 'pull_request' }}
-      #   run: |
-      #     echo "Ensuring GITHUB_TOKEN cannot write to repository"
-      #     GIT_TERMINAL_PROMPT=0 git push --dry-run &>/dev/null
-
-      # - name: Setup | Merge PR to Target on PR Event
-      #   if: ${{ github.event_name == 'pull_request' }}
-      #   run: |
-      #     git remote -vv
-      #     git remote add origin-pr "${{ github.event.pull_request.head.repo.html_url }}"
-      #     git fetch origin-pr
-      #     git merge ${{ github.event.pull_request.head.sha }} --no-edit
-
-      # - name: Setup | Force release branch to be at workflow sha
-      #   if : ${{ github.event_name != 'pull_request' }}
-      #   run: |
-      #     git reset --hard ${{ github.sha }}
-      #   # Add an extra fetch step to make sure we have all history for semantic-release to evaluate.
-      #   # This was an error with the SHA: f80e68723d6de2358700ed773f3ba9073723bdb8 which was a revert.
-
       - name: Log | Report the conditionals for GUI tracing
         shell: bash
         run: |
@@ -106,7 +93,7 @@ jobs:
           echo "Artifacts Input: ${{ github.event.inputs.gui-artifacts || 'not set' }}"
 
       - name: Separate GUI Artifacts
-        # Splits Windows and MacOS GUI artifact names.
+        # Splits GUI artifact names, also stores number of artifacts.
         shell: bash
         run: |
           if [ -n "${{ github.event.inputs.gui-artifacts }}" ]; then
@@ -114,77 +101,28 @@ jobs:
             for i in "${!ARTIFACTS[@]}"; do
               echo "ARTIFACT_$i=${ARTIFACTS[$i]}" >> $GITHUB_ENV
               echo "ARTIFACT_$i=${ARTIFACTS[$i]}"
+              echo "ARTIFACT_COUNT=$((i+1))" >> $GITHUB_ENV
             done
+            echo "Total GUI artifacts: $ARTIFACT_COUNT"
           else
             echo "No GUI artifacts provided."
+            echo "ARTIFACT_COUNT=0" >> $GITHUB_ENV
           fi
 
-      # Download each artifact separately
+      # Download each artifact separately in a for loop
       - name: Download GUI Artifacts
         shell: bash
         run: |
-          if [ -n "${ARTIFACT_0}" ]; then
-            echo "Downloading artifact: ${ARTIFACT_0}"
-            gh release download "${ARTIFACT_0}" --repo "${{ github.repository }}" --dir "./dist/gui" || echo "Failed to download ${ARTIFACT_0}"
+          if [ -n "${{ github.event.inputs.gui-artifacts }}" && $ARTIFACT_COUNT -gt 0 ]; then
+            for i in $(seq 0 $((ARTIFACT_COUNT-1))); do
+              ARTIFACT_NAME="${!ARTIFACT_$i}"
+              echo "Downloading artifact: $ARTIFACT_NAME"
+              gh release download "$ARTIFACT_NAME" --repo "${{ github.repository }}" --pattern "*" --dir "./dist/gui/$ARTIFACT_NAME"
+            done
+            echo "Contents of ./dist:"
+            ls -la ./dist/gui/
           else
-            echo "No Windows GUI artifact to download."
-          fi
-
-          if [ -n "${ARTIFACT_1}" ]; then
-            echo "Downloading artifact: ${ARTIFACT_1}"
-            gh release download "${ARTIFACT_1}" --repo "${{ github.repository }}" --dir "./dist/gui" || echo "Failed to download ${ARTIFACT_1}"
-          else
-            echo "No MacOS GUI artifact to download."
-          fi
-
-      # # Either get or generate the GUI artifacts if requested
-      # - name: Action | Download GUI Artifacts
-      #   id: gui-download
-      #   if: ${{ github.event.inputs.gui-artifacts != '' }}
-      #   uses: actions/download-artifact@v5
-      #   with:
-      #     name: ${{ github.event.inputs.gui-artifacts }}
-      #     path: dist/gui/${{ github.event.inputs.gui-artifacts }}
-
-      # # Note, this should generate the GUI artifacts in dist/gui/Windows
-      # - name: Action | PyIntaller GUI Build
-      #   id: gui-build
-      #   if: ${{ (github.event_name == 'workflow_dispatch' || (github.event_name != 'workflow_dispatch' && github.event.inputs.gui-artifacts == '')) && github.event.inputs.gui == 'true' }}
-      #   uses: ./.github/workflows/pyinst.yml
-      #   with:
-      #     os: 'Windows'
-
-      # Check the GUI artifacts were generated, and list the files in the directory
-      - name: Verify | GUI Artifacts Exist
-        run: |
-          if [ ! -d "./dist" ]; then
-            echo "Error: GUI artifacts directory './dist' does not exist. Creating empty directory for checks."
-            mkdir -p ./dist/gui
-            exit ${{ 1 || 0 }}
-          else
-            if [ -z "$(ls -A ./dist)" ]; then
-              echo "Error: GUI artifacts directory './dist' is empty. Creating empty directory for checks."
-              mkdir -p ./dist/gui
-              exit ${{ 1 || 0 }}
-            else
-              echo "Distribution folders:"
-              ls -la ./dist
-              if [ ! -d "./dist/gui" ]; then
-                echo "Error: GUI artifacts directory './dist/gui' does not exist. Creating empty directory for checks."
-                mkdir -p ./dist/gui
-                exit ${{ 1 || 0 }}
-
-              else
-                if [ -z "$(ls -A ./dist/gui)" ]; then
-                  echo "Error: GUI artifacts directory './dist/gui' is empty."
-                  exit ${{ 1 || 0 }}
-                else
-                  echo "GUI artifacts found:"
-                  ls -la ./dist/gui
-                  echo "GUI artifacts verified in './dist/gui'."
-                fi
-              fi
-            fi
+            echo "No GUI artifacts to download."
           fi
 
       - name: Action | Semantic Version Release

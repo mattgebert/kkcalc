@@ -92,7 +92,7 @@ jobs:
     - name : List built executable files
       shell: bash
       run: |
-        echo "Listing contents of dist directory:"
+        echo "Listing contents of dist gui directory:"
         ls -la dist/
 
     # Conditionally upload artifacts based on OS

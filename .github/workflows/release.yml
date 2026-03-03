@@ -36,6 +36,17 @@ on:
         default: 'beta'
 
 jobs:
+  display_inputs:
+    name: Display Workflow Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Display inputs for debugging
+        run: |
+          echo "GUI Executable: ${{ inputs.gui }}"
+          echo "No-op Mode: ${{ inputs.noop }}"
+          echo "Prerelease: ${{ inputs.prerelease }}"
+          echo "Prerelease Token: ${{ inputs.prerelease_token }}"
+
   # # Check if we are on the 'main' branch or release branches:
   # branch_check:
   #   name: Branch Check 🔍
@@ -68,7 +79,7 @@ jobs:
 
   # # TODO: Can add other OS builds here as needed...
   pyinstaller-build-windows:
-    if: ${{ (github.event == 'workflow_dispatch' && inputs.gui == 'true') }}
+    if: ${{ inputs.gui == 'true' }}
     name: kkcalc GUI 💻 (PyInstaller Executable Build)
     uses: ./.github/workflows/pyinst.yml
     needs: [testing]
@@ -76,15 +87,39 @@ jobs:
       os: 'Windows'
 
   pyinstaller-build-macos:
-    if: ${{ (github.event == 'workflow_dispatch' && inputs.gui == 'true') }}
+    if: ${{ inputs.gui == 'true' }}
     name: kkcalc GUI 💻 (PyInstaller Executable Build)
     uses: ./.github/workflows/pyinst.yml
     needs: [testing]
     with:
       os: 'MacOS'
 
+  generate-gui-artifacts-var:
+    name: Generate GUI Artifacts Variable
+    needs: [pyinstaller-build-windows, pyinstaller-build-macos]
+    runs-on: ubuntu-latest
+    outputs:
+      gui_artifacts: ${{ steps.set_gui_artifacts.outputs.gui_artifacts }}
+    steps:
+      # Conditionally add each completed OS with a comma separator.
+      - id: set_gui_artifacts
+        run: |
+          GUI_ARTIFACTS=""
+          if [[ "${{ needs.pyinstaller-build-windows.result }}" == "success" ]]; then
+            GUI_ARTIFACTS="${{ needs.pyinstaller-build-windows.outputs.NAME }}"
+          fi
+          if [[ "${{ needs.pyinstaller-build-macos.result }}" == "success" ]]; then
+            if [[ -n "$GUI_ARTIFACTS" ]]; then
+              GUI_ARTIFACTS="$GUI_ARTIFACTS,${{ needs.pyinstaller-build-macos.outputs.NAME }}"
+            else
+              GUI_ARTIFACTS="${{ needs.pyinstaller-build-macos.outputs.NAME }}"
+            fi
+          fi
+          echo "GUI_ARTIFACTS=$GUI_ARTIFACTS" >> $GITHUB_OUTPUT
+          echo "Generated GUI_ARTIFACTS variable: $GUI_ARTIFACTS"
+
   # pyinstaller-build-ubuntu:
-  #   if: ${{ (github.event == 'workflow_dispatch' && inputs.gui == 'true') }}
+  #   if: ${{ inputs.gui == 'true' }}
   #   name: kkcalc GUI 💻 (PyInstaller Executable Build)
   #   uses: ./.github/workflows/pyinst.yml
   #   needs: [testing, branch_check]
