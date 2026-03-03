@@ -109,6 +109,17 @@ jobs:
             echo "ARTIFACT_COUNT=0" >> $GITHUB_ENV
           fi
 
+      # Create the dist/gui/ directory if it doesn't exist
+      - name: Setup | Create GUI Distribution Directory
+        shell: bash
+        run: |
+          if [ ! -d "./dist/gui" ]; then
+            mkdir -p ./dist/gui
+            echo "Created ./dist/gui/ directory for GUI artifacts."
+          else
+            echo "./dist/gui/ directory already exists."
+          fi
+
       # Download each artifact separately in a for loop
       - name: Download GUI Artifacts
         shell: bash

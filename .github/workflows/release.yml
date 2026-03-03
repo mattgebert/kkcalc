@@ -77,10 +77,23 @@ jobs:
     name: Documentation 🔎 (Sphinx and PyData)
     uses: ./.github/workflows/docs.yml
 
+  display-conditional:
+    name: Display Conditional Logic for GUI Build
+    needs: [linting, testing, docs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Display whether GUI build will run
+        run: |
+          if [ "${{ inputs.gui }}" = "true" ]; then
+            echo "GUI build will run."
+          else
+            echo "GUI build will be skipped."
+          fi
+
   # # TODO: Can add other OS builds here as needed...
   pyinstaller-build-windows:
     if: ${{ inputs.gui == 'true' }}
-    name: kkcalc GUI 💻 (PyInstaller Executable Build)
+    name: kkcalc Windows GUI 💻 (PyInstaller Build)
     uses: ./.github/workflows/pyinst.yml
     needs: [testing]
     with:
@@ -88,7 +101,7 @@ jobs:
 
   pyinstaller-build-macos:
     if: ${{ inputs.gui == 'true' }}
-    name: kkcalc GUI 💻 (PyInstaller Executable Build)
+    name: kkcalc MacOS GUI 💻 (PyInstaller Build)
     uses: ./.github/workflows/pyinst.yml
     needs: [testing]
     with:
