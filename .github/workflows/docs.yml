@@ -19,52 +19,101 @@ on:
 
 jobs:
   build_docs:
+    name: Docs 🔎 Build
     runs-on: ubuntu-latest
+    outputs:
+      pdf: ${{ steps.docs-rename.outputs.PDF_GENERATED }}
     steps:
-      - name: Checkout repository
+      - name: Action | Checkout repository
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.sha || github.sha }}
 
 
-      - name: Set up Python
+      - name: Action | et up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
-      - name: Install dependencies
+      - name: Config | Install dependencies
         run: |
           pip install . --group docs
 
-      - name: Build Sphinx html documentation
+      - name: Log | Get version (pyproject.toml)
+        id: get-version
+        run: |
+          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")"
+          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")" >> $GITHUB_ENV
+
+      - name: Build | Sphinx html documentation
         run: |
           sphinx-build -M html ./docs ./docs/_build
 
-      - name: Build Sphinx dirhtml documentation
+      - name: Build | Sphinx dirhtml documentation
         run: |
           sphinx-build -M dirhtml ./docs ./docs/_build
 
-      - name: Build Sphinx latex documentation
+      - name: Build | Sphinx latex documentation
         run: |
           sphinx-build -M latex ./docs ./docs/_build
+
+      # DISABLED: currently crashes as doesn't recognise '.svg' file extension despite texlive-full install.
+      # - name: Build | Install TeXLive & Build PDF
+      #   # if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch'
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install inkscape
+      #     sudo apt-get install -y texlive-full
+      #     make -C docs/_build/latex
 
       # Add commands to generate and process coverage reports using sphinx-reports or similar
       - name: Sphinx Coverage
         run: |
           sphinx-build -M coverage ./docs ./docs/_build
 
-      - name: Get version from pyproject.toml
-        id: get-version
+      # Rename doc folders, and also /latex/kkcalc.pdf if it exists.
+      - name: Rename | Outputs to contain name and version
+        id: docs-rename
+        shell: bash
         run: |
-          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")"
-          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")" >> $GITHUB_ENV
+          for dir in ./docs/_build/*; do
+            if [[ -d "$dir" ]]; then
+              base=$(basename "$dir")
+              new_name="kkcalc-${{ env.MODULE_VERSION }}-docs-${base}"
+              mv "$dir" "./docs/_build/${new_name}"
+              echo "Renamed $dir to ./docs/_build/${new_name}"
+            fi
+          done
+          if [[ -f "./docs/_build/latex/kkcalc.pdf" ]]; then
+            mv "./docs/_build/latex/kkcalc.pdf" "./docs/_build/kkcalc-${{ env.MODULE_VERSION }}.pdf"
+            echo "Found and renamed kkcalc.pdf to kkcalc-${{ env.MODULE_VERSION }}-docs.pdf"
+            echo "PDF_GENERATED=true" >> $GITHUB_ENV
+            echo "PDF_GENERATED=true" >> $GITHUB_OUTPUT
+          else
+            echo "PDF_GENERATED=false" >> $GITHUB_ENV
+            echo "PDF_GENERATED=false" >> $GITHUB_OUTPUT
+          fi
+
 
       # Upload the documentation artifacts
-      - name: Upload HTML Documentation
+      - name: Upload Documentation
         uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch'
         with:
           name: kkcalc-${{ env.MODULE_VERSION }}-docs-html
-          path: docs/_build/html/
+          path: docs/_build/kkcalc-${{ env.MODULE_VERSION }}-docs-html
+          # Short term building
+          retention-days: 1
+
+      - name: Upload PDF Documentation
+        uses: actions/upload-artifact@v7
+        if: |
+          (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch') &&
+          env.PDF_GENERATED == 'true'
+        with:
+          name: kkcalc-${{ env.MODULE_VERSION }}-docs-pdf
+          path: docs/_build/kkcalc-${{ env.MODULE_VERSION }}-docs.pdf
+          retention-days: 1
 
       # - name: Upload Latex Documentation
       #   uses: actions/upload-artifact@v7

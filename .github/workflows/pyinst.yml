@@ -5,7 +5,7 @@
 # Outputs:
 # - `BUILD_NAME` : The name of the built executable package without file extension.
 
-name: kkcalc GUI 💻 (PyInstaller App Build)
+name: GUI 💻 (PyInstaller App Build)
 run-name: ${{ github.actor }} - ${{ github.event.inputs.os }} kkcalc GUI 💻
 
 concurrency:
@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  pull_request:
   workflow_dispatch:
     inputs:
       os:
@@ -50,6 +49,7 @@ on:
 
 jobs:
   PyInstaller-Build:
+    name: ${{ inputs.os }} GUI Build
     runs-on: ${{ inputs.os }}-latest
     outputs:
       BUILD_NAME: ${{ steps.build-name.outputs.BUILD_NAME }}
@@ -86,9 +86,9 @@ jobs:
       id: build-name
       shell: bash
       run: |
-        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}"
-        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_ENV
-        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-${{ inputs.os}}" >> $GITHUB_OUTPUT
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-gui-${{ inputs.os}}"
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-gui-${{ inputs.os}}" >> $GITHUB_ENV
+        echo "BUILD_NAME=kkcalc-${{ env.MODULE_VERSION }}-gui-${{ inputs.os}}" >> $GITHUB_OUTPUT
 
     ## Alternative way to make spec file and build, kept for reference.
     ## Does not provide functionality to remove unwanted DLLs like the custom spec file does.

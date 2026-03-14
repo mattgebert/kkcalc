@@ -33,6 +33,7 @@ on:
           - alpha
           - beta
           - rc
+          - dev
           - ''
         default: ''
       force_release_type:
@@ -105,7 +106,7 @@ jobs:
       contents: write
       id-token: write
     outputs:
-      commit_sha: ${{ steps.version.outputs.commit }}
+      commit_sha: ${{ steps.version.outputs.commit_sha }}
       tag: ${{ steps.version.outputs.tag }}
       released: ${{ steps.version.outputs.released }}
     steps:
@@ -123,20 +124,53 @@ jobs:
 
       - name: PSR 🐍 Version
         id: version
-        uses: python-semantic-release/python-semantic-release@v10.5.2
+        uses: python-semantic-release/python-semantic-release@v10.5.3
         with:
             github_token: ${{ secrets.GITHUB_TOKEN }}
             git_committer_name: "github-actions"
             git_committer_email: "actions@users.noreply.github.com"
             build: true
             prerelease: ${{ inputs.prerelease }}
+            prerelease_token: ${{ inputs.prerelease_token }}
             changelog: true
+            commit: true
             verbosity: 2
             no_operation_mode: ${{ inputs.noop }}
             force: ${{ inputs.force_release_type }}
+            vcs_release: true # Use publish to add distribution artifacts to the release later.
+
+      - name: Log | PSR Distributions
+        run: |
+          echo "PSR Version Outputs..."
+          echo "Commit SHA: ${{ steps.version.outputs.commit_sha }}"
+          echo "Tag: ${{ steps.version.outputs.tag }}"
+          echo "Released: ${{ steps.version.outputs.released }}"
+
+      - name: Log | Display Build Files
+        if: |
+          success() &&
+          steps.version.outputs.released &&
+          (!inputs.noop)
+        run: |
+          echo "PSR Version Builds..."
+          ls -la ./dist
+
+      - name: Upload | Distribution Artifacts
+        # For use in deploying to pypi
+        uses: actions/upload-artifact@v7
+        if: |
+          success() &&
+          steps.version.outputs.released == 'true' &&
+          (!inputs.noop)
+        with:
+          name: distribution-artifacts
+          path: ./dist
+          overwrite: true
+          if-no-files-found: warn # warn, error, ignore
+          retention-days: 7 #Short term.
 
   pyinstaller-builds:
-    name: kcalc GUI 💻 (PyInstaller Builds)
+    name: GUI 💻 Builds
     if : ${{ always() && inputs.gui && needs.py-sem-rel-version.result == 'success' }}
     uses: ./.github/workflows/pyinst.yml
     needs: [py-sem-rel-version]
@@ -149,12 +183,12 @@ jobs:
 
   docs:
     needs: [py-sem-rel-version]
-    name: Documentation 🔎 (Sphinx and PyData)
+    name: Docs 🔎
     uses: ./.github/workflows/docs.yml
     with:
       sha: ${{ needs.py-sem-rel-version.outputs.commit_sha }}
 
-  py-sem-rel-pub:
+  py-sem-rel-publish:
     name: PSR 🐍 Publish
     runs-on: ubuntu-latest
     needs: [py-sem-rel-version, pyinstaller-builds, docs]
@@ -162,7 +196,7 @@ jobs:
     steps:
       - name: Log | PSR Version Outputs
         run: |
-          echo "PSR Version Outputs:"
+          echo "PSR Version Outputs..."
           echo "Commit SHA: ${{ needs.py-sem-rel-version.outputs.commit_sha }}"
           echo "Tag: ${{ needs.py-sem-rel-version.outputs.tag }}"
           echo "Released: ${{ needs.py-sem-rel-version.outputs.released }}"
@@ -177,7 +211,8 @@ jobs:
           show-progress: true
           # Need to checkout a branch, so that semver can appropriately do the release.
           # Using the base_ref for pull requests, and ref for pushes/dispatches.
-          ref: ${{ needs.py-sem-rel-version.outputs.commit_sha }}
+          # Note, cannot use the SHA here, needs to be a branch checkout to work correctly
+          # ref: ${{ needs.py-sem-rel-version.outputs.commit_sha }}
 
       # Make dirs to ensure PSR can find paths even if no GUI build was done.
       - name: Config | Make Dirs
@@ -189,17 +224,44 @@ jobs:
         if: ${{ always() && inputs.gui }}
         uses: actions/download-artifact@v7
         with:
-          pattern: "kkcalc-*-!(docs)*"
+          pattern: "kkcalc-*-gui-*"
           run-id: ${{ github.run_id }}
           path: ./dist/gui/
 
-      - name: Download | Docs
-        if: ${{ always() && inputs.gui }}
+      - name: Download | Docs HTML
+        if: ${{ always() && needs.docs.result == 'success' }}
         uses: actions/download-artifact@v7
         with:
-          pattern: "kkcalc-*-docs-*"
+          pattern: "kkcalc-*-docs-html"
+          run-id: ${{ github.run_id }}
+          path: ./dist/docs/html
+
+      - name: Download | Docs PDF
+        if: ${{ always() && needs.docs.result == 'success' && needs.docs.outputs.pdf == 'true' }}
+        uses: actions/download-artifact@v7
+        with:
+          pattern: "kkcalc-*-docs-pdf"
           run-id: ${{ github.run_id }}
           path: ./dist/docs/
+
+      - name: Config | Re-zip Artifacts for PSR
+        if: ${{ always() && inputs.gui }}
+        # Files are in subdirectories.
+        # echo "Removing original file $file..."
+        # rm -rf "$file"
+        run: |
+          echo "Processing docs artifacts:"
+          cd ./dist/docs/
+          for folder in *; do
+            if [[ -d "$folder" ]]; then
+              echo "Zipping $folder..."
+              zip -r "docs-${folder}.zip" "$folder"
+              echo "Removing original folder $folder..."
+              rm -rf "$folder"
+            fi
+          done
+          echo "Listing zipped docs builds:"
+          ls -R .
 
       - name: Publish | Upload to GitHub Release Assets
         id: publish-assets
@@ -210,19 +272,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.py-sem-rel-version.outputs.tag }}
           no_operation_mode: ${{ inputs.noop || 'false' }}
-
-      - name: Upload | Distribution Artifacts
-        # For use in deploying to pypi
-        uses: actions/upload-artifact@v7
-        if: |
-          success() &&
-          needs.py-sem-rel-version.outputs.released == 'true' &&
-          (!inputs.noop)
-        with:
-          name: distribution-artifacts
-          path: ./dist
-          overwrite: true
-          if-no-files-found: error
+          verbosity: 2
 
   pypi-deploy-kkcalc:
     # 1. Separate out the deploy step from the publish step to run each step at
@@ -232,10 +282,14 @@ jobs:
 
     name: Release Distribution 📦 to PyPI
     runs-on: ubuntu-latest
-    needs: py-sem-rel-pub # match the job name above
+    needs: [py-sem-rel-version, py-sem-rel-publish] # match the job name above
+    # Ensure github publish succeeds before external
     if: |
       success() &&
-      needs.py-sem-rel-pub.result == 'success' &&
+      needs.py-sem-rel-version.result == 'success' &&
+      needs.py-sem-rel-version.outputs.released == 'true' &&
+      needs.py-sem-rel-publish.result == 'success' &&
+      !inputs.noop &&
       (github.repository_owner == 'benajamin' || github.repository_owner == 'xraysoftmat')
     defaults:
       run:
