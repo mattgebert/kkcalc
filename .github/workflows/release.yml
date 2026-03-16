@@ -296,9 +296,6 @@ jobs:
       needs.py-sem-rel-publish.result == 'success' &&
       !inputs.noop &&
       (github.repository_owner == 'benajamin' || github.repository_owner == 'xraysoftmat')
-    defaults:
-      run:
-        working-directory: ./kkcalc
     # Only run this job on the master account, only publish to PyPI on tag pushes
     permissions:
       contents: read
