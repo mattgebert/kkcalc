@@ -29,7 +29,7 @@ jobs:
             - name: Config | Install dependencies
               run: |
                 pip install . --group dev
-                pip install twine
+                pip install twine uv
 
             - name: Build | Build source distribution and wheel using uv
               run: |
