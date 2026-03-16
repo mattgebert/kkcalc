@@ -24,25 +24,24 @@ on:
         description: 'Token for prerelease'
         type: string
         required: false
-      gui-artifacts:
-        description: 'Name of GUI Artifacts from PyInstaller Build'
+      force_release_type:
+        description: 'Force a specific release type (major, minor, patch) instead of relying on commit messages.'
         required: false
         type: string
+        default: ''
+      gui-artifact-names:
+        description: 'Names of GUI Artifacts from PyInstaller Build'
+        required: false
+        type: string
+      # gui-artifact-ids:
+      #   description: 'IDs of GUI Artifacts from PyInstaller Build'
+      #   required: false
+      #   type: string
 
 permissions:
   contents: write
 
 jobs:
-  log-inputs:
-    name: Log Workflow Inputs
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log inputs for debugging
-        run: |
-          echo "No-op Mode: ${{ inputs.noop }}"
-          echo "Prerelease: ${{ inputs.prerelease }}"
-          echo "Prerelease Token: ${{ inputs.prerelease_token || 'not set' }}"
-          echo "GUI Artifacts: ${{ inputs.gui-artifacts || 'not set' }}"
 
   semver-release:
     name: Run Python 🐍 Semantic Version to stamp distribution 📦
@@ -57,15 +56,14 @@ jobs:
       released: ${{ steps.is_released.outputs.released }}
 
     steps:
-      - name: Use workflow inputs for pre-release
-        shell: bash
+      - name: Log | Display inputs
         run: |
-          echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_ENV
-          echo "prerelease_token=${{ github.event.inputs.prerelease_token }}" >> $GITHUB_ENV
-      - name: Display pre-release input
-        shell: bash
-        run: |
-          echo "Python SemVer pre-release?: $prerelease"
+          echo "No-op Mode: ${{ inputs.noop }}"
+          echo "Prerelease: ${{ inputs.prerelease }}"
+          echo "Prerelease Token: ${{ inputs.prerelease_token || 'not set' }}"
+          echo "GUI Artifact Names: ${{ inputs.gui-artifact-names || 'not set' }}"
+          echo "GUI Artifact IDs: ${{ inputs.gui-artifact-ids || 'not set' }}"
+          echo "Force Release Type: ${{ inputs.force_release_type || 'not set' }}"
 
       # Note: We checkout the repository at the branch that triggered the workflow
       # with the entire history to ensure to match PSR's release branch detection
@@ -86,47 +84,64 @@ jobs:
           # Using the base_ref for pull requests, and ref for pushes/dispatches.
           ref: ${{ ( github.event_name == 'pull_request' && github.base_ref) || github.ref }}
 
-      - name: Log | Report the conditionals for GUI tracing
-        shell: bash
-        run: |
-          echo "Event Name: ${{ github.event_name }}"
-          echo "Artifacts Input: ${{ github.event.inputs.gui-artifacts || 'not set' }}"
-
       - name: Separate GUI Artifacts
         # Splits GUI artifact names, also stores number of artifacts.
         shell: bash
+        if: always()
         run: |
-          if [ -n "${{ github.event.inputs.gui-artifacts }}" ]; then
-            IFS=',' read -ra ARTIFACTS <<< "${{ github.event.inputs.gui-artifacts }}"
-            for i in "${!ARTIFACTS[@]}"; do
-              echo "ARTIFACT_$i=${ARTIFACTS[$i]}" >> $GITHUB_ENV
-              echo "ARTIFACT_$i=${ARTIFACTS[$i]}"
+          if [ -n "${{ inputs.gui-artifact-names }}" ]; then
+            IFS=',' read -ra ARTIFACT_NAMES <<< "${{ inputs.gui-artifact-names }}"
+            for i in "${!ARTIFACT_NAMES[@]}"; do
+              echo "ARTIFACT_NAME_$i=${ARTIFACT_NAMES[$i]}" >> $GITHUB_ENV
+              echo "ARTIFACT_NAME_$i=${ARTIFACT_NAMES[$i]}"
               echo "ARTIFACT_COUNT=$((i+1))" >> $GITHUB_ENV
             done
+            IFS=',' read -ra ARTIFACT_IDS <<< "${{ inputs.gui-artifact-ids }}"
+            for j in "${!ARTIFACT_IDS[@]}"; do
+              echo "ARTIFACT_ID_$j=${ARTIFACT_IDS[$j]}" >> $GITHUB_ENV
+              echo "ARTIFACT_ID_$j=${ARTIFACT_IDS[$j]}"
+            done
+            if [ $i != $j ]; then
+              echo "i = $i, j = $j"
+              echo "::error::Mismatch between number of artifact names and IDs!"
+              exit 1
+            fi
             echo "Total GUI artifacts: $ARTIFACT_COUNT"
           else
             echo "No GUI artifacts provided."
             echo "ARTIFACT_COUNT=0" >> $GITHUB_ENV
           fi
 
-      # Download each artifact separately in a for loop
-      - name: Download GUI Artifacts
+      # Create the dist/gui/ directory if it doesn't exist
+      - name: Setup | Create GUI Distribution Directory
         shell: bash
         run: |
-          if [ -n "${{ github.event.inputs.gui-artifacts }}" && $ARTIFACT_COUNT -gt 0 ]; then
-            for i in $(seq 0 $((ARTIFACT_COUNT-1))); do
-              ARTIFACT_NAME="${!ARTIFACT_$i}"
-              echo "Downloading artifact: $ARTIFACT_NAME"
-              gh release download "$ARTIFACT_NAME" --repo "${{ github.repository }}" --pattern "*" --dir "./dist/gui/$ARTIFACT_NAME"
-            done
-            echo "Contents of ./dist:"
-            ls -la ./dist/gui/
+          if [ ! -d "./dist/gui" ]; then
+            mkdir -p ./dist/gui
+            echo "Created ./dist/gui/ directory for GUI artifacts."
           else
-            echo "No GUI artifacts to download."
+            echo "./dist/gui/ directory already exists."
           fi
 
-      - name: Action | Semantic Version Release
-        id: release
+      # Download each artifact separately
+      - name: Download GUI Artifacts
+        if: ${{ env.ARTIFACT_COUNT && env.ARTIFACT_COUNT > 0 }}
+        shell: bash
+        run: |
+          for i in $(seq 0 $((ARTIFACT_COUNT-1))); do
+            eval ARTIFACT_NAME=\$ARTIFACT_NAME_$i
+            echo "Processing artifact $((i+1)) of $ARTIFACT_COUNT"
+            echo "Downloading artifact '$ARTIFACT_NAME'."
+            gh run download --repo "${{ github.repository }}" ${{ github.run_id }} -n "$ARTIFACT_NAME" --dir "./dist/gui/"
+          done
+          echo "Contents of ./dist:"
+          ls -la ./dist/gui/
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Action | Semantic Version Prerelease
+        id: prerelease
+        if : ${{ inputs.prerelease }}
         # Adjust tag with desired version if applicable.
         # https://python-semantic-release.readthedocs.io/en/stable/configuration/automatic-releases/github-actions.html
         uses: python-semantic-release/python-semantic-release@v10.5.2
@@ -135,16 +150,38 @@ jobs:
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
           build: true
-          prerelease: ${{ (env.prerelease || 'false') == 'true' }}
-          prerelease_token: ${{ env.prerelease_token || 'beta' }}
+          prerelease: ${{ inputs.prerelease }}
           changelog: true
-          commit: ${{ env.noop != 'true' }}
+          # commit: ${{ !inputs.noop || 'false' }}
           verbosity: 2
           # Do not actually perform any release actions if:
           # 1. Not the main repository owner
           # 2. This is a pull request event - the release should only occur on push to main/release branches
           # no_operation_mode: ${{ (github.repository_owner != 'xraysoftmat' && github.repository_owner != 'benajamin') || github.event_name == 'pull_request' }}
-          no_operation_mode: ${{ env.noop || 'false' }}
+          no_operation_mode: ${{ inputs.noop || 'false' }}
+          force: ${{ inputs.force_release_type }}
+
+      - name: Action | Semantic Version Release
+        id: release
+        if: ${{ !inputs.prerelease }}
+        # Adjust tag with desired version if applicable.
+        # https://python-semantic-release.readthedocs.io/en/stable/configuration/automatic-releases/github-actions.html
+        uses: python-semantic-release/python-semantic-release@v10.5.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
+          build: true
+          prerelease: false
+          changelog: true
+          # commit: ${{ !inputs.noop || 'true' }}
+          verbosity: 2
+          # Do not actually perform any release actions if:
+          # 1. Not the main repository owner
+          # 2. This is a pull request event - the release should only occur on push to main/release branches
+          # no_operation_mode: ${{ (github.repository_owner != 'xraysoftmat' && github.repository_owner != 'benajamin') || github.event_name == 'pull_request' }}
+          no_operation_mode: ${{ inputs.noop || 'false' }}
+          force: ${{ inputs.force_release_type }}
 
       - name: Env | Check if released and log conditionals
         id: is_released
@@ -164,7 +201,7 @@ jobs:
           echo "Release Tag: ${{ steps.release.outputs.tag }}"
           echo "Release Version: ${{ steps.release.outputs.version }}"
           echo "Release Branch: ${{ github.ref_name }}"
-          echo "Release Prerelease: ${{ env.prerelease }}"
+          echo "Release Prerelease: ${{ inputs.prerelease }}"
 
       - name: Publish | Upload to GitHub Release Assets
         uses: python-semantic-release/publish-action@v10.5.3
@@ -173,20 +210,11 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.release.outputs.tag }}
-          no_operation_mode: ${{ env.noop || 'false' }}
-
-      - name: Publish | Upload to GitHub Release Assets
-        uses: python-semantic-release/publish-action@v10.5.3
-        if: |
-          success() && steps.is_released.outputs.released == 'true'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.release.outputs.tag }}
-          no_operation_mode: ${{ env.noop || 'false' }}
+          no_operation_mode: ${{ inputs.noop || 'false' }}
 
       - name: Upload | Distribution Artifacts
         # For use in deploying to pypi
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: |
           success() &&
           steps.is_released.outputs.released == 'true'
@@ -225,7 +253,7 @@ jobs:
 
     steps:
       - name: Setup | Download Build Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         id: artifact-download
         with:
           name: distribution-artifacts # Match the name used in the upload step
@@ -264,7 +292,7 @@ jobs:
 
     steps:
       - name: Setup | Download Build Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         id: artifact-download
         with:
           name: distribution-artifacts # Match the name used in the upload step
