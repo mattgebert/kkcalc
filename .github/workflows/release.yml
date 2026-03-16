@@ -87,6 +87,10 @@ jobs:
     name: Tests 🔧 (PyTest, Coveralls)
     uses: ./.github/workflows/tests.yml
 
+  distcheck:
+    name: Dist. Check 🌏 (uv, twine & readme_renderer)
+    uses: ./.github/workflows/distcheck.yml
+
   # # # TODO: Can add other OS builds here as needed...
   # pyinstaller-builds:
   #   if : ${{ always() && inputs.gui }}
@@ -101,7 +105,7 @@ jobs:
   py-sem-rel-version:
     name: PSR 🐍 Version
     runs-on: ubuntu-latest
-    needs: [linting, testing]
+    needs: [linting, testing, distcheck]
     permissions:
       contents: write
       id-token: write
