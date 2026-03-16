@@ -105,6 +105,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      pull-requests: write
     outputs:
       commit_sha: ${{ steps.version.outputs.commit_sha }}
       tag: ${{ steps.version.outputs.tag }}
@@ -115,7 +116,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use RELEASE_TOKEN (PAT) for org repos, GITHUB_TOKEN for personal repos
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-tags: true # Ensure tags are fetched for semantic-release
           show-progress: true
           # Need to checkout a branch, so that semver can appropriately do the release.
@@ -126,7 +128,7 @@ jobs:
         id: version
         uses: python-semantic-release/python-semantic-release@v10.5.3
         with:
-            github_token: ${{ secrets.GITHUB_TOKEN }}
+            github_token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
             git_committer_name: "github-actions"
             git_committer_email: "actions@users.noreply.github.com"
             build: true
@@ -193,6 +195,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [py-sem-rel-version, pyinstaller-builds, docs]
     if: ${{ always() && needs.py-sem-rel-version.result == 'success' && needs.py-sem-rel-version.outputs.released && needs.docs.result == 'success' }}
+    permissions:
+      contents: write
     steps:
       - name: Log | PSR Version Outputs
         run: |
@@ -206,7 +210,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use RELEASE_TOKEN (PAT) for org repos, GITHUB_TOKEN for personal repos
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-tags: true # Ensure tags are fetched for semantic-release
           show-progress: true
           # Need to checkout a branch, so that semver can appropriately do the release.
@@ -269,7 +274,7 @@ jobs:
         if: |
           success() && needs.py-sem-rel-version.outputs.released == 'true' && (!inputs.noop)
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           tag: ${{ needs.py-sem-rel-version.outputs.tag }}
           no_operation_mode: ${{ inputs.noop || 'false' }}
           verbosity: 2
