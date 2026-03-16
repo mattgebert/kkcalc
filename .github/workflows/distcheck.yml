@@ -1,5 +1,5 @@
 # Distribution Checking - Build and validate source distribution and wheel using uv, twine.
-name: Dist. Check 🌏  (uv, twine)
+name: Distribution 🌏  (uv, twine)
 # https://stackoverflow.com/questions/46682793
 
 run-name: ${{ github.actor }} - Dist. Check 🌏  (uv, twine & readme_renderer)
@@ -29,12 +29,14 @@ jobs:
             - name: Config | Install dependencies
               run: |
                 pip install . --group dev
-                pip install twine
+                pip install twine uv
 
             - name: Build | Build source distribution and wheel using uv
               run: |
                 uv build
 
+            # This ensures that the package is uploadable to PyPI and that
+            # the long description renders correctly on PyPI (e.g. README.md formatting is correct).
             - name: Validate | Check distribution with twine check
               run: |
                 twine check dist/*

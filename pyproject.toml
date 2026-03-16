@@ -9,7 +9,7 @@ build-backend = "hatchling.build"
 [project]
 # Project information
 name = "KKCalc"
-version = "1.0.0"
+version = "1.0.2"
 description = "Kramers-Kronig transforms for optical data."
 readme = "README.rst"
 license = {file = "LICENSE"}
