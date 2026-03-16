@@ -51,33 +51,26 @@
 Introduction
 ############
 
-``kkcalc`` is an open-source `python` package to calculate the Kramers-Kronig (inverse) transform of X-ray absorption (dispersion) data,
+``kkcalc`` is an open-source `python` package to calculate the Kramers-Kronig (inverse) transform of X-ray absorption (dispersion) data:
 
-..
-    .. math::
-        f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
+.. note: mathjax github requires double backslashes to properly compute.
 
-$$f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star$$
+$$f_2(E) = \\frac{2}{\\pi} P \\int_{0}^{\\infty}\\frac{x f_1(x)}{x^2 - E^2} dx + \\mathcal{Z}^\\star$$
 
-using a polynomial representation algorithm developed by Watts [1]_.
+where $f_1$ and $f_2$ are the real and imaginary parts of the complex index of refraction, respectively, $\\mathcal{Z}^\\star$ is the relativistic correction, and $P$ denotes the Cauchy principal value at ($x=E$).
 
-This package provides an object oriented API, to evaluate optical constants (index of refraction, absorption and dispersion, etc.), extend measurement spectra with databases.
+``kkcalc`` uses a polynomial representation algorithm developed by Watts [1]_.
 
-`KKCalc` is usable via an object-oriented Python API, or through a PyQT6 GUI interface. Documentation can be found at  `readthedocs <https://kkcalc.rtfd.org/>`, or can be `built <#docbuild>`_ for offline.
-
-Cite our previous work for this repository here [1]_.
-
-We use the optical constants databases from Henke et al. [2]_, Biggs and Lighthill [3]_.
-
-- **GUI Interface**
-- **Contrast Calculations**
-   Can calculate the relative contrast between materials in a mix.
+This package provides an object oriented API, to evaluate optical constants (index of refraction, absorption and dispersion, etc.), extend measurement spectra with databases, or can be accessed through a PyQT6 GUI interface. Documentation can be found at  `readthedocs <https://kkcalc.rtfd.org/>`_, and releases (including documentation and executable builds) can be found at `github <https://github.com/xraysoftmat/kkcalc>`.
 
 References
 ==========
 
 .. [1] Benjamin Watts, "Calculation of the Kramers-Kronig transform of X-ray spectra by a piecewise Laurent polynomial method", *Opt. Express* **22**, (2014) 23628-23639. `DOI:10.1364/OE.22.023628 <https://doi.org/10.1364/OE.22.023628>`_
 
-.. [2] B.L. Henke, E.M. Gullikson, and J.C. Davis, "X-ray interactions: photoabsorption, scattering, transmission, and reflection at E=50-30000 eV, Z=1-92", *Atomic Data and Nuclear Data Tables* **54** (2) (1993) 181-342 `DOI:10.1006/adnd.1993.1013 <https://doi.org/10.1006/adnd.1993.1013>`_.
+.. We use the optical constants databases from Henke et al. [2]_, Biggs and Lighthill [3]_.
 
-.. [3] F. Biggs, and R. Lighthill, "Analytical approximations for X-ray cross-sections III", *Sandia Report* SAND87-0070 UC-34 (1988). `DOI:10.2172/7124946 <https://doi.org/10.2172/7124946>`_
+..
+    .. [2] B.L. Henke, E.M. Gullikson, and J.C. Davis, "X-ray interactions: photoabsorption, scattering, transmission, and reflection at E=50-30000 eV, Z=1-92", *Atomic Data and Nuclear Data Tables* **54** (2) (1993) 181-342 `DOI:10.1006/adnd.1993.1013 <https://doi.org/10.1006/adnd.1993.1013>`_.
+
+    .. [3] F. Biggs, and R. Lighthill, "Analytical approximations for X-ray cross-sections III", *Sandia Report* SAND87-0070 UC-34 (1988). `DOI:10.2172/7124946 <https://doi.org/10.2172/7124946>`_
