@@ -56,6 +56,7 @@ Introduction
 ..
     .. math::
         f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
+
 $$f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star$$
 
 using a polynomial representation algorithm developed by Watts [1]_.
