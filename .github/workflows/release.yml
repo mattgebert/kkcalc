@@ -318,6 +318,7 @@ jobs:
           else
             echo "Error: Unrecognized repository owner '${{ github.repository_owner }}'. Cannot set `url`." >&2
             exit 1
+          fi
 
       - name: Setup | Download Build Artifacts
         uses: actions/download-artifact@v8
