@@ -335,3 +335,5 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: kkcalc/dist
+          repository_url: ${{ env.url }}
+          verbose: true
