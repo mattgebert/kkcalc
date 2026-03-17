@@ -314,10 +314,10 @@ jobs:
         id: set-pypi-url
         run: |
           if [[ "${{ github.repository_owner }}" == "benajamin" ]]; then
-            echo "url=https://pypi.org/p/kkcalc" >> $GITHUB_ENV
+            echo "url=https://pypi.org/p/kkcalc/" >> $GITHUB_ENV
             echo "Set `url` to production PyPI for KKCalc (benajamin)."
           elif [[ "${{ github.repository_owner }}" == "xraysoftmat" ]]; then
-            echo "url=https://pypi.org/p/kkcalc2" >> $GITHUB_ENV
+            echo "url=https://pypi.org/p/kkcalc2/" >> $GITHUB_ENV
             echo "Set `url` to Test PyPI for KKCalc2 (xraysoftmat)."
           else
             echo "Error: Unrecognized repository owner '${{ github.repository_owner }}'. Cannot set `url`." >&2
@@ -335,5 +335,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: kkcalc/dist
-          repository_url: ${{ env.url }}
           verbose: true
