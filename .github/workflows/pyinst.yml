@@ -112,7 +112,7 @@ jobs:
 
     - name: Build executable with PyInstaller
       run: |
-        pyinstaller .github/kkcalc2-gui.spec -- -n "${{ env.BUILD_NAME }}"
+        pyinstaller .github/kkcalc-gui.spec -- -n "${{ env.BUILD_NAME }}"
 
     - name : List built executable files
       shell: bash
