@@ -61,7 +61,7 @@ where $f_1$ and $f_2$ are the real and imaginary parts of the complex index of r
 
 ``kkcalc`` uses a polynomial representation algorithm developed by Watts [1]_.
 
-This package provides an object oriented API, to evaluate optical constants (index of refraction, absorption and dispersion, etc.), extend measurement spectra with databases, or can be accessed through a PyQT6 GUI interface. Documentation can be found at  `readthedocs <https://kkcalc.rtfd.org/>`_, and releases (including documentation and executable builds) can be found at `github <https://github.com/xraysoftmat/kkcalc>`.
+This package provides an object oriented API, to evaluate optical constants (index of refraction, absorption and dispersion, etc.), extend measurement spectra with databases, or can be accessed through a PyQT6 GUI interface. Documentation can be found at  `readthedocs <https://kkcalc.rtfd.org/>`_, and releases (including documentation and executable builds) can be found at `github <https://github.com/xraysoftmat/kkcalc>`_.
 
 References
 ==========
