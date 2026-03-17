@@ -1,0 +1,42 @@
+# Distribution Checking - Build and validate source distribution and wheel using uv, twine.
+name: Distribution 🌏  (uv, twine)
+# https://stackoverflow.com/questions/46682793
+
+run-name: ${{ github.actor }} - Dist. Check 🌏  (uv, twine & readme_renderer)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}-${{ github.event.ref }}-dist
+  cancel-in-progress: true
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+
+jobs:
+    distcheck:
+        name: Dist. Check 🌏
+        runs-on: ubuntu-latest
+        steps:
+            - name: Action | Checkout repository
+              uses: actions/checkout@v6
+
+            - name: Action | Set up Python
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.13'
+
+            - name: Config | Install dependencies
+              run: |
+                pip install . --group dev
+                pip install twine uv
+
+            - name: Build | Build source distribution and wheel using uv
+              run: |
+                uv build
+
+            # This ensures that the package is uploadable to PyPI and that
+            # the long description renders correctly on PyPI (e.g. README.md formatting is correct).
+            - name: Validate | Check distribution with twine check
+              run: |
+                twine check dist/*
