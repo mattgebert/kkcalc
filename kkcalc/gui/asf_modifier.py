@@ -24,10 +24,12 @@ from kkcalc.stoich import stoichiometry
 class kk_object_modifier(QtWidgets.QWidget):
     objectModified = QtCore.pyqtSignal()
     objectCreated = QtCore.pyqtSignal(object)
-    hasHandle = QtCore.pyqtSignal(bool)
 
     def __init__(
-        self, parent=None, obj: type[asf_abstract | asp_abstract] | None = None
+        self,
+        parent=None,
+        obj: asf_abstract | asp_abstract | None = None,
+        hide_merge_handle_checkbox: bool = False,
     ):
         super().__init__(parent=parent)
         self.setWindowTitle("kkcalc Object Modifier")
@@ -117,6 +119,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.scale_to_db_btn = QtWidgets.QPushButton("Scale to DB")
         self.is_extended_edit = QtWidgets.QCheckBox("Extended")
         self.is_extended_edit.setDisabled(True)
+
         # Extend Data by Stoichiometry
         merge_dom_label = QtWidgets.QLabel("Merge Domains:")
         self.merge_dom_lb_edit = QtWidgets.QLineEdit()
@@ -173,12 +176,15 @@ class kk_object_modifier(QtWidgets.QWidget):
         extn.addWidget(merge_dom_label, 3, 0, 1, 1)
         extn.addWidget(self.merge_dom_lb_edit, 3, 1, 1, 1)
         extn.addWidget(self.merge_dom_ub_edit, 3, 2, 1, 1)
-        # extn.addWidget(self.merge_handle_checkbox, 3, 3, 1, 1) # Temporarily removed, do not show on UI. TODO: Implement.
+        if not hide_merge_handle_checkbox:
+            extn.addWidget(
+                self.merge_handle_checkbox, 3, 3, 1, 1
+            )  # Temporarily removed, do not show on UI. TODO: Implement.
         extn.addWidget(self.extend_data_btn, 4, 0, 1, 4)
         self._layout.addLayout(extn)
 
         # Initialise internal object
-        self._object = None
+        self._object: asf_abstract | asp_abstract | None = None
 
         ## Connect signals
         # For updates
@@ -196,35 +202,38 @@ class kk_object_modifier(QtWidgets.QWidget):
         # For extension
         self.scale_to_db_btn.clicked.connect(self.scale)
         self.extend_data_btn.clicked.connect(self.extend)
-        self.merge_handle_checkbox.stateChanged.connect(self.hasHandle.emit)
 
         # Initialise UI
         self.clear()
         # Minimize the width.
         self.resize(self.minimumWidth(), self.height())
 
+        # Set the object if provided
+        if obj is not None:
+            self.set_object(obj)
+
     @property
-    def object(self) -> type[asf_abstract | asp_abstract] | None:
+    def object(self) -> asf_abstract | asp_abstract | None:
         """
         Returns the currently selected object.
 
         Parameters
         ----------
-        obj : type[asf_abstract | asp_abstract] | None
+        obj : asf_abstract | asp_abstract | None
             A new object to set as the current object.
 
         Returns
         -------
-        type[asf_abstract | asp_abstract] | None
+        asf_abstract | asp_abstract | None
             The currently selected object.
         """
         return self._object
 
     @object.setter
-    def object(self, obj: type[asf_abstract | asp_abstract] | None):
+    def object(self, obj: asf_abstract | asp_abstract | None):
         self.set_object(obj)
 
-    def set_object(self, obj: type[asf_abstract | asp_abstract] | None):
+    def set_object(self, obj: asf_abstract | asp_abstract | None):
         # While updating, block signals
         self.blockSignals(True)
         if obj is None:
@@ -342,7 +351,8 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.merge_dom_ub_edit.setText("")
         self.merge_dom_lb_edit.setDisabled(True)
         self.merge_dom_ub_edit.setDisabled(True)
-        self.merge_handle_checkbox.setChecked(False)
+        # Preserve this checkbox setting, as users manually set it.
+        # self.merge_handle_checkbox.setChecked(False)
         self.extend_data_btn.setEnabled(False)
         self.scale_to_db_btn.setEnabled(False)
 
@@ -397,7 +407,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         Updates/enables/disables the labels for the various buttons depending on the selected object type.
         """
         # Get the object
-        obj: type[asf_abstract | asp_abstract] = self._object
+        obj: asf_abstract | asp_abstract = self._object
 
         # Change the labels depending on the object type
         if isinstance(obj, (asf_re, asp_re)):
@@ -417,7 +427,8 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.is_extended_edit.setChecked(True)
             self.merge_dom_lb_edit.setDisabled(True)
             self.merge_dom_ub_edit.setDisabled(True)
-            self.merge_handle_checkbox.setChecked(False)
+            # Preserve this checkbox setting, as users manually set it.
+            # self.merge_handle_checkbox.setChecked(False)
             self.extend_data_btn.setEnabled(False)
             self.stoichiometry_edit.setDisabled(True)
             self.formula_mass_edit.setDisabled(True)
@@ -429,7 +440,8 @@ class kk_object_modifier(QtWidgets.QWidget):
             self.merge_dom_lb_edit.setText("")
             self.merge_dom_ub_edit.setDisabled(False)
             self.merge_dom_ub_edit.setText("")
-            self.merge_handle_checkbox.setChecked(False)
+            # Preserve this checkbox setting, as users manually set it.
+            # self.merge_handle_checkbox.setChecked(False)
             self.extend_data_btn.setEnabled(True)
             self.stoichiometry_edit.setDisabled(False)
             self.formula_mass_edit.setDisabled(False)
@@ -491,9 +503,9 @@ class kk_object_modifier(QtWidgets.QWidget):
         # Send the transformed object
         self.objectCreated.emit(complex_obj)
 
-    def scale_obj(self) -> type[asp_abstract | asf_abstract] | None:
+    def scale_obj(self) -> asp_abstract | asf_abstract | None:
         """Creates a scaled object by matching endpoint amplitude to the stoichiometry database."""
-        obj: type[asf_abstract | asp_abstract] = self._object
+        obj: asf_abstract | asp_abstract = self._object
         # Ignore if no object or already extended
         if obj is None or obj.is_extended:
             return
@@ -511,7 +523,7 @@ class kk_object_modifier(QtWidgets.QWidget):
 
         # Scale the object.
         if isinstance(obj, (asf_im, asf_re)) and obj.stoichiometry is not None:
-            copy: type[asf_im | asf_re] = obj.copy(name=obj.name + "_scaled")
+            copy: asf_im | asf_re = obj.copy(name=obj.name + "_scaled")
             copy.scale_to_database()
             return copy
 
@@ -521,7 +533,7 @@ class kk_object_modifier(QtWidgets.QWidget):
         if obj is not None:
             self.objectCreated.emit(obj)
 
-    def extend_obj(self) -> type[asp_db_extended] | None:
+    def extend_obj(self) -> asp_db_extended | None:
         """
         Extends the data by the stoichiometry database.
         """
@@ -569,11 +581,24 @@ class kk_object_modifier(QtWidgets.QWidget):
             diag.exec()
             return
 
+        # Ensure at least one data point is in the merge domain
+        en_min, en_max = obj.energies.min(), obj.energies.max()
+        if ub < en_min or lb > en_max:
+            # Dialog to error bounds
+            diag = QtWidgets.QDialog()
+            diag.setWindowTitle("Cannot Extend Data")
+            diag._layout = QtWidgets.QVBoxLayout()
+            diag.setLayout(diag._layout)
+            diag._layout.addWidget(
+                QtWidgets.QLabel("No data points found in the merge domain.")
+            )
+            diag.exec()
+            return
+
         # Create the merge database
         extended: asp_db_extended
         database_asp = asp_db_im(stoichiometry=stoich)
         if isinstance(obj, asp_re):
-            obj: asp_re
             obj_asf = obj.to_asf()
             extended = asp_db_re_extended(
                 data_asf=obj_asf,
@@ -585,7 +610,6 @@ class kk_object_modifier(QtWidgets.QWidget):
             return extended
 
         elif isinstance(obj, asp_im):
-            obj: asp_im
             obj_asf = obj.to_asf()
             extended = asp_db_im_extended(
                 data_asf=obj_asf,
@@ -597,7 +621,6 @@ class kk_object_modifier(QtWidgets.QWidget):
             return extended
 
         elif isinstance(obj, asf_re):
-            obj: asf_re
             extended = asp_db_re_extended(
                 data_asf=obj,
                 database=database_asp,
@@ -608,7 +631,7 @@ class kk_object_modifier(QtWidgets.QWidget):
             return extended
 
         elif isinstance(obj, asf_im):
-            obj: asf_im
+            print(lb, ub, obj.name, obj.energies, database_asp.energies)
             extended = asp_db_im_extended(
                 data_asf=obj,
                 database=database_asp,

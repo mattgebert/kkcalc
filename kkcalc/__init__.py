@@ -46,7 +46,7 @@ def get_installed_packages() -> tuple[list[str], list[str]]:
 
 name = None
 installed_packages, _ = get_installed_packages()
-installed_packages = [pkg.lower() for pkg in installed_packages]
+installed_packages = {pkg.lower(): pkg for pkg in installed_packages}
 try:
     # Import the GUI module if appropriate packages are available:
     req = importlib.metadata.requires("kkcalc")
@@ -59,11 +59,11 @@ try:
                 for delim in ["~=", ">=", "==", "<=", "!=", ">", "<"]:
                     if delim in name:
                         name = name.split(delim)[0]
-                name = name.strip()
+                name = name.strip().lower()
                 # Check that the module is available
-                if name not in installed_packages:
+                if name not in installed_packages.keys():
                     raise ImportError(
-                        f"kkcalc initialisation: Required package '{name}' is not installed."
+                        f"kkcalc initialisation: Required package '{name}' is not installed. Available pakcages:\n{installed_packages.keys()}"
                     )
                 # Or check that the module can be imported...
                 # module = __import__(name)
@@ -74,9 +74,9 @@ try:
         print("kkcalc initialisation: No requirements loaded.")
 
 except ImportError as e:
-    if name is not None:
+    if name is not None and name in str(e).lower():
         print(
-            f"kkcalc initialisation: GUI module import failed, requires module:\t{name}"
+            f"kkcalc initialisation: GUI module import failed, requires module:\t{name}. Available pakcages:\n{installed_packages.keys()}",
         )
     else:
         print("kkcalc initialisation: GUI module import failed.", e)

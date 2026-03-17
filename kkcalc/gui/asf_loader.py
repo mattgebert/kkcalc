@@ -21,12 +21,12 @@ from kkcalc.models import (
     KK_Datatype,
 )
 from kkcalc.gui.dialogs import (
-    factor_complexity_dialog,
     import_data_dialog,
-    factor_dtype_dialog,
+    dtype_dialog,
 )
 from kkcalc.gui.contrast_viewer import contrast_viewer
 import warnings
+import os
 
 
 class kk_object_list(QtWidgets.QWidget):
@@ -45,7 +45,7 @@ class kk_object_list(QtWidgets.QWidget):
     """A signal emitted when the selected row (object) changes."""
 
     def __init__(
-        self, parent=None, objs: list[type[asf_abstract | asp_abstract]] | None = None
+        self, parent=None, objs: list[asf_abstract | asp_abstract] | None = None
     ):
         super().__init__(parent=parent)
         self.setWindowTitle("kkcalc Object Loader")
@@ -107,7 +107,7 @@ class kk_object_list(QtWidgets.QWidget):
             set()
         )  # initialize the set
         """A set of visible rows numbers, corresponding to `_objs` keys."""
-        self._objs: dict[int, type[asf_abstract | asp_abstract]] = {}
+        self._objs: dict[int, asf_abstract | asp_abstract] = {}
         """A mapping of table row to object."""
 
         # Add objects to the table
@@ -128,10 +128,12 @@ class kk_object_list(QtWidgets.QWidget):
         self.contrast_btn.clicked.connect(self.calc_contrast)
         self.extend_btn.clicked.connect(self.extend_multiple)
 
-    def update_kk_obj(self, obj: type[asf_abstract | asp_abstract]) -> None:
+    def update_kk_obj(self, obj: asf_abstract | asp_abstract | None) -> None:
         """
         Updates the row matching the object in the table.
         """
+        if obj is None:
+            return
         for row, obj_ in self._objs.items():
             if obj_ == obj:
                 items = [
@@ -147,7 +149,7 @@ class kk_object_list(QtWidgets.QWidget):
                         self.table.item(row, i).setToolTip(item)
                 return
 
-    def add_kk_obj(self, obj: type[asf_abstract | asp_abstract]) -> None:
+    def add_kk_obj(self, obj: asf_abstract | asp_abstract) -> None:
         """
         Adds a new object to the table.
 
@@ -156,25 +158,30 @@ class kk_object_list(QtWidgets.QWidget):
 
         Parameters
         ----------
-        obj : type[asf_abstract | asp_abstract]
+        obj : asf_abstract | asp_abstract
             The object to add to the table.
         """
         # Check if the object is an asf or asp base object; needs to be designated as real or imag.
-        if obj.__class__ is asf or obj.__class__ is asp:
-            # Create dialog to convert to real or imag
-            from kkcalc.gui.dialogs import factor_complexity_dialog
-
-            dialog = factor_complexity_dialog()
-            dialog.setWindowTitle(
-                "Select Complexity for `"
-                + obj.__class__.__name__
-                + ":"
-                + obj.name
-                + "`"
-            )
+        if (
+            isinstance(obj, asf) and not isinstance(obj, (asf_re, asf_im, asf_complex))
+        ) or (
+            isinstance(obj, asp) and not isinstance(obj, (asp_re, asp_im, asp_complex))
+        ):
+            # Create dialog to convert to real, imag or complex data
+            dialog = dtype_dialog(name=obj.__class__.__name__ + ":" + obj.name)
             dialog.show()
+
             if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
                 if obj.__class__ is asf:
+                    match dialog.complexity:
+                        case dialog.EnumComplexity.REAL:
+                            obj = asf_re.from_asf(obj)
+                        case dialog.EnumComplexity.IMAGINARY:
+                            obj = asf_im.from_asf(obj)
+                        case dialog.EnumComplexity.COMPLEX:
+                            obj = asf_complex.from_asf(obj)
+                        case _:
+                            return
                     obj = (
                         asf_re.from_asf(obj)
                         if dialog.complexity == dialog.EnumComplexity.REAL
@@ -224,13 +231,13 @@ class kk_object_list(QtWidgets.QWidget):
         self.viewSelectionChanged.emit()
         return
 
-    def add_kk_objs(self, objs: list[type[asf_abstract | asp_abstract]]) -> None:
+    def add_kk_objs(self, objs: list[asf_abstract | asp_abstract]) -> None:
         """
         Adds multiple objects to the table.
 
         Parameters
         ----------
-        objs : list[type[asf_abstract  |  asp_abstract]]
+        objs : list[asf_abstract | asp_abstract]
             A list of objects to add to the table.
 
         See Also
@@ -295,11 +302,11 @@ class kk_object_list(QtWidgets.QWidget):
             # self.extend_btn.setHidden()
 
     @property
-    def checked_objects(self) -> list[type[asf_abstract | asp_abstract]]:
+    def checked_objects(self) -> list[asf_abstract | asp_abstract]:
         return [self._objs[row] for row in self._visible_rows]
 
     @property
-    def selected_object(self) -> type[asf_abstract | asp_abstract] | None:
+    def selected_object(self) -> asf_abstract | asp_abstract | None:
         selected = self.table.selectedItems()
         if len(selected) == 0:
             return None
@@ -310,58 +317,137 @@ class kk_object_list(QtWidgets.QWidget):
         window_data = import_data_dialog()
         window_data.show()
         if window_data.exec():
-            data_e, data_y = window_data.selected_data
+            data = window_data.selected_data
+            if data is None:
+                return
+            data_e, data_y = data
             # Collect the complexity
-            window_complexity = factor_complexity_dialog(name=window_data.load_filename)
-            window_complexity.show()
-            if window_complexity.exec():
-                complexity = window_complexity.complexity
-                if complexity == window_complexity.EnumComplexity.REAL:
-                    obj = asf_re(
-                        energies=data_e,
-                        factors=data_y,
-                        origin_dtype=KK_Datatype.ASF,
-                        name=window_data.load_filename,
-                    )
-                    warnings.warn(
-                        "Real data loaded as asf_re object, implementation required for form."
-                    )
-                    self.add_kk_obj(obj)
-                elif complexity == window_complexity.EnumComplexity.IMAGINARY:
-                    # Collect the datatype
-                    window_dtype = factor_dtype_dialog(name=window_data.load_filename)
-                    window_dtype.show()
-                    if window_dtype.exec():
-                        dtype = window_dtype.datatype
-                        match dtype:
+            window_dtype = dtype_dialog(name=window_data.load_filename)
+            window_dtype.show()
+            if window_dtype.exec():
+                fname = window_data.load_filename
+                fname = (
+                    os.path.basename(fname) if fname is not None else "Imported Data"
+                )
+                complexity = window_dtype.complexity
+                source = window_dtype.datatype
+                # Create an obj and add to the table
+                obj: asf_abstract | asp_abstract | None = None
+                match complexity:
+                    case window_dtype.EnumComplexity.COMPLEX:
+                        match source:
+                            case KK_Datatype.ASF:
+                                obj = asf_complex.from_asf()
+                            case KK_Datatype.ASF_DASH:
+                                obj = asf_complex.from_asf()
+                            case KK_Datatype.REFRACTIVE:
+                                obj = asf_complex.from_refractive(
+                                    energies=data_e,
+                                    refractive=data_y,
+                                    name=fname,
+                                )
+                            case KK_Datatype.REFRACTIVE_INDEX:
+                                obj = asf_complex.from_refractive_index(
+                                    energies=data_e,
+                                    refractive_index=data_y,
+                                    name=fname,
+                                )
+                            case _:
+                                # Create a QT warning dialog
+                                qtwarnings = QtWidgets.QMessageBox()
+                                qtwarnings.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+                                qtwarnings.setWindowTitle("Warning: Invalid Datatype")
+                                qtwarnings.setText(
+                                    f"Invalid datatype selected for complex data ({fname}).\n Source: {window_data.load_filename}"
+                                )
+                                qtwarnings.exec()
+                                warnings.warn(
+                                    "Invalid datatype selected for complex data."
+                                )
+                                return
+                    case window_dtype.EnumComplexity.REAL:
+                        match source:
+                            case KK_Datatype.ASF:
+                                obj = asf_re(
+                                    energies=data_e,
+                                    factors=data_y,
+                                    origin_dtype=KK_Datatype.ASF,
+                                    name=fname,
+                                )
+                            case KK_Datatype.ASF_DASH:
+                                obj = asf_re(
+                                    energies=data_e,
+                                    factors=data_y,
+                                    origin_dtype=KK_Datatype.ASF_DASH,
+                                    name=fname,
+                                )
+                            case KK_Datatype.REFRACTIVE:
+                                obj = asf_re.from_refractive(
+                                    energies=data_e,
+                                    refractive=data_y,
+                                    name=fname,
+                                )
+                            case KK_Datatype.REFRACTIVE_INDEX:
+                                obj = asf_re.from_refractive_index(
+                                    energies=data_e,
+                                    refractive_index=data_y,
+                                    name=fname,
+                                )
+                            case _:
+                                # Create a QT warning dialog
+                                qtwarnings = QtWidgets.QMessageBox()
+                                qtwarnings.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+                                qtwarnings.setWindowTitle("Warning: Invalid Datatype")
+                                qtwarnings.setText(
+                                    f"Invalid datatype selected for real data ({fname}).\n Source: {window_data.load_filename}"
+                                )
+                                qtwarnings.exec()
+                                warnings.warn(
+                                    "Invalid datatype selected for real data."
+                                )
+                                return
+                    case window_dtype.EnumComplexity.IMAGINARY:
+                        match source:
                             case KK_Datatype.ASF:
                                 obj = asf_im(
                                     energies=data_e,
                                     factors=data_y,
                                     origin_dtype=KK_Datatype.ASF,
-                                    name=window_data.load_filename,
+                                    name=fname,
                                 )
                             case KK_Datatype.REFRACTIVE:
                                 obj = asf_im.from_refractive(
                                     energies=data_e,
                                     refractive=data_y,
-                                    name=window_data.load_filename,
+                                    name=fname,
                                 )
                             case KK_Datatype.REFRACTIVE_INDEX:
                                 obj = asf_im.from_refractive_index(
                                     energies=data_e,
                                     refractive_index=data_y,
-                                    name=window_data.load_filename,
+                                    name=fname,
                                 )
                             case KK_Datatype.NEXAFS:
                                 obj = asf_im.from_NEXAFS(
                                     energies=data_e,
                                     NEXAFS=data_y,
-                                    name=window_data.load_filename,
+                                    name=fname,
                                 )
                             case _:
-                                raise ValueError("Invalid datatype selected.")
-                        self.add_kk_obj(obj)
+                                # Create a QT warning dialog
+                                qtwarnings = QtWidgets.QMessageBox()
+                                qtwarnings.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+                                qtwarnings.setWindowTitle("Warning: Invalid Datatype")
+                                qtwarnings.setText(
+                                    f"Invalid datatype selected for imaginary data ({fname}).\n Source: {window_data.load_filename}"
+                                )
+                                qtwarnings.exec()
+                                warnings.warn(
+                                    "Invalid datatype selected for imaginary data."
+                                )
+                                return
+                if obj is not None:
+                    self.add_kk_obj(obj)
         return
 
     def duplicate(self) -> None:

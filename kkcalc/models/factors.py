@@ -83,8 +83,40 @@ KK_DATATYPE_DOCS: dict[str, str] = {
 
 
 class KK_Datatype(Enum):
-    """
+    r"""
     Enum for the type of data to be used in the Kramers-Kronig calculation.
+
+    Attributes
+    ----------
+    UNDEFINED : 0
+        For undefined data types.
+    NEXAFS : 1
+        Near edge X-ray absorption fine structure (NEXAFS).
+    XANES : 1
+        X-ray absorption near edge structure (XANES).
+    PHOTOABSORPTION : 1
+        Photoabsorption.
+    REFRACTIVE : 2
+        Refractive components, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
+        Not to be confused with the index of refraction (KK_Datatype.REFRACTIVE_INDEX).
+        .. math::
+            n(E) = \delta(E) + i\beta(E)
+    REFRACTIVE_INDEX : 3
+        Index of refraction, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
+        Not to be confused with the refractive components (KK_Datatype.REFRACTIVE).
+        .. math::
+            n(E) = 1 - \delta(E) - i\beta(E)
+    ASF : 4
+        Atomic scattering factors, real :math:`f_1` & imaginary :math:`f_2` components.
+        Both scattering strengths are relative to the Thompson scattering of a free electron.
+        .. math::
+            n(E) = 1 - \frac{r_0}{2\pi}\lambda^2\sum_m \left(f_{1m}(E) + i f_{2m}(E)\right)
+    ASF_DASH : 5
+        Atomic scattering factors, real :math:`f^{'}` and imaginary :math:`f^{''}` components.
+        Here the real  relativistic correction is :math:`f^{0}`, and :math:`f^{'} is the energy dependent real part.
+        Both scattering strengths are relative to the Thompson scattering of a free electron.
+        .. math::
+            n(E) = 1 - \frac{r_0}{2\pi}\lambda^2\sum_m \left((f^{0}_m + f^{'}_m(E)) + i f^{''}_m(E)\right)
     """
 
     UNDEFINED = 0
@@ -225,6 +257,9 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def factors(self, factors: npt.ArrayLike) -> None:  # numpydoc ignore=GL08
         raise NotImplementedError("Setter requires implementation.")
+
+    asf = factors
+    """Alias for factors property."""
 
     @property
     def data(self) -> tuple[npt.NDArray, npt.NDArray]:  # numpydoc ignore=PR02
@@ -841,24 +876,65 @@ class asf(asf_abstract, atomic_scattering):
         # Initialise the atomic scattering base class
         atomic_scattering.__init__(self, **kwargs)
 
-        # Initialize hidden attributes
-        self._energies: npt.NDArray
-        self._factors: npt.NDArray | None
-        self._energies = energies = np.asarray(energies)
-        self._factors = factors = np.asarray(factors)
-
-        # Check energies are sorted
-        if not np.all(np.diff(energies) > 0):
-            warnings.warn("Dataset energies are not sorted, sorting.")
-            idxs = np.argsort(energies)
-            self.energies = energies = energies[idxs]
-            self.factors = factors = np.asarray(factors)[idxs]
-
+        self._origin_dtype: KK_Datatype
         if origin_dtype is None:
             # If no original data type is provided, assume the input data is the original data.
             self._origin_dtype = KK_Datatype.ASF
         else:
             self._origin_dtype = origin_dtype
+
+        # Initialize hidden attributes
+        self._energies: npt.NDArray
+        self._factors: npt.NDArray | None
+        # Store energies and factors, but convert if required.
+        self._energies = energies = np.asarray(energies)
+        self._factors = factors = np.asarray(factors)
+        match self._origin_dtype:
+            case KK_Datatype.NEXAFS | KK_Datatype.PHOTOABSORPTION | KK_Datatype.XANES:
+                # Convert from NEXAFS to atomic scattering factors.
+                self._factors = factors = conversions.NEXAFS_to_ASF(
+                    energies=energies,
+                    nexafs=factors,
+                    **kwargs,
+                )  # type: ignore # To avoid typing issues with the kwargs to keywords, which are valid.
+            case KK_Datatype.REFRACTIVE | KK_Datatype.REFRACTIVE_INDEX:
+                # Convert from refractive to atomic scattering factors.
+                if self.can_calc_refractive:
+                    self._factors = factors = conversions.refractive_to_ASF(
+                        energies=energies,
+                        refractive_component=(
+                            factors
+                            if self._origin_dtype == KK_Datatype.REFRACTIVE
+                            else 1 - factors
+                        ),
+                        **kwargs,
+                    )  # type: ignore # To avoid typing issues with the kwargs to keywords, which are valid.
+                else:
+                    raise ValueError(
+                        "Material density information is required to convert from refractive (index) to atomic scattering factors."
+                    )
+            case KK_Datatype.ASF_DASH:
+                if "stoichiometry" in kwargs and kwargs["stoichiometry"] is not None:
+                    stoich = kwargs["stoichiometry"]
+                    if isinstance(stoich, str):
+                        stoich = kk_stoichiometry(stoich)
+                    # Convert from f0, f' & f'' to f1 & f2
+                    self._factors = factors = conversions.ASF_DASH_to_ASF(
+                        factors_dash=factors,
+                        stoichiometry=stoich,
+                    )
+            case KK_Datatype.ASF:
+                pass  # No conversion required.
+            case _:
+                raise ValueError(f"Unsupported origin data type: {self._origin_dtype}.")
+
+        # Check energies are sorted
+        if not np.all(np.diff(energies) > 0):
+            warnings.warn("Dataset energies are not sorted, sorting.")
+            idxs = np.argsort(energies)
+            self._energies = energies = energies[idxs]
+            self._factors = factors = np.asarray(factors)[idxs]
+
         if origin_data is not None:
             # Store a copy of original data.
             origin_data = np.asarray(origin_data)
@@ -866,6 +942,7 @@ class asf(asf_abstract, atomic_scattering):
             if len(origin_data.shape) != 2:
                 raise ValueError("Original data must contain two columns.")
             self._origin_data = origin_data
+
         elif origin_dtype is None:
             # If no original data is provided, assume the input data is the original data.
             self._origin_data = np.c_[energies, factors]  # already creates copies
@@ -1202,6 +1279,42 @@ class asf(asf_abstract, atomic_scattering):
                 as the conversion is ambiguous between $\delta$ & $\beta$ values."
         )
 
+    @classmethod
+    @abc.abstractmethod
+    def from_asf_dash(
+        cls: type[Self],
+        energies: npt.NDArray,
+        factors_dash: npt.NDArray,
+        *,
+        stoichiometry: kk_stoichiometry | str,
+        scale_to_database: bool = False,
+        **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
+    ) -> Self:
+        """
+        Unimplemented method to convert from :math:`f_0,f',f''` to :math:`f_1,f_2`.
+
+        Always raises a `NotImplementedError` as the conversion requires a designated complexity.
+
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        factors_dash : array_like
+            Atomic scattering factors in :math:`f' + i * f''` format.
+        stoichiometry : stoichiometry | str
+            Description of the combination of elements composing the material.
+            Required to perform the conversion, as the relativistic corrections depend on the material composition.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs : Unpack[PROPERTIES_DICT_NO_STOICH]
+            Additional keyword arguments for the `atomic_scattering` object.
+        """
+        raise NotImplementedError(
+            "ASF_DASH conversion is not implemented for this class,\
+                as the conversion requires a designated complexity."
+        )
+
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Generate a copy of the `asp` object.
@@ -1266,9 +1379,8 @@ class asf_re(asf):
         scale_to_database: bool = False,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
-        # Initialise the atomic scattering base class
-        asf.__init__(
-            self,
+        # Initialise the asf base class
+        super().__init__(
             energies=energies,
             factors=factors,
             origin_dtype=origin_dtype,
@@ -1308,6 +1420,69 @@ class asf_re(asf):
             origin_dtype=asf.origin_dtype,
             origin_data=asf.origin_data,
             **common_kwargs,
+        )
+
+    @classmethod
+    def from_factors_dash(
+        cls: type[Self],
+        energies: npt.NDArray,
+        factors_dash: npt.NDArray,
+        *,
+        stoichiometry: kk_stoichiometry | str,
+        scale_to_database: bool = False,
+        **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
+    ) -> "asf_re":
+        """
+        Convert data from :math:`f'` format to :math:`f^{1}`.
+
+        Parameters
+        ----------
+        energies : array_like
+            Photon energies in eV.
+        factors_dash : array_like
+            Atomic scattering factors in :math:`f' + i * f''` format.
+        stoichiometry : stoichiometry | str
+            Description of the combination of elements composing the material.
+            Required to perform the conversion, as the relativistic corrections depend on the material composition.
+        scale_to_database : bool, optional
+            Whether to scale the atomic scattering factors to the database scale.
+            Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        **kwargs : Unpack[PROPERTIES_DICT_NO_STOICH]
+            Additional keyword arguments for the `atomic_scattering` object.
+
+        Returns
+        -------
+        asf_re
+            Real atomic scattering factors object.
+
+        See Also
+        --------
+        kkcalc.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
+        """
+        # Convert energy and factors_dash data to numpy arrays.
+        energies = np.asarray(energies)
+        factors_dash = np.asarray(factors_dash)
+        # Perform conversion
+        factors = conversions.ASF_DASH_to_ASF(
+            factors_dash=factors_dash,
+            stoichiometry=stoichiometry,
+        )
+        # Accumulate keyword arguments
+        new_kwargs = {}
+        new_kwargs.update(kwargs)
+        new_kwargs.update(
+            {
+                "stoichiometry": stoichiometry,
+            }
+        )
+        # Return asf_re instance
+        return cls(
+            energies=energies,
+            factors=factors,
+            origin_dtype=KK_Datatype.ASF_DASH,
+            origin_data=np.c_[energies, factors_dash],
+            scale_to_database=scale_to_database,
+            **new_kwargs,
         )
 
     def to_atomic_scattering_polynomial(
@@ -1502,6 +1677,23 @@ class asf_re(asf):
             scale_to_database=scale_to_database,
             **kwargs,
         )
+
+    refractive_re = deltas  # Alias for refractive property.
+
+    @property
+    def refractive_index_re(self) -> npt.NDArray[np.floating]:
+        r"""
+        Calculate the real part of the refractive index from atomic scattering factors.
+
+        .. math::
+            n(E) &= 1 - \delta(E) + i\beta(E)
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The real part of the refractive index.
+        """
+        return 1 - self.deltas
 
     def kk_transform_inv(
         self,
@@ -2874,8 +3066,7 @@ class asf_complex(asf_abstract, atomic_scattering):
     @classmethod
     def from_asf(
         cls: type[Self],
-        energies: npt.NDArray,
-        factors: npt.NDArray[np.complexfloating],
+        asf_obj: asf,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         """
@@ -2883,10 +3074,8 @@ class asf_complex(asf_abstract, atomic_scattering):
 
         Parameters
         ----------
-        energies : npt.NDArray
-            Photon energies in eV.
-        factors : npt.NDArray[np.complexfloating]
-            Complex atomic scattering factors.
+        asf_obj : asf
+            An object containing complex atomic scattering factors.
         **kwargs : Unpack[PROPERTIES_DICT]
             Keyword arguments for the atomic scattering base class.
 
@@ -2899,8 +3088,24 @@ class asf_complex(asf_abstract, atomic_scattering):
         --------
         kkcalc.models.common.atomic_scattering : The base class for material attributes.
         """
-        re = asf_re.from_asf(asf(energies, factors.real, **kwargs))
-        im = asf_im.from_asf(asf(energies, factors.imag, **kwargs))
+        ## Decompose into real and imaginary parts
+        # Check if obj has non-zero real and imaginary parts
+        if np.all(asf_obj.factors.imag == 0):
+            warnings.warn(
+                "Provided atomic scattering factors have no imaginary component. Imaginary part will be zero."
+            )
+        if np.all(asf_obj.factors.real == 0):
+            warnings.warn(
+                "Provided atomic scattering factors have no real component. Real part will be zero."
+            )
+        # Real
+        re = asf_obj.copy()
+        re.factors = re.factors.real
+        re = asf_re.from_asf(re)
+        # Imag
+        im = asf_obj.copy()
+        im.factors = im.factors.imag
+        im = asf_im.from_asf(im)
         return cls(re=re, im=im, **kwargs)
 
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> "asf_complex":

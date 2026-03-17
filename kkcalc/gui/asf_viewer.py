@@ -41,6 +41,8 @@ class GraphType(Enum):
 
 
 class asf_viewer(QtWidgets.QWidget):
+    graphUpdated = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self._layout = QtWidgets.QVBoxLayout()
@@ -137,7 +139,7 @@ class asf_viewer(QtWidgets.QWidget):
         """The current graphing style"""
 
         # Setup the scattering object list
-        self._scattering_objects: list[type[asp_abstract] | type[asf_abstract]] = []
+        self._scattering_objects: list[asp_abstract | asf_abstract] = []
 
         # Connect the graph type change to the switch_graph_style function
         def graph_fn(_):
@@ -153,13 +155,13 @@ class asf_viewer(QtWidgets.QWidget):
         self.reset_graph()
 
     @property
-    def scattering_objects(self) -> list[type[asp_abstract] | type[asf_abstract]]:
+    def scattering_objects(self) -> list[asp_abstract | asf_abstract]:
         """
         The current scattering objects
 
         Returns
         -------
-        list[type[asp_abstract] | type[asf_abstract]]
+        list[asp_abstract | asf_abstract]
             The current scattering objects
         """
         return self._scattering_objects
@@ -167,16 +169,14 @@ class asf_viewer(QtWidgets.QWidget):
     @scattering_objects.setter
     def scattering_objects(
         self,
-        objs: list[
-            asp_abstract | asf_abstract | type[asf_abstract] | type[asp_abstract]
-        ],
+        objs: list[asp_abstract | asf_abstract],
     ):
         """
         The current scattering objects
 
         Parameters
         ----------
-        list[type[asp_abstract] | type[asf_abstract]]
+        list[asp_abstract | asf_abstract]
             The current scattering objects
         """
         # Check inputs
@@ -313,11 +313,9 @@ class asf_viewer(QtWidgets.QWidget):
             snap_idx = self.snap_x_combo.currentIndex()
             snap_dom = self.__x_snap_domain(snap_idx)  # May be None
             # Convert asps to asfs
+            obj: asf_abstract | asp_abstract
             if isinstance(obj, asp_abstract):
-                obj: type[asp_abstract]
-                obj: type[asf_abstract] = (
-                    obj.to_asf()
-                )  # Convert to factors to process max/min
+                obj = obj.to_asf()  # Convert to factors to process max/min
             # Setup the return values
             ret_vals: list[tuple[float, float] | None]
             # Get the appropriate y-data type
@@ -337,7 +335,11 @@ class asf_viewer(QtWidgets.QWidget):
             # Get the valid x-domain
             if snap_dom is not None:
                 snap_idx = (obj.energies >= snap_dom[0]) & (obj.energies <= snap_dom[1])
-                ydata = ydata[snap_idx]
+                if not snap_idx.any():
+                    # No data in the snap range, cannot normalise.
+                    return NO_NORM
+                else:
+                    ydata = ydata[snap_idx]
             # Get the normalisation scales
             if isinstance(obj, asf_re) or isinstance(obj, asf_im):
                 mn, mx = ydata.min(), ydata.max()
@@ -439,10 +441,15 @@ class asf_viewer(QtWidgets.QWidget):
         # # Update the canvas
         # self.canvas.draw()
 
+        # Emit the graphUpdated signal
+        self.graphUpdated.emit()
+
     def reset_graph(self):
         """
         Used to update the graph style and x scale attributes.
         """
+        # Block all signals from self
+        self.blockSignals(True)
         # Get graphing attributes
         graph_style = self.graph_type
         x_scale = self.x_scale
@@ -527,6 +534,9 @@ class asf_viewer(QtWidgets.QWidget):
             x_snap = self.__x_snap_domain(self.snap_x_combo.currentIndex())
             if x_snap is not None:
                 x_dom_idx = (x >= x_snap[0]) & (x <= x_snap[1])
+                if not x_dom_idx.any():
+                    # No data in the snap range, skip graphing this object.
+                    continue
             else:
                 x_dom_idx = None
 
@@ -682,6 +692,10 @@ class asf_viewer(QtWidgets.QWidget):
         # Draw the plot
         self.figure.tight_layout()
         self.canvas.draw()
+        # Unblock all signals from self
+        self.blockSignals(False)
+        # Emit the graphUpdated signal
+        self.graphUpdated.emit()
         return
 
     def switch_legend(self, state: bool | None = None):
@@ -704,6 +718,8 @@ class asf_viewer(QtWidgets.QWidget):
                 legend.set_visible(state)
         # Redraw the canvas
         self.canvas.draw()
+        # Emit the graphUpdated signal
+        self.graphUpdated.emit()
 
     def copy_data(self) -> pd.DataFrame:
         """
@@ -812,7 +828,7 @@ if __name__ == "__main__":
     )
 
     # List
-    objs: list[type[atomic_scattering]] = [
+    objs: list[atomic_scattering] = [
         polystyrene_data,
         polystyrene_asp_im,
         polystyrene_asp_im2,

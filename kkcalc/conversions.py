@@ -782,3 +782,71 @@ def ASP_to_ASF(
         # Duplicate the final polynomial to define the final boundary.
         coefs = np.r_[coefs, coefs[-1:, :]]  # Duplicate the last row.
     return np.sum(coefs * powers, axis=1)
+
+
+def ASF_DASH_to_ASF(
+    factors_dash: npt.NDArray[np.complexfloating],
+    stoichiometry: kk_stoichiometry | str,
+    reverse: bool = False,
+) -> npt.NDArray[np.complexfloating]:
+    """
+    Convert :math:`f'(E), f''(E)` to :math:`f^1(E), f^2(E)`.
+
+    The two are related by
+    .. math::
+        f^{1}(E) = f^{0} + f^{'}(E),
+        f^{2}(E) = f^{''}(E)
+
+    Parameters
+    ----------
+    factors_dash : npt.NDArray[np.complex128 | np.float64]
+        Atomic scattering factor f' (ASF DASH).
+    stoichiometry : kk_stoichiometry | str
+        Stoichiometry of the material.
+    reverse : bool, optional
+        If True, convert from total ASF to ASF DASH. Default is False.
+
+    Returns
+    -------
+    npt.NDArray[np.complexfloating]
+        Total atomic scattering factors.
+    """
+    stoich = (
+        kk_stoichiometry(stoichiometry)
+        if isinstance(stoichiometry, str)
+        else stoichiometry
+    )
+    rel_corr = stoich.relativistic_correction
+    return (-rel_corr if reverse else rel_corr) + factors_dash
+
+
+def ASF_to_ASF_DASH(
+    factors: npt.NDArray[np.complexfloating],
+    stoichiometry: kk_stoichiometry | str,
+) -> npt.NDArray[np.complexfloating]:
+    """
+    Convert total atomic scattering factors to dash format.
+
+    The two are related by
+
+    .. math::
+        f^0 + f'(E) = f^1(E),
+        f''(E) = f^2(E)
+
+    Parameters
+    ----------
+    factors : array_like
+        Total atomic scattering factors.
+    stoichiometry : kk_stoichiometry | str
+        Stoichiometry of the material.
+
+    Returns
+    -------
+    npt.NDArray[np.complex128 | np.float64]
+        Atomic scattering factors in dash format.
+    """
+    return ASF_DASH_to_ASF(
+        factors_dash=factors,
+        stoichiometry=stoichiometry,
+        reverse=True,
+    )

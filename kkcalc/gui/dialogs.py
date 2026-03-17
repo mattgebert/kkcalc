@@ -16,66 +16,26 @@ from matplotlib.backends.backend_qt5agg import (
 )
 
 
-class factor_complexity_dialog(QtWidgets.QDialog):
-    """Creates a choice dialog for selecting the complexity (real/imaginary) of the data.
+class dtype_dialog(QtWidgets.QDialog):
+    """
+    A dialog to select the datatype of the data.
 
-    User choice is stored in the `complexity` attribute.
-
-    Examples
-    --------
-    >>> import sys, PyQt6.QtWidgets as QtWidgets
-    >>> app = QtWidgets.QApplication(sys.argv)
-    >>> d = factor_complexity_dialog()
-    >>> d.show()
-    >>> result = d.exec()
-    >>> if result:
-    ...      print(d.complexity)
+    Includes choices for complexity (real/imaginary), and datatype (KK_Datatype).
+    Choices are available in the `EnumComplexity` and `KK_Datatype` enums.
     """
 
     class EnumComplexity(Enum):
         REAL = 0
+        r"""Real components of the atomic scattering factors (i.e. :math:`\delta`, :math:`f_1`)."""
         IMAGINARY = 1
+        r"""Imaginary components of the atomic scattering factors (i.e. :math:`\beta`, :math:`f_2`, :math:`f''`)."""
+        COMPLEX = 2
+        r"""Complex components of the atomic scattering factors (i.e. :math:`\delta + i \beta`, :math:`f_1 + i f_2`, :math:`f' + i f''`)."""
 
-    def __init__(self, parent=None, name: str | None = None):
-        super().__init__(parent)
-        self.setWindowTitle(
-            "Select Complexity" if name is None else "Select Complexity: " + name
-        )
-        self._layout = QtWidgets.QVBoxLayout()
-        self.setLayout(self._layout)
-        self.complexity: factor_complexity_dialog.EnumComplexity | None = None
-        """The selected form complexity."""
+    EnumComplexity.REAL.__doc__ = r"Real components of the atomic scattering factors (i.e. :math:`\delta`, :math:`f_1`)."
+    EnumComplexity.IMAGINARY.__doc__ = r"Imaginary components of the atomic scattering factors (i.e. :math:`\beta`, :math:`f_2`, :math:`f''`)."
+    EnumComplexity.COMPLEX.__doc__ = r"Complex components of the atomic scattering factors (i.e. :math:`\delta + i \beta`, :math:`f_1 + i f_2`, :math:`f' + i f''`)."
 
-        self.complexity_buttons = [
-            QtWidgets.QPushButton(
-                factor_complexity_dialog.EnumComplexity.REAL.name.lower().capitalize()
-            ),
-            QtWidgets.QPushButton(
-                factor_complexity_dialog.EnumComplexity.IMAGINARY.name.lower().capitalize()
-            ),
-        ]
-        label = QtWidgets.QLabel(
-            "Select the complexity of the data"
-            + (":" if name is None else f" for {name}:")
-        )
-        self._layout.addWidget(label)
-        blayout = QtWidgets.QHBoxLayout()
-        self._layout.addLayout(blayout)
-        for button in self.complexity_buttons:
-            button.clicked.connect(self.on_complexity_push)
-            blayout.addWidget(button)
-
-    def on_complexity_push(self):
-        """
-        Collects the selected complexity, then closes the dialog.
-        """
-        self.complexity = factor_complexity_dialog.EnumComplexity(
-            self.complexity_buttons.index(self.sender())
-        )
-        self.accept()
-
-
-class factor_dtype_dialog(QtWidgets.QDialog):
     def __init__(self, parent=None, name: str | None = None):
         super().__init__(parent)
         self.setWindowTitle(
@@ -83,9 +43,39 @@ class factor_dtype_dialog(QtWidgets.QDialog):
         )
         self._layout = QtWidgets.QVBoxLayout()
         self.setLayout(self._layout)
+
         self.datatype: KK_Datatype | None = None
         """The selected datatype"""
+        self.complexity: dtype_dialog.EnumComplexity | None = None
+        """The selected form complexity."""
 
+        # Complexity buttons
+        self.complexity_buttons = [
+            QtWidgets.QPushButton(
+                dtype_dialog.EnumComplexity.REAL.name.lower().capitalize()
+            ),
+            QtWidgets.QPushButton(
+                dtype_dialog.EnumComplexity.IMAGINARY.name.lower().capitalize()
+            ),
+            QtWidgets.QPushButton(
+                dtype_dialog.EnumComplexity.COMPLEX.name.lower().capitalize()
+            ),
+        ]
+        label = QtWidgets.QLabel(
+            "Select the complexity of the data"
+            + (":" if name is None else f" for {name}:")
+        )
+        self._layout.addWidget(label)
+        blayout_complexity = QtWidgets.QHBoxLayout()
+        self._layout.addLayout(blayout_complexity)
+        for button in self.complexity_buttons:
+            button.clicked.connect(self.on_complexity_push)
+            blayout_complexity.addWidget(button)
+            button.setToolTip(
+                dtype_dialog.EnumComplexity[button.text().upper()].__doc__
+            )
+
+        # Datatype buttons
         self.dtype_buttons = [
             QtWidgets.QPushButton(dtype.name.lower().capitalize())
             for dtype in KK_Datatype
@@ -95,12 +85,33 @@ class factor_dtype_dialog(QtWidgets.QDialog):
             "Select the datatype " + (":" if name is None else f" for {name}:")
         )
         self._layout.addWidget(label)
-        blayout = QtWidgets.QHBoxLayout()
-        self._layout.addLayout(blayout)
+        blayout_dtype = QtWidgets.QHBoxLayout()
+        self._layout.addLayout(blayout_dtype)
         for i, button in enumerate(self.dtype_buttons):
             button.clicked.connect(self.on_dtype_push)
-            blayout.addWidget(button)
+            blayout_dtype.addWidget(button)
             button.setToolTip(KK_DATATYPE_DOCS[KK_Datatype(i + 1).name])
+            button.setEnabled(False)
+
+        blayout_dtype.setEnabled(False)
+
+    def on_complexity_push(self):
+        """
+        Collects the selected complexity, then closes the dialog.
+        """
+        self.complexity = dtype_dialog.EnumComplexity(
+            self.complexity_buttons.index(self.sender())
+        )
+        if self.complexity is not None:
+            # Show the datatype buttons
+            for i, button in enumerate(self.dtype_buttons):
+                if (
+                    i != KK_Datatype.NEXAFS.value - 1
+                    or self.complexity is dtype_dialog.EnumComplexity.IMAGINARY
+                ):
+                    button.setEnabled(True)
+                else:
+                    button.setEnabled(False)
 
     def on_dtype_push(self):
         """
@@ -110,12 +121,27 @@ class factor_dtype_dialog(QtWidgets.QDialog):
         self.datatype = KK_Datatype(self.dtype_buttons.index(self.sender()) + 1)
         self.accept()
 
+    # Validate
+    def validate(self) -> bool:
+        """
+        Validates that both complexity and datatype have been selected.
+        """
+        # NEXAFS cannot be real or complex
+        if (
+            self.complexity != dtype_dialog.EnumComplexity.IMAGINARY
+            and self.datatype == KK_Datatype.NEXAFS
+        ):
+            return False
+        # Return true if both are selected
+        return self.complexity is not None and self.datatype is not None
+
 
 class import_data_dialog(QtWidgets.QDialog):
     DEFAULT_X_LABEL = "Energy (eV)"
     DEFAULT_Y_LABEL = "Amplitude (A.U.)"
 
     PROCESSOR_DOC = {
+        "NONE": "No processor selected",
         "ASCII": "Import data from an ASCII file reading each line",
         "NUMPY": "Import data from a NumPy file",
         "PANDAS": "Import data using Pandas",
@@ -123,11 +149,13 @@ class import_data_dialog(QtWidgets.QDialog):
 
     class EnumProcessor(Enum):
         # These doc_strings do not persist at compilation.
-        ASCII = 0
+        NONE = 0
+        """No processor selected"""
+        ASCII = 1
         """Import data from an ASCII file reading each line"""
-        NUMPY = 1
+        NUMPY = 2
         """Import data from a NumPy file"""
-        PANDAS = 2
+        PANDAS = 3
         """Import data using Pandas"""
 
     # Set the docstrings for the processors
@@ -174,7 +202,7 @@ class import_data_dialog(QtWidgets.QDialog):
         # Define parsing attributes
         self.load_data: Any | None = None
         """Associated data with the loaded file, determined by the `load_dtype`."""
-        self.load_dtype: self.EnumProcessor | None = None
+        self.load_dtype: import_data_dialog.EnumProcessor | None = None
         """The selected processor for loading the data."""
         self.load_headers: list[str] | None = None
         """The unprocessed headers of the loaded data."""
@@ -352,8 +380,30 @@ class import_data_dialog(QtWidgets.QDialog):
                 # Load the data
                 temp_headers = [f.readline() for _ in range(skip_header_rows)]
                 match dtype:
+                    case import_data_dialog.EnumProcessor.NONE:
+                        raise ValueError(
+                            "No processor selected. Use `ASCII`, `NUMPY` or `PANDAS`."
+                        )
                     case import_data_dialog.EnumProcessor.ASCII:
-                        self.load_data = f.readlines()
+                        load_data: list[str] | list[list[Any]]
+                        load_data = f.readlines()
+                        if delim is not None:
+                            load_data = [
+                                line.strip().split(delim) for line in load_data
+                            ]
+                            # Remove empty strings from the split lines
+                            load_data = [
+                                [item for item in line if item != ""]
+                                for line in load_data
+                            ]
+                            # Convert to float if possible
+                            for i, line in enumerate(load_data):
+                                for j, item in enumerate(line):
+                                    try:
+                                        load_data[i][j] = float(item)
+                                    except ValueError:
+                                        pass
+                        self.load_data = load_data
                     case import_data_dialog.EnumProcessor.NUMPY:
                         self.load_data = np.loadtxt(f, delimiter=delim)
                     case import_data_dialog.EnumProcessor.PANDAS:
@@ -439,15 +489,41 @@ class import_data_dialog(QtWidgets.QDialog):
             self.error_hide()
             return
         else:
+            if self._default_brush is None:
+                item = self.viewer_table.item(0, 0)
+                if item is not None:
+                    self._default_brush = item.background()
+                else:
+                    self._default_brush = QtGui.QBrush(QtGui.QColor(255, 255, 255, 0))
+
             match self.load_dtype:
                 case import_data_dialog.EnumProcessor.ASCII:
                     # Display the data as a table
-                    self.viewer_table.setRowCount(len(self.load_data))
-                    self.viewer_table.setColumnCount(1)
                     self.viewer_table.setHorizontalHeaderLabels(["Lines"])
-                    for i, line in enumerate(self.load_data):
+                    # Check if data is 1D or 2D:
+                    if isinstance(self.load_data, list):
+                        if isinstance(self.load_data[0], list):
+                            # List of lists
+                            self.viewer_table.setRowCount(len(self.load_data))
+                            self.viewer_table.setColumnCount(len(self.load_data[0]))
+                            for i, line in enumerate(self.load_data):
+                                for j, item in enumerate(line):
+                                    self.viewer_table.setItem(
+                                        i, j, QtWidgets.QTableWidgetItem(str(item))
+                                    )
+                        else:
+                            # List of strings
+                            self.viewer_table.setRowCount(len(self.load_data))
+                            self.viewer_table.setColumnCount(1)
+                            for i, line in enumerate(self.load_data):
+                                self.viewer_table.setItem(
+                                    i, 0, QtWidgets.QTableWidgetItem(line)
+                                )
+                    else:
+                        self.viewer_table.setRowCount(0)
+                        self.viewer_table.setColumnCount(0)
                         self.viewer_table.setItem(
-                            i, 0, QtWidgets.QTableWidgetItem(line)
+                            0, 0, QtWidgets.QTableWidgetItem(self.load_data)
                         )
 
                 case import_data_dialog.EnumProcessor.NUMPY:
@@ -482,31 +558,50 @@ class import_data_dialog(QtWidgets.QDialog):
             # Highlight / remove highlighting of the selected columns
             xcol = self.x_column_select.text()
             ycol = self.y_column_select.text()
+            colcount = self.viewer_table.columnCount()
+            # By default, select the first two columns if they exist.
+            if colcount >= 2:
+                if xcol == "":
+                    xcol = "0"
+                    self.x_column_select.setText(xcol)
+                elif str.isdigit(xcol) and int(xcol) >= colcount and colcount != 2:
+                    # Out of range, but has been selected so set to blank.
+                    xcol = ""
+                    self.x_column_select.setText(xcol)
+                if ycol == "":
+                    ycol = "1"
+                    self.y_column_select.setText(ycol)
+                elif str.isdigit(ycol) and int(ycol) >= colcount and colcount != 2:
+                    # Out of range, but has been selected so set to blank.
+                    ycol = ""
+                    self.y_column_select.setText(ycol)
             if xcol != "":
                 # New selection!
                 xcol = int(xcol)
                 if xcol != self.__highlight_x and self.__highlight_x > -1:
                     for i in range(self.viewer_table.rowCount()):
-                        self.viewer_table.item(i, self.__highlight_x).setBackground(
-                            self._default_brush
-                        )
+                        item = self.viewer_table.item(i, self.__highlight_x)
+                        if item is not None:
+                            item.setBackground(self._default_brush)
                 for i in range(self.viewer_table.rowCount()):
-                    self.viewer_table.item(i, xcol).setBackground(
-                        QtGui.QBrush(QtGui.QColor(117, 250, 141, 128))
-                    )
+                    item = self.viewer_table.item(i, xcol)
+                    if item is not None:
+                        item.setBackground(
+                            QtGui.QBrush(QtGui.QColor(117, 250, 141, 128))
+                        )
                     # self.viewer_table.item(i, xcol).setForeground(QtGui.QBrush(QtGui.QColor(117, 250, 141, 128)))
                 self.x_column_select.setStyleSheet(
                     "background-color: rgba(117, 250, 141, 128);"
                 )
                 self.__highlight_x = xcol
             else:
-                # Existing selection!
+                # Empty selection!
                 self.x_column_select.setStyleSheet(None)
                 if self.__highlight_x > -1:
                     for i in range(self.viewer_table.rowCount()):
-                        self.viewer_table.item(i, self.__highlight_x).setBackground(
-                            self._default_brush
-                        )
+                        item = self.viewer_table.item(i, self.__highlight_x)
+                        if item is not None:
+                            item.setBackground(self._default_brush)
                     self.__highlight_x = -1
                     self.x_column_select.setStyleSheet(None)
 
@@ -515,26 +610,28 @@ class import_data_dialog(QtWidgets.QDialog):
                 ycol = int(ycol)
                 if ycol != self.__highlight_y and self.__highlight_y > -1:
                     for i in range(self.viewer_table.rowCount()):
-                        self.viewer_table.item(i, self.__highlight_y).setBackground(
-                            self._default_brush
-                        )
+                        item = self.viewer_table.item(i, self.__highlight_y)
+                        if item is not None:
+                            item.setBackground(self._default_brush)
                 for i in range(self.viewer_table.rowCount()):
-                    self.viewer_table.item(i, ycol).setBackground(
-                        QtGui.QBrush(QtGui.QColor(159, 252, 253, 128))
-                    )
+                    item = self.viewer_table.item(i, ycol)
+                    if item is not None:
+                        item.setBackground(
+                            QtGui.QBrush(QtGui.QColor(159, 252, 253, 128))
+                        )
                     # self.viewer_table.item(i, ycol).setForeground(QtGui.QBrush(QtGui.QColor(159, 252, 253, 128)))
                 self.y_column_select.setStyleSheet(
                     "background-color: rgba(159, 252, 253, 128);"
                 )
                 self.__highlight_y = ycol
             else:
-                # Existing selection!
+                # Empty selection!
                 self.y_column_select.setStyleSheet(None)
                 if self.__highlight_y > -1:
                     for i in range(self.viewer_table.rowCount()):
-                        self.viewer_table.item(i, self.__highlight_y).setBackground(
-                            self._default_brush
-                        )
+                        item = self.viewer_table.item(i, self.__highlight_y)
+                        if item is not None:
+                            item.setBackground(self._default_brush)
                     self.__highlight_y = -1
                     self.y_column_select.setStyleSheet(None)
 
@@ -565,9 +662,6 @@ class import_data_dialog(QtWidgets.QDialog):
                 self.result_accept_btn.setEnabled(False)
                 if self.plot_window is not None:
                     self.plot_window.hide()
-
-            if self._default_brush is None:
-                self._default_brush = self.viewer_table.item(0, 0).background()
 
             self.viewer_table.resizeColumnsToContents()
             self.viewer_show()
@@ -681,14 +775,43 @@ class import_data_dialog(QtWidgets.QDialog):
         """
         i = int(self.x_column_select.text())
         j = int(self.y_column_select.text())
+        np_data: np.ndarray
         if self.load_dtype == import_data_dialog.EnumProcessor.PANDAS:
             data: pd.DataFrame = self.load_data
-            np_data: np.ndarray = data.to_numpy()
+            np_data = data.to_numpy()
         elif self.load_dtype == import_data_dialog.EnumProcessor.NUMPY:
-            np_data: np.ndarray = self.load_data
+            np_data = (
+                np.asarray(self.load_data)
+                if self.load_data is not None
+                else np.array([])
+            )
+        elif self.load_dtype == import_data_dialog.EnumProcessor.ASCII:
+            if isinstance(self.load_data, list):
+                if isinstance(self.load_data[0], list):
+                    # Remove any lines that aren't homogenous.
+                    ave_len = np.median([len(line) for line in self.load_data])
+                    med_data = [
+                        line
+                        for line in self.load_data
+                        if len(line) == ave_len
+                        and all(
+                            isinstance(item, (int, float, complex)) for item in line
+                        )
+                    ]
+                    np_data = np.array(med_data)
+                else:
+                    np_data = np.array([])
+            else:
+                np_data = np.array([])
         else:
             return None
-        if len(np_data.shape) > 1 and np_data.shape[1] > 1:
+        if (
+            len(np_data.shape) > 1
+            and np_data.shape[1] > 1
+            and i != j
+            and i < np_data.shape[0]
+            and j < np_data.shape[1]
+        ):
             X = np_data[:, i]
             Y = np_data[:, j]
             return X, Y
@@ -702,8 +825,10 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
 
     # Test each dialog
-    dialogs = [factor_complexity_dialog, factor_dtype_dialog, import_data_dialog][2:]
-    for dialog in dialogs:
+    dialogs = [dtype_dialog, import_data_dialog]
+    print(len(dialogs))
+    for i, dialog in enumerate(dialogs):
+        print(f"{i}: {dialog.__name__}")
         d = dialog()
         d.show()
         result = d.exec()

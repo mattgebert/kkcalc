@@ -11,7 +11,6 @@ import os
 import io
 import numpy as np
 from matplotlib.widgets import SpanSelector
-import matplotlib.pyplot as plt
 import pkgutil
 
 from kkcalc.gui.asf_viewer import asf_viewer, GraphType
@@ -126,81 +125,142 @@ class kk_gui(QtWidgets.QWidget):
         obj_list.selectedObjectChanged.connect(self.on_object_select)
         obj_modifier.objectModified.connect(self.on_object_modify)
         obj_modifier.objectCreated.connect(self.on_object_create)
-        obj_modifier.hasHandle.connect(self.on_has_handle)
+        obj_modifier.merge_dom_lb_edit.textChanged.connect(
+            lambda text: self.on_modifier_update(
+                float(text) if text != "" else 0.0,
+                float(obj_modifier.merge_dom_ub_edit.text())
+                if obj_modifier.merge_dom_ub_edit.text() != ""
+                else 0.0,
+            )
+        )
+        obj_modifier.merge_dom_ub_edit.textChanged.connect(
+            lambda text: self.on_modifier_update(
+                float(obj_modifier.merge_dom_lb_edit.text())
+                if obj_modifier.merge_dom_lb_edit.text() != ""
+                else 0.0,
+                float(text) if text != "" else 0.0,
+            )
+        )
+        # Connect the merge handle checkbox to the handle display
+        obj_modifier.merge_handle_checkbox.stateChanged.connect(
+            self.on_merge_handle_update
+        )
+        # Connect the viewer graph x-snapping to handle redrawing
+
+        viewer.graphUpdated.connect(self.on_snap)
+        # viewer.snap_x_combo.currentIndexChanged.connect(self.on_snap)
 
         # Setup the viewer
         self.on_view_change()
 
-    def on_has_handle(self, has_handle: bool):
+    def on_snap(self):
         """
-        Catch the signal from the modifier, for when an extended domain is to be created.
+        Catch a snap event from the viewer.
+        """
+        if self._has_handle and self._handle is not None:
+            # This is a hack to create a new handle, as updating the existing
+            # one does not redraw it properly (positioning, log scale etc).
+            self.show_handle(False)  # Force the removal of the handle.
+            self.show_handle(
+                True
+            )  # Force an update of the handle onto the current axis.
+
+    def show_handle(self, has_handle: bool):
+        """
+        Create a handle when an extended domain is desired.
 
         Parameters
         ----------
         has_handle : bool
-            Whether to create the handle or not.
+            Whether to create the handle or not (or remove existing).
         """
+        # Check if a handle is needed
         if has_handle:
             # Get the current obj
             obj = self.obj_list.selected_object
-            if self._has_handle:
-                # Update the existing handle.
-                self._handle.extents = obj.energies.min(), obj.energies.max()
-            else:
-                # Get the current graph style
-                graph_type = self.viewer.graph_type
-                # Find the appropriate axes
-                handle_ax = None
-                if obj is None:
-                    # No object selected, do nothing.
-                    return
-                # Only allow database extensions for re/im objects.
-                if (
-                    graph_type is GraphType.RE_IM_OVERLAY
-                    or graph_type is GraphType.RE_IM_SEPARATE
-                ):
-                    if isinstance(obj, (asf_re, asp_re)):
-                        handle_ax = self.viewer.ax1
-                    elif isinstance(obj, (asf_im, asp_im)):
-                        handle_ax = self.viewer.ax2
+            # Get the current graph style
+            graph_type = self.viewer.graph_type
+            # Find the appropriate axes
+            handle_ax = None
+            if obj is None:
+                # No object selected, do nothing.
+                return
+            # Only allow database extensions for re/im objects.
+            if (
+                graph_type is GraphType.RE_IM_OVERLAY
+                or graph_type is GraphType.RE_IM_SEPARATE
+            ):
+                if isinstance(obj, (asf_re, asp_re)):
+                    handle_ax = self.viewer.ax1
+                elif isinstance(obj, (asf_im, asp_im)):
+                    handle_ax = self.viewer.ax2
+            # Create or update the handle
+            if not self._has_handle:
                 # Create the handle
                 if handle_ax is not None:
-                    # Define functions to convert the pixel coordinates to data coordinates
-                    def pix_to_data(
-                        ax: plt.Axes, x: float, y: float
-                    ) -> tuple[float, float]:
-                        # Convert pixel coordinates to data coordinates
-                        return ax.transData.transform([x, y])
-                        # return inv.transform((x, y))
-
-                    def handle_update(x, y):
-                        min_x, max_x = pix_to_data(handle_ax, x, y)
-                        self.on_handle_update(min_x, max_x)
-                        return
-
                     # Create the handle
                     self._handle = SpanSelector(
                         ax=handle_ax,
-                        onselect=handle_update,
+                        onselect=self.on_handle_update,
                         direction="horizontal",
                         useblit=True,
                         interactive=True,
                         drag_from_anywhere=True,
                     )
-                    self._handle.extents = (obj.energies.min(), obj.energies.max())
+                    self._handle.set_props(color="red", alpha=0.1)
+                    self._handle.set_handle_props(color="red", alpha=0.2)
+                    # A handle now exists
+                    self._has_handle = True
+            else:
+                # Ensure the axes match
+                if (
+                    self._handle is not None
+                    and handle_ax is not None
+                    and self._handle.ax != handle_ax
+                ):
+                    # Get the old ax
+                    old_ax = self._handle.ax
+                    # Remove old artists
+                    for artist in self._handle.artists + old_ax.artists:
+                        try:
+                            artist.remove()
+                        except ValueError:
+                            pass
+                    # Remove the old ax from the figure if it's still there
+                    try:
+                        self.viewer.figure.axes.remove(old_ax)
+                    except ValueError:
+                        pass
+                    # Update the handle to the new ax
+                    # self._handle._setup_edge_handles(self._handle._handle_props)
+                    # self._handle.new_axes(handle_ax)
+                    # self._handle._draw_shape(*self._handle.extents)
+            try:
+                txt_min, txt_max = (
+                    self.obj_modifier.merge_dom_lb_edit.text(),
+                    self.obj_modifier.merge_dom_ub_edit.text(),
+                )
+                self._handle.extents = (float(txt_min), float(txt_max))
+            except ValueError:
+                self._handle.extents = obj.energies.min(), obj.energies.max()
         else:
             if self._has_handle:
                 # Remove the handle
                 self._handle.visible = False
                 self._handle.clear()
-                self._handle.ax.artists.remove(self._handle)
+                for artist in self._handle.artists:
+                    try:
+                        artist.remove()
+                    except ValueError:
+                        pass
                 # Lose track of the handle
                 self._handle = None
-        self.viewer.reset_graph()
+                self._has_handle = False
+        # self.viewer.reset_graph()
 
     def on_handle_update(self, min_x: float, max_x: float):
         """
-        Catch updates to the handle, and update the modifier values.
+        Take handle updates, and update the modifier values.
 
         Parameters
         ----------
@@ -209,9 +269,36 @@ class kk_gui(QtWidgets.QWidget):
         max_x : float
             The maximum x value of the handle.
         """
-        # Update the lb and ub values
+        # Disable signals of the modifiers
+        self.obj_modifier.merge_dom_lb_edit.blockSignals(True)
+        self.obj_modifier.merge_dom_ub_edit.blockSignals(True)
+        # Update the lb and ub values but don't use the min_x, max_x
         self.obj_modifier.merge_dom_lb_edit.setText(f"{min_x:.2f}")
         self.obj_modifier.merge_dom_ub_edit.setText(f"{max_x:.2f}")
+        # Unblock signals
+        self.obj_modifier.merge_dom_lb_edit.blockSignals(False)
+        self.obj_modifier.merge_dom_ub_edit.blockSignals(False)
+        return
+
+    def on_modifier_update(self, min_x: float, max_x: float):
+        """
+        Take text modifier updates, and update the handle values.
+
+        Parameters
+        ----------
+        min_x : float
+            The minimum x value of the modifier.
+        max_x : float
+            The maximum x value of the modifier.
+        """
+        if self._has_handle and self._handle is not None:
+            # Take the onselect function
+            fn = self._handle.onselect
+            self._handle.onselect = lambda *args: None
+            # Update the values
+            self._handle.extents = (min_x, max_x)
+            # Restore the onselect function
+            self._handle.onselect = fn
         return
 
     def on_view_change(self):
@@ -239,6 +326,24 @@ class kk_gui(QtWidgets.QWidget):
             else:
                 # Clear the modifier QTextEdits
                 self.obj_modifier.clear()
+
+        # Always update the handle
+        self.on_merge_handle_update(self.obj_modifier.merge_handle_checkbox.isChecked())
+
+    def on_merge_handle_update(self, checked: bool):
+        """
+        Catch a change of the merge handle checkbox, and updates the handle view.
+
+        Parameters
+        ----------
+        checked : bool
+            Whether the merge handle checkbox is checked.
+        """
+        selected_obj = self.obj_list.selected_object
+        requires_handle: bool = (
+            selected_obj is not None and not selected_obj.is_extended and checked
+        )
+        self.show_handle(requires_handle)
 
     def on_object_modify(self):
         """

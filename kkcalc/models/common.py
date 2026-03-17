@@ -176,6 +176,39 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
             "is_extended": self.is_extended,
         }
 
+    @staticmethod
+    def _can_calc_refractive(
+        obj: PROPERTIES_DICT | PROPERTIES_DICT_NO_STOICH | "atomic_scattering_abstract",
+    ) -> bool:
+        r"""
+        Whether the properties dictionary can calculate $\delta$/$\beta$ values given enough density information.
+
+        Parameters
+        ----------
+        obj : PROPERTIES_DICT | PROPERTIES_DICT_NO_STOICH | atomic_scattering_abstract
+            An object or dictionary with the required properties.
+
+        Returns
+        -------
+        bool
+            If the object can calculate $\delta$/$\beta$ values.
+        """
+        if isinstance(obj, atomic_scattering_abstract):
+            return (
+                obj.number_density is not None
+                # Formula mass property uses stoichiometry if not provided.
+                or (obj.density is not None and obj.formula_mass is not None)
+            )
+        else:
+            return (
+                obj.get("number_density") is not None
+                # Formula mass property uses stoichiometry if not provided.
+                or (
+                    obj.get("density") is not None
+                    and obj.get("formula_mass") is not None
+                )
+            )
+
     @property
     def can_calc_refractive(self) -> bool:
         r"""
@@ -186,11 +219,7 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         bool
             If the object can calculate $\delta$/$\beta$ values.
         """
-        return (
-            self.number_density is not None
-            # Formula mass property uses stoichiometry if not provided.
-            or (self.density is not None and self.formula_mass is not None)
-        )
+        return atomic_scattering_abstract._can_calc_refractive(self)
 
     @abc.abstractmethod
     def copy(self) -> Self:

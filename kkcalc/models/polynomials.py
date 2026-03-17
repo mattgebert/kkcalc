@@ -1479,14 +1479,120 @@ class asp_im(asp):
             raise AttributeError(
                 "Density information is required to calculate the attenuation length."
             )
+        mu = self.linear_attenuation_coefficient(en)  # in m^-1
+        att_len = 1 / mu  # penetration depth
+        return att_len * 1e10  # Convert m to angstroms.
 
+    penetration_depth = attenuation_length  # Alias for attenuation_length
+
+    @overload
+    def linear_attenuation_coefficient(
+        self, energies: npt.NDArray[np.floating | np.integer]
+    ) -> npt.NDArray[np.floating]: ...  # numpydoc ignore=GL08
+
+    @overload
+    def linear_attenuation_coefficient(
+        self, energies: float | int
+    ) -> float: ...  # numpydoc ignore=GL08
+
+    def linear_attenuation_coefficient(
+        self,
+        energies: npt.ArrayLike | npt.NDArray[np.floating | np.integer] | int | float,
+    ) -> npt.NDArray[np.floating] | float:
+        r"""
+        The linear attenuation coefficient (per m) at defined energies.
+
+        The linear attenuation coefficient is the fraction of intensity
+        lost per unit distance travelled through a material.
+
+        .. math::
+            I(x) = I_0 e^{-\mu x}
+            \mu = 2 \rho \r_e \lambda f_2
+        where
+        - :math:`f2` is the imaginary atomic scattering factor,
+        - :math:`\rho` is the density of the material (g/cm³),
+        - :math:`\r_e` is the classical electron radius (2.81794e-15 m),
+        - :math:`\lambda` is the wavelength of the radiation (in angstroms),
+
+        Parameters
+        ----------
+        energies : array_like | npt.NDArray | int | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The linear attenuation coefficient at energy (or energies) `energies` in cm⁻¹.
+        """
+        en = np.asarray(energies)
+        if not self.density:
+            raise AttributeError(
+                "Density information is required to calculate the linear attenuation coefficient."
+            )
         # Calculate the critical angle
         # r_e = sc.value("classical electron radius")  # in meters
         wavelength = sc.h * sc.c / (en * sc.e)  # in meters
         # att_len = self.density * 2 * r_e * self.eval_asf(en) / wavelength
-        alpha = 4 * np.pi * self.eval_betas(en) / wavelength  # absorption coefficient
-        att_len = 1 / alpha  # penetration depth
-        return att_len * 1e10  # Convert m to angstroms.
+        lin_att_coef = (
+            4 * np.pi * self.eval_betas(en) / wavelength
+        )  # absorption coefficient in m^-1
+        return lin_att_coef
+
+    @overload
+    def attenuation(
+        self,
+        energies: npt.NDArray[np.floating | np.integer],
+        thicknesses: npt.NDArray[np.floating | np.integer] | float | int,
+    ) -> npt.NDArray[np.floating]: ...  # numpydoc ignore=GL08
+
+    @overload
+    def attenuation(
+        self,
+        energies: npt.NDArray[np.floating | np.integer] | float | int,
+        thicknesses: npt.NDArray[np.floating | np.integer],
+    ) -> npt.NDArray[np.floating]: ...  # numpydoc ignore=GL08
+
+    @overload
+    def attenuation(
+        self, energies: float | int, thicknesses: float | int
+    ) -> float: ...  # numpydoc ignore=GL08
+
+    def attenuation(
+        self,
+        energies: npt.ArrayLike | npt.NDArray[np.floating | np.integer] | int | float,
+        thicknesses: npt.ArrayLike
+        | npt.NDArray[np.floating | np.integer]
+        | float
+        | int,
+    ) -> npt.NDArray[np.floating] | float:
+        """
+        The attenuation of x-rays through this material.
+
+        Attenuation is calculated at given energies (N) and thicknesses (M).
+        Requires density information to calculate the linear attenuation coefficient.
+
+        Parameters
+        ----------
+        energies : array_like | npt.NDArray | int | float
+            1D array (or singular float) of `N` energies in eV.
+        thicknesses : array_like | npt.NDArray | float | int
+            1D array (or singular float) of `M` thicknesses in angstroms.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The attenuation of x-rays through this material at given energies and thicknesses.
+        """
+        if not isinstance(energies, (int, float)):
+            energies = np.asarray(energies, dtype=np.float64)
+
+        lin_att_coef = self.linear_attenuation_coefficient(energies)  # in m^-1
+        if not isinstance(thicknesses, (int, float)):
+            thickness_m = np.asarray(thicknesses, dtype=np.float64)
+        else:
+            thickness_m = thicknesses
+        # Calculate the attenuation
+        return np.exp(-thickness_m * lin_att_coef)
 
 
 class asp_re(asp):
@@ -2292,7 +2398,7 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_betas(
-        self, target_energies: npt.NDArray | None
+        self, target_energies: npt.NDArray | None = None
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
 
     @overload
