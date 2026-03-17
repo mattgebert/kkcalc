@@ -4,7 +4,7 @@ Allows the loading of raw data and duplication objects.
 """
 
 from PyQt6 import QtWidgets, QtCore
-from kkcalc.models import (
+from kkcalc2.models import (
     asf_abstract,
     asf,
     asf_re,
@@ -20,11 +20,11 @@ from kkcalc.models import (
     asp_db_complex_extended,
     KK_Datatype,
 )
-from kkcalc.gui.dialogs import (
+from kkcalc2.gui.dialogs import (
     import_data_dialog,
     dtype_dialog,
 )
-from kkcalc.gui.contrast_viewer import contrast_viewer
+from kkcalc2.gui.contrast_viewer import contrast_viewer
 import warnings
 import os
 

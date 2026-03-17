@@ -1,7 +1,9 @@
 """Tests for the `stoich` module."""
 
 import pytest
-from kkcalc import stoichiometry as kk_stoich
+import periodictable.formulas as ptf
+import periodictable as pt
+from kkcalc2 import stoichiometry as kk_stoich
 
 
 class basic_stoichs:
@@ -33,6 +35,45 @@ class TestStoichiometryInit:
         result = kk_stoich._parse_chemical_formula(compound)
         result = kk_stoich._consolidate_elements(result)
         assert result == expected
+
+    @pytest.mark.parametrize(
+        "input_data",
+        [
+            # Use some complex polymer such as N2200 (PNDI2OD-T2) for testing
+            # Iterable of tuples[int, float]
+            [(6, 62), (1, 88), (7, 2), (8, 4), (16, 2)],
+            # Periodictable formula contructor
+            ptf.formula("C62H88N2O4S2"),
+            # Periodictable Formula class
+            ptf.Formula(
+                (
+                    (62, pt.elements[6]),
+                    (88, pt.elements[1]),
+                    (2, pt.elements[7]),
+                    (4, pt.elements[8]),
+                    (2, pt.elements[16]),
+                )
+            ),
+            # String
+            "C62H88N2O4S2",
+            # Another stoichiometry object
+            kk_stoich("C62H88N2O4S2"),
+            # Dictionary of element symbols to counts
+            {"C": 62, "H": 88, "N": 2, "O": 4, "S": 2},
+        ],
+    )
+    def test_format_compilations(self, input_data) -> None:
+        """
+        Tests the constructor compilations of different types of input.
+
+        Uses N2200 (PNDI2OD-T2) as a test case, which has the chemical formula C62H88N2O4S2.
+        """
+        stoich_obj = kk_stoich(input_data)
+        str_repr = "C62H88N2O4S2"
+        str_obj = kk_stoich(str_repr)
+        # C62H88N2O4S2
+        # Test against the string representation.
+        assert stoich_obj == str_obj
 
     @pytest.mark.parametrize(
         "compound",

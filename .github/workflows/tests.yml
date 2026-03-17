@@ -7,6 +7,8 @@ concurrency:
 on:
   workflow_dispatch:
   workflow_call:
+  push:
+  pull_request:
 
 jobs:
   test:
@@ -29,17 +31,17 @@ jobs:
       run:
         shell: bash -eo pipefail {0} # Fail on any error (-e), fail on any failed command in a pipeline.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Python setup
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Setup environment
         run: |
           python -m pip install --upgrade pip wheel setuptools
-          python -m pip install coveralls
+          python -m pip install coverage
           python -m pip list
         #   python -m pip install ${{ matrix.sphinx-version }}
 
@@ -54,7 +56,14 @@ jobs:
 
       - name: Test coverage
         run: |
-          coverage run --source=kkcalc -m pytest tests/
-          coveralls
+          coverage run --source=kkcalc2 -m pytest tests/
+          coverage xml  # generates coverage.xml for Coveralls
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          format: cobertura
+          file: coverage.xml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
