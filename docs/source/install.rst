@@ -10,6 +10,10 @@ The ``KKCalc2`` package requires Python 3.11+, and is available from:
 
 - PyPI: https://pypi.python.org/pypi/kkcalc2/
 - GitHub: https://github.com/xraysoftmat/kkcalc
+- Github Releases: https://github.com/xraysoftmat/kkcalc/releases
+
+Note that the Github releases also contains compiled binaries for Windows and MacOS, which can be used without installing Python or any dependencies.
+These are available in the "Assets" section of each release, and are named ``kkcalc2-<version>-gui-win64.exe`` and ``kkcalc2-<version>-gui-macos`` respectively.
 
 Virtual Environment
 ###################
@@ -40,7 +44,7 @@ Then install the package using ``pip`` (python-install-package via PyPI):
     (myvenv) > pip install kkcalc2 --group gui # PEP735
 
 
-Further details about `pip` usage can be found in the [PyPI installation tutorial](https://packaging.python.org/tutorials/installing-packages/).
+Further details about `pip` usage can be found in the `PyPI installation tutorial <https://packaging.python.org/tutorials/installing-packages/>`_.
 
 Or alternatively, clone the source code using ``git``:
 
