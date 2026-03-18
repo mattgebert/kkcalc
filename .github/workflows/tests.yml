@@ -66,4 +66,16 @@ jobs:
         with:
           format: cobertura
           file: coverage.xml
+          parallel: true
+          flag-name: run-${{ matrix.os }}-py${{ matrix.python-version }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  finish:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close parallel build
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
