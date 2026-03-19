@@ -4,11 +4,11 @@
 
 ``kkcalc2`` is a comprehensive toolkit for calculating Kramers Kronig transforms of X-ray absorption/dispersion data, and is built to the feature-rich standards of `xraysoftmat <https://github.com/xraysoftmat>`_.
 
-|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
-
-|PyPI Version2| |readthedocs| |Coveralls| |Pre-commit|
+|PyPI Version2| |zenodo| |readthedocs| |Coveralls| |Pre-commit|
 
 |PyTest| |Linting| |Documentation|
+
+|tool-semver| |tool-black| |tool-ruff| |tool-numpydoc|
 
 .. |PyPI Version| image:: https://img.shields.io/pypi/v/kkcalc?label=KKCalc&logo=pypi
    :target: https://pypi.org/project/kkcalc/
@@ -34,6 +34,8 @@
 .. |readthedocs| image:: https://img.shields.io/readthedocs/kkcalc?version=latest&style=flat&label=ReadtheDocs
     :alt: Documentation
     :target: https://kkcalc.readthedocs.io/
+.. |zenodo| image:: https://zenodo.org/badge/781822715.svg
+  :target: https://doi.org/10.5281/zenodo.19058528
 
 .. |tool-semver| image:: https://img.shields.io/badge/versioning-Python%20SemVer-blue.svg
     :alt: Python SemVer
