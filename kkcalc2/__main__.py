@@ -13,14 +13,17 @@ import pkgutil
 
 # External Imports
 import numpy as np
-import PyQt6.QtWidgets as QtWidgets
 
 # Internal Imports
+from kkcalc2.models import asf_im
+from kkcalc2 import stoichiometry
+
+# Optional Imports
 hasQT: bool
 try:
     import PyQt6  # noqa: F401
+    import PyQt6.QtWidgets as QtWidgets  # noqa: F401
     from kkcalc2.gui.kk_gui import kk_gui
-    from kkcalc2.models import asf_im
 
     hasQT = True
 except ImportError:
@@ -39,7 +42,6 @@ def main():
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
 
     # Generate some example data
-    from kkcalc import stoichiometry
 
     PS_NAME = "Polystyrene"
     PS_STOICHIOMETRY = "CH"
