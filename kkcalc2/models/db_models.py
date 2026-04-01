@@ -16,9 +16,7 @@ from kkcalc2.stoich import stoichiometry as kk_stoichiometry
 from kkcalc2.models.polynomials import asp, asp_im, asp_re, asp_complex
 from kkcalc2.models.factors import asf, asf_im, asf_re, asf_complex
 from kkcalc2 import conversions
-from kkcalc2.models.common import (
-    PROPERTIES_DICT,
-)
+from kkcalc2.models.common import PROPERTIES_DICT, PROPERTIES_DICT_NO_STOICH
 
 # Load the real/imag scattering factors as they vary with energy
 from kkcalc2.asf_database import ASF_DATABASE
@@ -1188,6 +1186,43 @@ class asp_db_im_extended(asp_db_extended, asp_im):
             fix_distortions=fix_distortions,
             **kwargs,
         )
+
+    @classmethod
+    def from_NEXAFS(
+        cls: type[Self],
+        energies: npt.NDArray[np.floating],
+        NEXAFS: npt.NDArray[np.floating],
+        stoichiometry: kk_stoichiometry | str,
+        **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
+    ):
+        """
+        Extend NEXAFS data using the kkcalc database.
+
+        Scales and extends the provided NEXAFS data using the `asp_db_im` database for a given stoichiometry.
+
+        Parameters
+        ----------
+        energies : npt.NDArray[np.floating]
+            The energy values of the NEXAFS data.
+        NEXAFS : npt.NDArray[np.floating]
+            The NEXAFS values corresponding to the energy values.
+        stoichiometry : kk_stoichiometry | str
+            The stoichiometry of the compound, i.e. the elemental composition.
+        **kwargs : Unpack[PROPERTIES_DICT_NO_STOICH]
+            Additional keyword arguments to pass to `atomic_scattering` base classes, excluding stoichiometry
+            which is determined by the database. These can be used to set object properties such as name, etc.
+
+        Returns
+        -------
+        asp_db_im_extended
+            An `asp_db_im_extended` object containing the extended imaginary scattering factor data.
+        """
+        asf_im_obj = asf_im.from_NEXAFS(
+            energies=energies,
+            NEXAFS=NEXAFS,
+            stoichiometry=stoichiometry,
+        )
+        return cls(data_asf=asf_im_obj, database=stoichiometry, **kwargs)
 
 
 class asp_db_re_extended(asp_db_extended, asp_re):
