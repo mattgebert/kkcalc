@@ -3,8 +3,8 @@ Classes for common attributes between atomic scattering factor and polynomial mo
 """
 
 import abc
-import warnings
 from kkcalc2.stoich import stoichiometry as kk_stoichiometry, CompositionAlias
+import numpy as np
 from scipy.constants import N_A
 from typing import Self, TypedDict
 
@@ -248,28 +248,80 @@ class atomic_scattering(atomic_scattering_abstract):
         self._formula_mass = None
         self._is_extended = False
 
+        # Convert stoichiometry to a `kk_stoichiometry` object if it is a `CompositionAlias` or string.
+        if not (isinstance(stoichiometry, (kk_stoichiometry)) or stoichiometry is None):
+            if (
+                isinstance(stoichiometry, str)
+                or (
+                    isinstance(stoichiometry, (tuple, list))
+                    and all(
+                        isinstance(x, tuple)
+                        and isinstance(x[0], str)
+                        and isinstance(x[1], (int, float))
+                        for x in stoichiometry
+                    )
+                )
+                or (
+                    isinstance(stoichiometry, dict)
+                    and all(
+                        isinstance(k, str) and isinstance(v, (int, float))
+                        for k, v in stoichiometry.items()
+                    )
+                )
+            ):
+                stoichiometry = kk_stoichiometry(stoichiometry)
+            else:
+                raise ValueError(
+                    f"Invalid type for `stoichiometry`: {type(stoichiometry)}. "
+                    "Must be a `kkcalc2.stoichiometry`, `kkcalc2.CompositionAlias`, or string."
+                )
+
         # Raise a warning if competing information is provided.
         if (
             number_density is not None
             and density is not None
             and stoichiometry is not None
         ):
-            warnings.warn(
-                "Competing information provided for `number density` and `density` given a `stoichiometry`. "
-                "`Number density` information precedes `density`.",
-                UserWarning,
-            )
+            # Check equivalence:
+            if not np.isclose(
+                number_density,
+                density * N_A / (stoichiometry.formula_mass),
+                rtol=1e-3,
+            ):
+                raise ValueError(
+                    "Competing information provided for `number density` and `density` given a `stoichiometry`. "
+                    "Please provide only `stoichiometry`, and only one of `number density` or `density`."
+                )
+            else:
+                number_density = None  # Ignore the number density, as it is consistent with the density and stoichiometry.
+            # warnings.warn(
+            #     "Competing information provided for `number density` and `density` given a `stoichiometry`. "
+            #     "`Number density` information precedes `density`.",
+            #     UserWarning,
+            # )
 
         # Assign in reverse order of importance.
         atomic_scattering.stoichiometry.fset(
             self, stoichiometry
         )  # can infer a formula mass
         if formula_mass is not None and stoichiometry is not None:
-            warnings.warn(
-                "Competing information provided for `formula mass` given a `stoichiometry`. "
-                "`Stoichiometry` information precedes `formula mass`.",
-                UserWarning,
-            )
+            if not np.isclose(
+                formula_mass,
+                stoichiometry.formula_mass,
+                rtol=1e-3,
+            ):
+                raise ValueError(
+                    "Competing information provided for `formula mass` given a `stoichiometry`. "
+                    "Please provide only `stoichiometry`, and only one of `formula mass` or `stoichiometry`."
+                )
+            else:
+                formula_mass = None  # Ignore the formula mass, as it is consistent with the stoichiometry.
+
+            # warnings.warn(
+            #     "Competing information provided for `formula mass` given a `stoichiometry`. "
+            #     "`Stoichiometry` information precedes `formula mass`.",
+            #     UserWarning,
+            # )
         else:
             self._formula_mass = formula_mass
         self._density = density
@@ -337,6 +389,10 @@ class atomic_scattering(atomic_scattering_abstract):
         self, number_density: float | None
     ) -> None:  # numpydoc ignore=GL08
         self._number_density = number_density
+        # If formula
+        if self.stoichiometry is not None:
+            # The number density and density are linked, so remove any density when setting a number density, to avoid confusion.
+            self._density = None
         return
 
     @number_density.deleter
@@ -378,6 +434,10 @@ class atomic_scattering(atomic_scattering_abstract):
     @density.setter
     def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
         self._density = density
+        # If stoichiometry defined
+        if self.stoichiometry is not None:
+            # The number density and density are linked, so remove any number density when setting a density, to avoid confusion.
+            self._number_density = None
         return
 
     @density.deleter
@@ -418,12 +478,13 @@ class atomic_scattering(atomic_scattering_abstract):
 
     @formula_mass.setter
     def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
-        self._formula_mass = formula_mass
         if self.stoichiometry is not None:
-            warnings.warn(
-                "Setting a formula mass will not be internally used when a `stoichiometry` has been assigned.",
-                UserWarning,
+            raise ValueError(
+                "Formula mass is immutable when a stoichiometry is defined, as it is derived from `stoichiometry`"
+                "Please use `stoichiometry` to set the formula mass, or remove the `stoichiometry` if you wish to set a formula mass directly."
             )
+        else:
+            self._formula_mass = formula_mass
         return
 
     @formula_mass.deleter

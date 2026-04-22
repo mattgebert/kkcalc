@@ -3,7 +3,6 @@ Model tests for polynomial and factor representations.
 """
 
 import pytest
-import warnings
 from kkcalc2 import models, stoichiometry as kk_stoich
 
 from ..test_stoich import fractional_stoichs as fs
@@ -33,13 +32,11 @@ class TestCommon:
     ) -> None:
         """Tests the creation of an `atomic_scattering` object, with expected errors."""
         # Create the object
-        with warnings.catch_warnings(record=True) as w:
+        if msgs:
+            with pytest.raises(ValueError, match=msgs[0]):
+                _ = models.atomic_scattering(**kwargs)
+        else:
             _ = models.atomic_scattering(**kwargs)
-
-        # Check each msg is included by at least one warning
-        for msg in msgs:
-            assert len(w) > 0
-            assert any(msg in str(warn.message) for warn in w)
 
     # Define some mass values for testing
     MASS_VALUES = {
@@ -82,9 +79,13 @@ class TestCommon:
 
         old_density = atomic_scattering.density
         # Modify the formula mass
-        atomic_scattering.formula_mass = fm * 2
+        with pytest.raises(ValueError):
+            # Cannot do this while a stoich is defined...
+            atomic_scattering.formula_mass = fm * 2
         # Remove the stoichiometry
         atomic_scattering.stoichiometry = None
+        # Re-attempt
+        atomic_scattering.formula_mass = fm * 2
         # Check the density has updated
         assert old_density * 2 == atomic_scattering.density, (
             "Density did not update correctly after formula mass change."
