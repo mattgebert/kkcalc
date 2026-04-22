@@ -654,8 +654,10 @@ class asp(asp_abstract, atomic_scattering):
         ValueError
             If `new_energies` are not a subset of existing `energies`.
         """
+        cenergies = self.energies
+        ccoefs = self.coefs
         # Check energies are a subset
-        en_min, en_max = self.energies.min(), self.energies.max()
+        en_min, en_max = cenergies.min(), cenergies.max()
         if not np.all([en >= en_min and en <= en_max for en in new_energies]):
             raise ValueError("Existing energies must be a subset of the new energies.")
         # Get the class and creation kwargs
@@ -665,7 +667,7 @@ class asp(asp_abstract, atomic_scattering):
         # props.update(kwargs)
 
         # Find new energies not in the existing energies
-        nocoef_energies = np.setdiff1d(new_energies, self.energies)
+        nocoef_energies = np.setdiff1d(new_energies, cenergies)
         if len(nocoef_energies) == 0:
             # If no new energies, just return a copy of the object
             # obj = self.copy(**props)
@@ -673,28 +675,31 @@ class asp(asp_abstract, atomic_scattering):
             return obj
 
         # Find the indices of the existing energies in the new energies
-        indices = np.searchsorted(self.energies, nocoef_energies)
+        indices = np.searchsorted(cenergies, nocoef_energies)
         # Collect coefs: -1 because the coefficients are defined on the previous index interval.
-        new_coefs = np.array([self.coefs[i - 1] for i in indices])
+        new_coefs = np.array([ccoefs[i - 1] for i in indices])
         if len(new_coefs.shape) == 1:
             new_coefs = new_coefs.reshape(-1, 1)  # Ensure new_coefs is 2D
         # Create new energy and coefficients
-        unsorted_en = np.r_[self.energies[:-1], nocoef_energies]
+        unsorted_en = np.r_[cenergies[:-1], nocoef_energies]
         sort_indices = np.argsort(
             unsorted_en
         )  # Sort the combination of old (except the last bound) and new energies
         energies = unsorted_en[sort_indices]
-        coefs = np.r_[self.coefs, new_coefs][
-            sort_indices[:-1]
-        ]  # Exclude the last bound
+        coefs = np.r_[ccoefs, new_coefs][sort_indices]
+
+        # Add the final energy bound
+        energies = np.r_[energies, cenergies[-1]]
+        assert len(energies) - 1 == len(coefs), (
+            f"Energies ({len(energies)} - 1) and coefs ({len(coefs)}) lengths do not match."
+        )
 
         # Check if class is asp_db, in which case the constructor cannot take energies.
         from kkcalc2.models import asp_db_abstract, asp_db_extended
 
         if issubclass(cls, (asp_db_abstract, asp_db_extended)):
-            obj = self.copy(**kwargs)  # Use kwargs not common_kwargs due to copying.
             # Set internal attributes to avoid length warnings
-            assert len(energies) - 1 == len(coefs)
+            obj = self.copy(**kwargs)  # Use kwargs not common_kwargs due to copying.
             obj._energies = energies
             obj._coefs = coefs
             return obj
@@ -728,7 +733,7 @@ class asp(asp_abstract, atomic_scattering):
             A new `asp` object with the same polynomial coefficients, but truncated to the `domain`.
         """
         # Re-order the domain values if needed
-        if domain[0] >= domain[1]:
+        if domain[0] > domain[1]:
             domain = (domain[1], domain[0])
         # Check domain is within the existing energies
         if not np.all(
@@ -738,9 +743,6 @@ class asp(asp_abstract, atomic_scattering):
 
         # Get the class
         cls = self.__class__
-
-        print(self.__class__.__name__, self.energies.shape)
-
         if domain[0] in self.energies and domain[1] in self.energies:
             # If the domain is already in the energies, just return a copy of the object
             obj = self.copy(**kwargs)
@@ -2006,11 +2008,29 @@ class asp_complex(asp_abstract, atomic_scattering):
                     for en in im.energies
                 ]
             ):
+                print(
+                    "1",
+                    set(re.energies.tolist()) ^ set(im.energies.tolist()),
+                    (re.energies.min(), re.energies.max()),
+                    (im.energies.min(), im.energies.max()),
+                )
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 re = re.truncate_energies(
                     (min_energy, max_energy)
                 )  # Truncate to the common interval
+                print(
+                    "2",
+                    set(re.energies.tolist()) ^ set(im.energies.tolist()),
+                    (re.energies.min(), re.energies.max()),
+                    (im.energies.min(), im.energies.max()),
+                )
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
+                print(
+                    "3",
+                    set(re.energies.tolist()) ^ set(im.energies.tolist()),
+                    (re.energies.min(), re.energies.max()),
+                    (im.energies.min(), im.energies.max()),
+                )
 
             else:  # if they are not subsets, then truncate to the common interval
                 re = re.truncate_energies(
@@ -2025,7 +2045,8 @@ class asp_complex(asp_abstract, atomic_scattering):
         assert re.energies.shape == im.energies.shape and np.all(
             re.energies == im.energies
         ), (
-            "Real and imaginary parts must have the same energy domains after truncation and extension."
+            "Real and imaginary parts must have the same energy domains after truncation and extension.\n"
+            f"Set difference: {set(re.energies.tolist()) ^ set(im.energies.tolist())}"
         )
 
         if not isinstance(re, asp) or not isinstance(im, asp):
