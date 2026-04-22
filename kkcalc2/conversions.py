@@ -10,7 +10,6 @@ atomic scattering factors (ASF) and various formats including:
 
 # Standard library imports
 from typing import overload
-import warnings
 
 # External imports
 import numpy as np
@@ -753,7 +752,7 @@ def ASP_to_ASF(
         # Boost to 1D
         energies = np.array([energies])
     if coefs.ndim == 1:
-        warnings.warn("Single coefficient set provided, boosting to 2D.")
+        # warnings.warn("Single coefficient set provided, boosting to 2D.")
         # Boost to 2D
         coefs = np.array([coefs])
 
@@ -781,4 +780,4 @@ def ASP_to_ASF(
     if energies.shape[0] == coefs.shape[0] + 1:
         # Duplicate the final polynomial to define the final boundary.
         coefs = np.r_[coefs, coefs[-1:, :]]  # Duplicate the last row.
-    return np.sum(coefs * powers, axis=1)
+    return np.squeeze(np.sum(coefs * powers, axis=1))

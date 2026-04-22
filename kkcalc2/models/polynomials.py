@@ -408,11 +408,13 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         str
             A string representation of the object properties.
         """
-        header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
+        header1: str = f"{self.__class__.__name__}" + (
+            "" if self.name is None else f" '{self.name}'"
+        )
         header2: str = (
             f"{self.coefs.shape[0]} en segments, {self.coefs.shape[1]} coefficients."
         )
-        return f"{header1}({header2})"
+        return f"<{header1}({header2})>"
 
     def __repr__(self, **kwargs) -> str:
         """
@@ -434,46 +436,47 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         str
             A string representation of the coefficients.
         """
-        if has_pandas:
-            header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
-            # Create a default max_rows if not provided.
-            if "max_rows" not in kwargs:
-                kwargs["max_rows"] = 6
-            return header1 + "\n" + self.dataframe().to_string(**kwargs)
-        else:
-            # Manually show the first and last 5
-            header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
-            header2: str = "Energy0\tEnergy1\t" + "\t".join(
-                [
-                    "C_" + str(e)
-                    for e in (
-                        self.orders.tolist()
-                        if self.orders is not None
-                        else [1, 0, -1, -2, -3]
-                    )
-                ]
-            )
-            header3: str = "".join(["-"] * len(header2))
+        # if has_pandas:
+        #     header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
+        #     # Create a default max_rows if not provided.
+        #     if "max_rows" not in kwargs:
+        #         kwargs["max_rows"] = 6
+        #     return header1 + "\n" + self.dataframe().to_string(**kwargs)
+        # else:
+        #     # Manually show the first and last 5
+        #     header1: str = "ASP" + ("" if self.name is None else f" '{self.name}'")
+        #     header2: str = "Energy0\tEnergy1\t" + "\t".join(
+        #         [
+        #             "C_" + str(e)
+        #             for e in (
+        #                 self.orders.tolist()
+        #                 if self.orders is not None
+        #                 else [1, 0, -1, -2, -3]
+        #             )
+        #         ]
+        #     )
+        #     header3: str = "".join(["-"] * len(header2))
 
-            data_head: list[str] = []
-            data_tail: list[str] = []
-            M = self.coefs.shape[1]
-            for i in range(0, M):
-                tail_line = []
-                head_line = []
-                # Add energy values.
-                head_line.extend(self.energies[i : i + 2].tolist())
-                tail_line.extend(
-                    self.energies[-6 + i : -4 + i if i - 4 != 0 else None].tolist()
-                )
-                # Add the coefficients
-                head_line.extend(self.coefs[i].tolist())
-                tail_line.extend(self.coefs[-5 + i].tolist())
-                # Add to the data
-                data_head.append("\t".join([f"{val:3f}" for val in head_line]))
-                data_tail.append("\t".join([f"{val:3f}" for val in tail_line]))
+        #     data_head: list[str] = []
+        #     data_tail: list[str] = []
+        #     M = self.coefs.shape[1]
+        #     for i in range(0, M):
+        #         tail_line = []
+        #         head_line = []
+        #         # Add energy values.
+        #         head_line.extend(self.energies[i : i + 2].tolist())
+        #         tail_line.extend(
+        #             self.energies[-6 + i : -4 + i if i - 4 != 0 else None].tolist()
+        #         )
+        #         # Add the coefficients
+        #         head_line.extend(self.coefs[i].tolist())
+        #         tail_line.extend(self.coefs[-5 + i].tolist())
+        #         # Add to the data
+        #         data_head.append("\t".join([f"{val:3f}" for val in head_line]))
+        #         data_tail.append("\t".join([f"{val:3f}" for val in tail_line]))
 
-            return "\n".join([header1, header2, header3, *data_head, "...", *data_tail])
+        #     return "\n".join([header1, header2, header3, *data_head, "...", *data_tail])
+        return self.__str__()
 
     def __len__(self) -> int:
         """
@@ -1207,7 +1210,7 @@ class asp_im(asp):
         relativistic_correction: float | None = None,
         tolerance: float = transforms.DEF_TOL,
         max_iter: int = transforms.DEF_ITER,
-        **kwargs: Unpack[PROPERTIES_DICT],
+        **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
     ) -> "asp_complex":
         """
         Generate a complex representation of the atomic scattering factors.
@@ -1251,7 +1254,8 @@ class asp_im(asp):
 
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        common_kwargs.update(stoichiometry=stoichiometry)
+        if stoichiometry is not None:
+            common_kwargs.update(stoichiometry=stoichiometry)
         # Set default target energies to the object's energies if None
         target_energies = np.asarray(
             target_energies if target_energies is not None else self.energies
@@ -1330,6 +1334,8 @@ class asp_im(asp):
 
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)  # type: ignore #PROPERTIES_DICT_NO_STOICH is a subset of PROPERTIES_DICT
+        if stoichiometry is not None:
+            common_kwargs.update(stoichiometry=stoichiometry)
         # Set default target energies to the object's energies if None
         target_energies = np.asarray(
             target_energies if target_energies is not None else self.energies
@@ -1938,10 +1944,16 @@ class asp_complex(asp_abstract, atomic_scattering):
     truncate : bool, optional
         If True, then the energies will be truncated to the common domain
         between the real and imaginary parts. Default is True.
+        If False, requires the real and imaginary parts to have the same energy domains, otherwise a ValueError is raised.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments for the `kkcalc2.models.common.atomic_scattering` class.
         Default values are copied from the real part object unless `None` (then the imaginary part object).
         Provided values will override the defaults.
+
+    Raises
+    ------
+    ValueError
+        If `truncate` is False and the real and imaginary parts do not have the same energy domains.
     """
 
     def __init__(
@@ -2009,6 +2021,12 @@ class asp_complex(asp_abstract, atomic_scattering):
                 )  # Truncate to the common interval
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
+
+        assert re.energies.shape == im.energies.shape and np.all(
+            re.energies == im.energies
+        ), (
+            "Real and imaginary parts must have the same energy domains after truncation and extension."
+        )
 
         if not isinstance(re, asp) or not isinstance(im, asp):
             raise ValueError(f"Real and imaginary parts must be of type {asp}.")
@@ -2399,11 +2417,17 @@ class asp_complex(asp_abstract, atomic_scattering):
                     energies=energies,
                     factors=conversions.ASP_to_ASF(energies, self.coefs, self.orders),
                     number_density=self.number_density,
+                    density=self.density,
+                    formula_mass=self.formula_mass,
+                    stoichiometry=self.stoichiometry,
                 )
                 betas_other = conversions.ASF_to_refractive(
                     energies=energies,
-                    factors=conversions.ASP_to_ASF(energies, other.coefs, self.orders),
+                    factors=conversions.ASP_to_ASF(energies, other.coefs, other.orders),
                     number_density=other.number_density,
+                    density=other.density,
+                    formula_mass=other.formula_mass,
+                    stoichiometry=other.stoichiometry,
                 )
                 contrast_real = (betas_self.real - betas_other.real) ** 2
                 contrast_imag = (betas_self.imag - betas_other.imag) ** 2
@@ -2444,6 +2468,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                 other_idx = other_idx - 1 if other_idx > 0 else other_idx
                 # Iterate over the common energies, and calculate the contrast
                 contrast = np.zeros(ub_idx - lb_idx)
+
                 for i in range(ub_idx - lb_idx):
                     # Get values
                     energy = common_energies[i]
