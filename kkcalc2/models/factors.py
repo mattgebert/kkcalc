@@ -732,14 +732,15 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A string representation of the factors.
         """
         # Create a default max_rows if not provided.
-        if has_pandas:
-            if "max_rows" not in kwargs:
-                kwargs["max_rows"] = 6
-            return self.dataframe().to_string(**kwargs)
-        else:
-            return (
-                f"{self.__class__.__name__} object with {len(self.energies)} energies."
-            )
+        # if has_pandas:
+        #     if "max_rows" not in kwargs:
+        #         kwargs["max_rows"] = 6
+        #     return self.dataframe().to_string(**kwargs)
+        # else:
+        return f"<{self.__class__.__name__} ({len(self.energies)} points, {self.energies[0]:0.2f} eV to {self.energies[-1]:0.2f} eV)>"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def __getitem__(self, key: int | slice) -> Self:
         """
@@ -999,22 +1000,22 @@ class asf(asf_abstract, atomic_scattering):
                 from kkcalc2.models.db_models import asp_db_re
 
                 self.factors = asp_db_re.scale_data(
-                    self.energies,
-                    self.factors,
-                    self.stoichiometry,
-                    merge_domain,
-                    fix_distortions,
+                    data_e=self.energies,
+                    data_y=self.factors,
+                    stoichiometry=self.stoichiometry,
+                    merge_domain=merge_domain,
+                    fix_distortions=fix_distortions,
                 )
                 return
             elif isinstance(self, asf_im):
                 from kkcalc2.models.db_models import asp_db_im
 
                 self.factors = asp_db_im.scale_data(
-                    self.energies,
-                    self.factors,
-                    self.stoichiometry,
-                    merge_domain,
-                    fix_distortions,
+                    data_e=self.energies,
+                    data_y=self.factors,
+                    stoichiometry=self.stoichiometry,
+                    merge_domain=merge_domain,
+                    fix_distortions=fix_distortions,
                 )
                 return
             raise ValueError(
