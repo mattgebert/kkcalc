@@ -953,6 +953,18 @@ class asp(asp_abstract, atomic_scattering):
             stoichiometry=self.stoichiometry,
         )
 
+    @property
+    def refractive(self) -> npt.NDArray:
+        """
+        The refractive index components at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray
+            The refractive index components at the object's `energies`.
+        """
+        return self.eval_refractive(self.energies)
+
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Generate a copy of the `asp` object.
@@ -1443,6 +1455,18 @@ class asp_im(asp):
         """
         return self.eval_refractive(target_energies=target_energies)
 
+    @property
+    def betas(self) -> npt.NDArray:
+        """
+        The imaginary, absorption refractive index component ($\beta$) at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray
+            The imaginary, absorption refractive index component ($\beta$) at the object's `energies`.
+        """
+        return self.eval_betas(self.energies)
+
     @overload
     def attenuation_length(
         self, energies: npt.NDArray
@@ -1929,6 +1953,18 @@ class asp_re(asp):
         """
         return self.eval_refractive(target_energies=target_energies)
 
+    @property
+    def deltas(self) -> npt.NDArray:
+        """
+        The real, dispersive refractive index component ($\delta$) at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray
+            The real, dispersive refractive index component ($\delta$) at the object's `energies`.
+        """
+        return self.eval_deltas(self.energies)
+
 
 class asp_complex(asp_abstract, atomic_scattering):
     """
@@ -2008,29 +2044,11 @@ class asp_complex(asp_abstract, atomic_scattering):
                     for en in im.energies
                 ]
             ):
-                print(
-                    "1",
-                    set(re.energies.tolist()) ^ set(im.energies.tolist()),
-                    (re.energies.min(), re.energies.max()),
-                    (im.energies.min(), im.energies.max()),
-                )
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 re = re.truncate_energies(
                     (min_energy, max_energy)
                 )  # Truncate to the common interval
-                print(
-                    "2",
-                    set(re.energies.tolist()) ^ set(im.energies.tolist()),
-                    (re.energies.min(), re.energies.max()),
-                    (im.energies.min(), im.energies.max()),
-                )
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
-                print(
-                    "3",
-                    set(re.energies.tolist()) ^ set(im.energies.tolist()),
-                    (re.energies.min(), re.energies.max()),
-                    (im.energies.min(), im.energies.max()),
-                )
 
             else:  # if they are not subsets, then truncate to the common interval
                 re = re.truncate_energies(
@@ -2290,6 +2308,18 @@ class asp_complex(asp_abstract, atomic_scattering):
         betas_im = self.im.eval_refractive(target_energies)
         return deltas_re + 1j * betas_im
 
+    @property
+    def refractive(self) -> npt.NDArray[np.complex128]:
+        """
+        The complex refractive coefficients at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray[np.complex128]
+            The complex refractive coefficients at the object's `energies`.
+        """
+        return self.eval_refractive(self.energies)
+
     @overload
     def eval_refractive_index(  # numpydoc ignore=GL08
         self, target_energies: npt.NDArray | None
@@ -2329,6 +2359,18 @@ class asp_complex(asp_abstract, atomic_scattering):
         result = self.eval_refractive(target_energies)
         return 1 - result.real + 1j * result.imag
 
+    @property
+    def refractive_index(self) -> npt.NDArray[np.complexfloating]:
+        """
+        The refractive index at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray[np.complex128]
+            The refractive index at the object's `energies`.
+        """
+        return self.eval_refractive_index(self.energies)
+
     @overload
     def eval_betas(
         self, target_energies: npt.NDArray | None
@@ -2367,6 +2409,18 @@ class asp_complex(asp_abstract, atomic_scattering):
             )
         return self._im.eval_refractive(target_energies=target_energies)
 
+    @property
+    def betas(self) -> npt.NDArray:
+        """
+        The energy-dependent, imaginary, absorption refractive index component ($\beta$) at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray
+            The energy-dependent, imaginary, absorption refractive index component ($\beta$) at the object's `energies`.
+        """
+        return self.eval_betas(self.energies)
+
     @overload
     def eval_deltas(
         self, target_energies: npt.NDArray | None
@@ -2403,6 +2457,18 @@ class asp_complex(asp_abstract, atomic_scattering):
                 f"{self} cannot calculate delta/beta values; requires density information."
             )
         return self._re.eval_deltas(target_energies=target_energies)
+
+    @property
+    def deltas(self) -> npt.NDArray:
+        """
+        The energy-dependent, real, dispersive refractive index component ($\delta$) at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray
+            The energy-dependent, real, dispersive refractive index component ($\delta$) at the object's `energies`.
+        """
+        return self.eval_deltas(self.energies)
 
     def contrast(self, other: "asp_complex") -> tuple[npt.NDArray, npt.NDArray]:
         r"""
