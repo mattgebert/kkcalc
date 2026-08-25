@@ -7,7 +7,7 @@ import numpy as np
 import numpy.typing as npt
 import warnings
 
-DEF_ITER: int = 50
+DEF_ITER: int = 10
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
 """The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
