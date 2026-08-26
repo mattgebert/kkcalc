@@ -160,9 +160,9 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
 
     Parameters
     ----------
-    energies : npt.NDArray
+    energies : np.ndarray
         Beam energies in eV.
-    factors : npt.NDArray
+    factors : np.ndarray
         Atomic scattering factors.
     **kwargs : Unpack[KK_ASF_DICT]
         Additional keyword arguments for the `atomic_scattering` base class,
@@ -172,8 +172,8 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(
         self,
-        energies: npt.ArrayLike,
-        factors: npt.ArrayLike,
+        energies: np.ndarray,
+        factors: np.ndarray,
         **kwargs: Unpack[
             KK_ASF_DICT
         ],  # TODO: Merge with PROPERTIES_DICT if possible, and implement KK_ASF_DICT across other subclasses...
@@ -2641,12 +2641,12 @@ class asf_complex(asf_abstract, atomic_scattering):
         kkcalc2.models.common.atomic_scattering : Common attributes between atomic scattering factor and polynomial models.
         """
         energies = np.asarray(energies)
-        if NEXAFS.dtype != np.floating:
+        if not np.iscomplexobj(NEXAFS):
             # NEXAFS = NEXAFS.astype(np.complexfloating)
             # warnings.warn(
             #     "NEXAFS data was not complex. Assuming data is real-component only."
             # )
-            raise ValueError(f"NEXAFS data must be a set of float. Was {NEXAFS.dtype}.")
+            raise ValueError(f"NEXAFS data must be complex. Was {NEXAFS.dtype}.")
 
         im = asf_im.from_NEXAFS(
             energies=energies,
@@ -2726,7 +2726,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         # Convert energy and beta data to numpy arrays.
         energies = np.asarray(energies)
 
-        if refractive.dtype != np.complexfloating:
+        if not np.iscomplexobj(refractive):
             # refractive = refractive.astype(np.complexfloating)
             # warnings.warn(
             #     "Beta data was not complex. Assuming data is real-component only."
@@ -2744,8 +2744,8 @@ class asf_complex(asf_abstract, atomic_scattering):
                 density=density,
                 formula_mass=formula_mass,
                 stoichiometry=stoichiometry,
-                origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
-                origin_data=np.c_[energies, refractive],
+                # origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
+                # origin_data=np.c_[energies, refractive],
             )
         )
         # Return asf instances
@@ -2762,7 +2762,8 @@ class asf_complex(asf_abstract, atomic_scattering):
             **common_kwargs,
         )
         # Create complex class.
-        return cls(re=re, im=im, **common_kwargs)
+        obj = cls(re=re, im=im, **common_kwargs)
+        return obj
 
     @classmethod
     def from_refractive_index(
@@ -2830,7 +2831,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         # Convert energy and beta data to numpy arrays.
         energies = np.asarray(energies)
 
-        if refractive_index.dtype != np.complexfloating:
+        if not np.iscomplexobj(refractive_index):
             # refractive = refractive.astype(np.complexfloating)
             # warnings.warn(
             #     "Beta data was not complex. Assuming data is real-component only."
@@ -2848,8 +2849,8 @@ class asf_complex(asf_abstract, atomic_scattering):
                 density=density,
                 formula_mass=formula_mass,
                 stoichiometry=stoichiometry,
-                origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
-                origin_data=np.c_[energies, refractive_index],
+                # origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
+                # origin_data=np.c_[energies, refractive_index],
             )
         )
         # Convert to refractive index to refractive component
@@ -2900,8 +2901,8 @@ class asf_complex(asf_abstract, atomic_scattering):
         --------
         kkcalc2.models.common.atomic_scattering : The base class for material attributes.
         """
-        re = asf_re.from_asf(asf(energies, factors.real, **kwargs))
-        im = asf_im.from_asf(asf(energies, factors.imag, **kwargs))
+        re = asf_re(energies=energies, factors=factors.real, **kwargs)
+        im = asf_im(energies=energies, factors=factors.imag, **kwargs)
         return cls(re=re, im=im, **kwargs)
 
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> "asf_complex":
