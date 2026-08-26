@@ -378,7 +378,11 @@ class atomic_scattering(atomic_scattering_abstract):
         if self._number_density is None:
             # Generate a number density from the formula mass and density.
             den = self._density
-            fm = self._formula_mass
+            fm = (
+                self.stoichiometry.formula_mass
+                if self.stoichiometry is not None
+                else self._formula_mass
+            )
             if den is not None and fm is not None:
                 return den * N_A / fm
         else:
