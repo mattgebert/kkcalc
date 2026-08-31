@@ -689,6 +689,7 @@ def ASF_to_ASP(
 def ASP_to_ASF(
     energies: npt.NDArray[np.float64 | np.int_],
     coefs: npt.NDArray[np.float64 | np.int_],
+    orders: npt.NDArray[np.integer] | None = None,
 ) -> npt.NDArray[np.float64]: ...  # numpydoc ignore=GL08
 
 
@@ -696,37 +697,38 @@ def ASP_to_ASF(
 def ASP_to_ASF(
     energies: npt.NDArray[np.float64 | np.int_],
     coefs: npt.NDArray[np.complex128],
+    orders: npt.NDArray[np.integer] | None = None,
 ) -> npt.NDArray[np.complex128]: ...  # numpydoc ignore=GL08
 
 
 @overload
 def ASP_to_ASF(
-    energies: npt.NDArray[np.float64 | np.int_],
+    energies: float | int,
     coefs: npt.NDArray[np.float64 | np.int_],
-    orders: npt.NDArray[np.integer] | None,
-) -> npt.NDArray[np.float64]: ...  # numpydoc ignore=GL08
+    orders: npt.NDArray[np.integer] | None = None,
+) -> float: ...  # numpydoc ignore=GL08
 
 
 @overload
 def ASP_to_ASF(
-    energies: npt.NDArray[np.float64 | np.int_],
+    energies: float | int,
     coefs: npt.NDArray[np.complex128],
-    orders: npt.NDArray[np.integer] | None,
-) -> npt.NDArray[np.complex128]: ...  # numpydoc ignore=GL08
+    orders: npt.NDArray[np.integer] | None = None,
+) -> complex: ...  # numpydoc ignore=GL08
 
 
 def ASP_to_ASF(
-    energies: npt.NDArray[np.float64 | np.int_],
+    energies: npt.NDArray[np.float64 | np.int_] | float | int,
     coefs: npt.NDArray[np.float64 | np.int_ | np.complex128],
     orders: npt.NDArray[np.integer] | None = None,
-) -> npt.NDArray[np.float64 | np.complex128]:
+) -> npt.NDArray[np.float64 | np.complex128] | float | complex:
     """
     Convert the atomic scattering polynomial (ASP) coefficients to atomic scattering factors (ASF).
 
     Parameters
     ----------
-    energies : array_like
-        An array of `N` or `N+1` photon energies in eV.
+    energies : array_like | float | int
+        An array of `N` or `N+1` photon energies in eV (or a single energy).
         using the starting energy of each interval.
     coefs : array_like
         An array with dimension (`N`, `M`), with `N` sets of `M` atomic
@@ -740,14 +742,16 @@ def ASP_to_ASF(
 
     Returns
     -------
-    npt.NDArray
+    npt.NDArray | float | complex
         An array of `N` or `N+1` atomic scattering factors, matching the input `energies` length.
         If `energies` has length `N+1`, the last ASF value will be calculated using the last ASP coefficient.
+        If a single (scalar) `energies` value was provided, a single scalar value is returned.
     """
     # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
     energies = np.asarray(energies, dtype=float)
     coefs = np.asarray(coefs)
-    # Check dimensions:
+    # Check dimensions: track whether a scalar energy was provided, to return a matching scalar result.
+    scalar_input = energies.ndim == 0
     if energies.ndim == 0:
         # Boost to 1D
         energies = np.array([energies])
@@ -780,4 +784,6 @@ def ASP_to_ASF(
     if energies.shape[0] == coefs.shape[0] + 1:
         # Duplicate the final polynomial to define the final boundary.
         coefs = np.r_[coefs, coefs[-1:, :]]  # Duplicate the last row.
-    return np.squeeze(np.sum(coefs * powers, axis=1))
+    result = np.sum(coefs * powers, axis=1)
+    # Only collapse to a scalar if a single (scalar) energy was requested; otherwise preserve array shape.
+    return result[0] if scalar_input else result

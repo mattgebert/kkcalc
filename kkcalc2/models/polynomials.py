@@ -211,6 +211,10 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             If the target energies are outside the defined energy domain.
         """
         target_energies = np.asarray(target_energies)
+        # A scalar (0D) input must return a scalar output; internally always work with a 1D array.
+        scalar_input = target_energies.ndim == 0
+        if scalar_input:
+            target_energies = target_energies.reshape(1)
         energies = np.asarray(energies)
         coefs = np.asarray(coefs)
         if orders is not None:
@@ -223,7 +227,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         indices = np.asarray(
             np.searchsorted(energies, target_energies) - 1
         )  # subtract to transfer from spans (N+1) to coefficients (N).
-        if -1 in indices or len(energies) - 1 in indices:
+        if np.any(indices < 0) or np.any(indices == len(energies) - 1):
             # Check if all searchsorted invalid indexes are defined.
             invalid = np.where((indices < 0) | (indices == len(energies) - 1))
             inval_energies = target_energies[invalid]
@@ -244,6 +248,8 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         factors = asp_abstract.coefs_to_atomic_scattering_factors(
             energies=target_energies, coefs=target_coefs, orders=orders
         )
+        if scalar_input:
+            return np.asarray(factors).reshape(-1)[0]
         return factors
 
     @overload
@@ -279,26 +285,15 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         # Type check
         if target_energies is None:
             # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
-            return self.eval_asf(self.energies)
+            target_energies = self.energies
 
-        if not isinstance(target_energies, (int, float)):
-            target_energies = np.asarray(target_energies)
-            factors = self.eval_asf_on_coefs(
-                target_energies=target_energies,
-                energies=self.energies,
-                coefs=self.coefs,
-                orders=self.orders,
-            )
-        else:
-            target_energies = np.array([target_energies])
-            # Remove the singleton dimension from the output.
-            factors = self.eval_asf_on_coefs(
-                target_energies=target_energies,
-                energies=self.energies,
-                coefs=self.coefs,
-                orders=self.orders,
-            )[0]
-        return factors
+        # `eval_asf_on_coefs` correctly returns a scalar for scalar input, and an array otherwise.
+        return self.eval_asf_on_coefs(
+            target_energies=target_energies,
+            energies=self.energies,
+            coefs=self.coefs,
+            orders=self.orders,
+        )
 
     eval_asf = __call__  # Alias for __call__
 
@@ -919,31 +914,15 @@ class asp(asp_abstract, atomic_scattering):
         # Type check
         if target_energies is None:
             # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
-            return conversions.ASF_to_refractive(
-                self.energies,
-                self.eval_asf(self.energies),
-                number_density=self.number_density,
-                density=self.density,
-                formula_mass=self.formula_mass,
-                stoichiometry=self.stoichiometry,
-            )
+            target_energies = self.energies
 
-        if not isinstance(target_energies, (int, float)):
-            target_energies = np.asarray(target_energies)
-            factors = self.eval_asf_on_coefs(
-                target_energies=target_energies,
-                energies=self.energies,
-                coefs=self.coefs,
-                orders=self.orders,
-            )
-        else:
-            # Remove the singleton dimension from the output.
-            factors = self.eval_asf_on_coefs(
-                target_energies=np.array([target_energies]),
-                energies=self.energies,
-                coefs=self.coefs,
-                orders=self.orders,
-            )[0]
+        # `eval_asf_on_coefs` correctly returns a scalar for scalar input, and an array otherwise.
+        factors = self.eval_asf_on_coefs(
+            target_energies=target_energies,
+            energies=self.energies,
+            coefs=self.coefs,
+            orders=self.orders,
+        )
         return conversions.ASF_to_refractive(
             target_energies,
             factors,
@@ -1400,25 +1379,15 @@ class asp_im(asp):
         # Type check
         if target_energies is None:
             # If no energies or coefficients are provided, use the object's values to return the intrinsic ASF values.
-            return self.eval_NEXAFS(self.energies)
+            target_energies = self.energies
 
-        if not isinstance(target_energies, (int, float)):
-            target_energies = np.asarray(target_energies)
-            factors = self.eval_asf_on_coefs(
-                target_energies=target_energies,
-                energies=self.energies,
-                coefs=self.coefs,
-                orders=self.orders,
-            )
-        else:
-            target_energies = np.array([target_energies])
-            # Remove the singleton dimension from the output.
-            factors = self.eval_asf_on_coefs(
-                target_energies=target_energies,
-                energies=self.energies,
-                coefs=self.coefs,
-                orders=self.orders,
-            )[0]
+        # `eval_asf_on_coefs` correctly returns a scalar for scalar input, and an array otherwise.
+        factors = self.eval_asf_on_coefs(
+            target_energies=target_energies,
+            energies=self.energies,
+            coefs=self.coefs,
+            orders=self.orders,
+        )
         return conversions.ASF_to_NEXAFS(target_energies, factors)
 
     @overload
@@ -1506,11 +1475,12 @@ class asp_im(asp):
         npt.NDArray | float
             The critical angle at energy (or energies) `energies` in radians.
         """
-        en = np.asarray(energies)
         if not self.density:
             raise AttributeError(
                 "Density information is required to calculate the attenuation length."
             )
+        scalar_input = np.ndim(energies) == 0
+        en = np.atleast_1d(np.asarray(energies, dtype=float))
 
         # Calculate the critical angle
         # r_e = sc.value("classical electron radius")  # in meters
@@ -1518,7 +1488,8 @@ class asp_im(asp):
         # att_len = self.density * 2 * r_e * self.eval_asf(en) / wavelength
         alpha = 4 * np.pi * self.eval_betas(en) / wavelength  # absorption coefficient
         att_len = 1 / alpha  # penetration depth
-        return att_len * 1e10  # Convert m to angstroms.
+        result = att_len * 1e10  # Convert m to angstroms.
+        return result[0] if scalar_input else result
 
 
 class asp_re(asp):
@@ -1907,18 +1878,16 @@ class asp_re(asp):
             The critical angle at energy (or energies) `energies` in radians.
         """
         # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
-        en = np.asarray(energies)
         if self.density is None:
             raise ValueError(
                 "Density must be provided via the `asp_re.density` attribute."
             )
+        scalar_input = np.ndim(energies) == 0
+        en = np.atleast_1d(np.asarray(energies, dtype=float))
 
         # Calculate the critical angle
         c_angle = np.sqrt(2 * self.eval_refractive(en))
-        if c_angle.ndim == 0:
-            return c_angle.item()  # If a single value is provided, return as a scalar.
-        else:
-            return c_angle
+        return c_angle[0] if scalar_input else c_angle
 
     @overload
     def eval_deltas(
