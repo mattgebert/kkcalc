@@ -7,7 +7,13 @@ import pytest
 
 from kkcalc2.models.factors import asf, asf_complex, asf_im, asf_re
 
-from .conftest import NexafsAsf, NexafsMaterial, NexafsRefractive, NexafsRefractiveIndex
+from .conftest import (
+    NEXAFS_MATERIALS,
+    NexafsAsf,
+    NexafsMaterial,
+    NexafsRefractive,
+    NexafsRefractiveIndex,
+)
 
 
 class TestFactors:
@@ -236,3 +242,59 @@ class TestAsfCopy:
         assert result is not nexafs_asf.complex
         assert np.allclose(result.factors, nexafs_asf.complex.factors)
         assert np.allclose(result.energies, nexafs_asf.complex.energies)
+
+
+class TestKKTransformRoundTrip:
+    """
+    Regression tests for `asf_im.kk_transform`/`asf_re.kk_transform_inv` round-trip consistency.
+
+    Mirrors the `kkcalc2.__main__`/GUI example flow: load NEXAFS data for Polystyrene, perform a
+    KK transform (imaginary -> real) then an inverse KK transform (real -> imaginary) with
+    `improve_accuracy=False` (as used for non-extended data in the GUI's `transform()` handler),
+    and check that the round-tripped data matches the original away from the domain endpoints.
+
+    This guards against a bug where `transforms.KK_PP_inv` leaked the `relativistic_correction`
+    into the result as a spurious `-energy * relativistic_correction` term, causing the inverse
+    transform to diverge (unboundedly, growing with energy) instead of recovering the original data.
+    """
+
+    def test_kk_transform_round_trip_polystyrene(self) -> None:
+        """Round-tripping Polystyrene example data through KK transform/inverse recovers the original."""
+        material = NEXAFS_MATERIALS["PS_C"]
+        im = asf_im.from_NEXAFS(
+            energies=material.energies,
+            NEXAFS=material.nexafs,
+            name=material.name,
+            stoichiometry=material.stoichiometry,
+            scale_to_database=True,
+        )
+
+        re = im.kk_transform(improve_accuracy=False)
+        im2 = re.kk_transform_inv(improve_accuracy=False)
+
+        # Truncate the first/last two datapoints at each end, where edge effects dominate.
+        trim = slice(2, -2)
+        original = im.factors[trim]
+        round_tripped = im2.factors[trim]
+        energies = im.energies[trim]
+
+        # The two representations should be strongly correlated (same overall shape/trend).
+        correlation = np.corrcoef(original, round_tripped)[0, 1]
+        assert correlation > 0.9, (
+            f"Round-tripped imaginary factors do not correlate with the original data (r={correlation:.3f})."
+        )
+
+        # No individual point should be wildly (order-of-magnitude) off from the original scale.
+        assert np.max(np.abs(round_tripped - original)) < 10 * np.mean(
+            np.abs(original)
+        ), "Round-tripped imaginary factors deviate far beyond the expected data scale."
+
+        # Guard against the specific historical bug: the residual should not grow linearly with
+        # energy at a slope comparable to the material's relativistic correction.
+        residual = round_tripped - original
+        slope, _intercept = np.polyfit(energies, residual, 1)
+        relativistic_correction = im.stoichiometry.relativistic_correction
+        assert abs(slope) < 0.5 * relativistic_correction, (
+            "Residual error grows linearly with energy, indicating the relativistic "
+            "correction is leaking into the inverse transform again."
+        )

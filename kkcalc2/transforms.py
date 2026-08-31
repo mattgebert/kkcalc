@@ -392,12 +392,18 @@ def KK_PP_inv(
     np.ndarray
         The real part of the scattering factors evaluated at `target_energies`.
     """
+    # The relativistic correction is an additive constant on the real (f1) data only; f2 has no
+    # analogous additive term. It must be removed from the order-0 (constant) coefficient before
+    # performing the integral, rather than passed through to the inner `KK_PP` call - otherwise it
+    # leaks into the result as a spurious `-target_energies * relativistic_correction` term.
+    real_coefs = np.asarray(real_coefs, dtype=float).copy()
+    real_coefs[:, 1] -= relativistic_correction
     ## Inverse KK is only a minor modification of the forward algorithm
     return -target_energies * KK_PP(
         target_energies=target_energies,
         energies=energies,
         imag_coefs=np.roll(real_coefs, 1, axis=1),
-        relativistic_correction=-relativistic_correction,
+        relativistic_correction=0,
     )
 
 

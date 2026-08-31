@@ -1672,13 +1672,6 @@ class asp_re(asp):
             assert relativistic_correction is not None
 
         # Calculate the imaginary part of the atomic scattering factors
-        print(
-            "Here",
-            target_energies,
-            self.energies.shape,
-            self.coefs.shape,
-            relativistic_correction,
-        )
         imag_factors = transforms.KK_PP_inv(
             target_energies=(
                 target_energies if target_energies is not None else self.energies
