@@ -62,6 +62,34 @@ Following `PEP735 <https://peps.python.org/pep-0735/>`_, ``KKCalc2`` also has de
 
 Current dependencies can be found in the repository [`pyproject.toml`](pyproject.toml) file.
 
+Optional: ``periodictable`` Database Backend
+#############################################
+
+By default, ``KKCalc2`` uses its own bundled atomic scattering factor database
+(``kkcalc2.asf_database.ASF_DATABASE``) to extend/scale user data. An alternative backend is
+available, computed on-demand from the `periodictable <https://periodictable.readthedocs.io/>`_
+package's Henke x-ray scattering factor tables, instead of the bundled database file.
+
+Install the optional dependency with:
+
+.. code-block:: bash
+
+    (myvenv) > pip install kkcalc2[periodictable]
+
+Then switch the active backend at runtime with:
+
+.. code-block:: python
+
+    >>> import kkcalc2.asf_database as asf_database
+    >>> asf_database.set_database_backend("periodictable")
+    >>> asf_database.get_database_backend()
+    'periodictable'
+    >>> asf_database.set_database_backend("kkcalc")  # switch back to the bundled database
+
+See ``kkcalc2.asf_database.periodictable_loader`` for details of how the alternative database
+is generated, and `kkcalc2.asf_database.set_database_backend` for the runtime switch.
+
+
 Verify Install
 ##############
 
