@@ -33,6 +33,9 @@ optional-dependencies.gui = [
     "PyQt6~=6.10", # For GUI
     "matplotlib~=3.10", # For plotting
 ]
+optional-dependencies.periodictable = [
+    "periodictable >= 2.0.2", # Alternative atomic scattering factor database backend.
+]
 
 classifiers = [
     "Development Status :: 4 - Beta",
