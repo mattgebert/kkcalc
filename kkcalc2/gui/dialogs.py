@@ -116,14 +116,14 @@ class import_data_dialog(QtWidgets.QDialog):
     DEFAULT_Y_LABEL = "Amplitude (A.U.)"
 
     PROCESSOR_DOC = {
-        "ASCII": "Import data from an ASCII file reading each line",
-        "NUMPY": "Import data from a NumPy file",
         "PANDAS": "Import data using Pandas",
+        "NUMPY": "Import data from a NumPy file",
+        "ASCII_READ_ONLY": "Import data from an ASCII file reading each line",
     }
 
     class EnumProcessor(Enum):
         # These doc_strings do not persist at compilation.
-        ASCII = 0
+        ASCII_READ_ONLY = 0
         """Import data from an ASCII file reading each line"""
         NUMPY = 1
         """Import data from a NumPy file"""
@@ -164,6 +164,8 @@ class import_data_dialog(QtWidgets.QDialog):
             )
             for i, x in enumerate(import_data_dialog.EnumProcessor)
         ]
+        # Set the default processor to PANDAS.
+        self.processor.setCurrentIndex(import_data_dialog.EnumProcessor.PANDAS.value)
         self.load_btn = QtWidgets.QPushButton("Load")
         self.load_layout.addWidget(self.filepath_edit)
         self.load_layout.addWidget(self.filepath_select_btn)
@@ -305,8 +307,10 @@ class import_data_dialog(QtWidgets.QDialog):
         # Init
         self.validate_file()
         self.display_data()
-        self.viewer_hide()
-        self.error_hide()
+        # If no file loaded, hide the viewer and error sections.
+        if self.load_data is None:
+            self.viewer_hide()
+            self.error_hide()
 
     def on_select_file(self):
         """
@@ -352,7 +356,7 @@ class import_data_dialog(QtWidgets.QDialog):
                 # Load the data
                 temp_headers = [f.readline() for _ in range(skip_header_rows)]
                 match dtype:
-                    case import_data_dialog.EnumProcessor.ASCII:
+                    case import_data_dialog.EnumProcessor.ASCII_READ_ONLY:
                         self.load_data = f.readlines()
                     case import_data_dialog.EnumProcessor.NUMPY:
                         self.load_data = np.loadtxt(f, delimiter=delim)
@@ -360,24 +364,30 @@ class import_data_dialog(QtWidgets.QDialog):
                         match fname.split(".")[-1]:
                             case "csv":
                                 self.load_data = pd.read_csv(
-                                    f, delimiter=delim, skiprows=skip_header_rows
+                                    f,
+                                    delimiter=delim,
+                                    skiprows=skip_header_rows,
+                                    header=None,
                                 )
                             case "xls" | "xlsx":
                                 self.load_data = pd.read_excel(
-                                    f, skiprows=skip_header_rows
+                                    f, skiprows=skip_header_rows, header=None
                                 )
                             case "h5" | "hdf5":
                                 self.load_data = pd.read_hdf(
-                                    f, skiprows=skip_header_rows
+                                    f, skiprows=skip_header_rows, header=None
                                 )
                             case "xml":
                                 self.load_data = pd.read_xml(
-                                    f, skiprows=skip_header_rows
+                                    f, skiprows=skip_header_rows, header=None
                                 )
                             case _:
                                 # Default use table read
                                 self.load_data = pd.read_table(
-                                    f, delimiter=delim, skiprows=skip_header_rows
+                                    f,
+                                    delimiter=delim,
+                                    skiprows=skip_header_rows,
+                                    header=None,
                                 )
                     case _:
                         raise ValueError("Invalid processor selection")
@@ -423,14 +433,19 @@ class import_data_dialog(QtWidgets.QDialog):
             if self.load_headers is not None:
                 self.result_header_btn.setEnabled(len(self.load_headers) > 0)
 
-            # # Set default selections to the first two columns if the datashape is > 1
-            # if hasattr(self.load_data, "shape") and len(self.load_data.shape) > 1 and self.load_data.shape[1] > 1:
-            #     self.x_column_select.setText("0")
-            #     self.x_column_select.textEdited.emit(self.x_column_select.text())
-            #     self.y_column_select.setText("1")
-            #     self.y_column_select.textEdited.emit(self.y_column_select.text())
-            #     self.x_column_use_btn.clicked.emit()
-            #     self.y_column_use_btn.clicked.emit()
+            # # Set default selections to the first two columns if the datashape is == 2
+            if (
+                hasattr(self.load_data, "shape")
+                and len(self.load_data.shape) > 1
+                and self.load_data.shape[1] == 2
+            ):
+                # First
+                self.x_column_select.setText("0")
+                self.x_column_select.textEdited.emit(self.x_column_select.text())
+                self.y_column_select.setText("1")
+                self.y_column_select.textEdited.emit(self.y_column_select.text())
+                self.x_column_use_btn.clicked.emit()
+                self.y_column_use_btn.clicked.emit()
 
     def display_data(self):
         """Displays the collected data"""
@@ -440,7 +455,7 @@ class import_data_dialog(QtWidgets.QDialog):
             return
         else:
             match self.load_dtype:
-                case import_data_dialog.EnumProcessor.ASCII:
+                case import_data_dialog.EnumProcessor.ASCII_READ_ONLY:
                     # Display the data as a table
                     self.viewer_table.setRowCount(len(self.load_data))
                     self.viewer_table.setColumnCount(1)
@@ -469,7 +484,8 @@ class import_data_dialog(QtWidgets.QDialog):
                     rows, cols = self.load_data.shape
                     self.viewer_table.setRowCount(rows)
                     self.viewer_table.setColumnCount(cols)
-                    self.viewer_table.setHorizontalHeaderLabels(self.load_data.columns)
+                    col_headers = [str(i) for i in self.load_data.columns]
+                    self.viewer_table.setHorizontalHeaderLabels(col_headers)
                     # self.viewer_table.setHorizontalHeaderLabels([str(i) for i in range(cols)])
                     for i, row in self.load_data.iterrows():
                         for j, value in enumerate(row):
@@ -589,7 +605,7 @@ class import_data_dialog(QtWidgets.QDialog):
                 header_edit.append(header.strip())
             diag.show()
 
-    def on_accept(self):
+    def on_accept(self) -> None:
         """
         Collects the selected datatype, then closes the dialog.
         """
