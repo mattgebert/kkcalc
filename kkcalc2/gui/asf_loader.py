@@ -3,7 +3,10 @@ Object loader and lister for objects that implement asf_abstract and asp_abstrac
 Allows the loading of raw data and duplication objects.
 """
 
-from PyQt6 import QtWidgets, QtCore
+import os
+import warnings
+
+from PyQt6 import QtWidgets, QtCore, QtGui
 from kkcalc2.models import (
     asf_abstract,
     asf,
@@ -26,7 +29,6 @@ from kkcalc2.gui.dialogs import (
     factor_dtype_dialog,
 )
 from kkcalc2.gui.contrast_viewer import contrast_viewer
-import warnings
 
 
 class kk_object_list(QtWidgets.QWidget):
@@ -51,6 +53,8 @@ class kk_object_list(QtWidgets.QWidget):
         self.setWindowTitle("kkcalc Object Loader")
         self._layout = QtWidgets.QVBoxLayout()
         self.setLayout(self._layout)
+        # Allow files to be dragged & dropped onto the widget, as an alternative to "Import Data".
+        self.setAcceptDrops(True)
 
         # Setup margins if parent is provided.
         if parent is not None:
@@ -305,9 +309,23 @@ class kk_object_list(QtWidgets.QWidget):
             return None
         return self._objs[selected[0].row()]
 
-    def import_data(self):
+    def import_data(self, path: str | None = None) -> bool:
+        """
+        Opens the import data dialog flow, and adds the resulting object to the table.
+
+        Parameters
+        ----------
+        path : str | None, optional
+            A file path to pre-fill the import dialog with (e.g. from a drag & drop event).
+            By default None, which opens the dialog with no file pre-selected.
+
+        Returns
+        -------
+        bool
+            True if an object was successfully imported, False if the user cancelled any step.
+        """
         # Collect the raw data
-        window_data = import_data_dialog()
+        window_data = import_data_dialog(path=path)
         window_data.show()
         if window_data.exec():
             data_e, data_y = window_data.selected_data
@@ -327,6 +345,7 @@ class kk_object_list(QtWidgets.QWidget):
                         "Real data loaded as asf_re object, implementation required for form."
                     )
                     self.add_kk_obj(obj)
+                    return True
                 elif complexity == window_complexity.EnumComplexity.IMAGINARY:
                     # Collect the datatype
                     window_dtype = factor_dtype_dialog(name=window_data.load_filename)
@@ -362,7 +381,91 @@ class kk_object_list(QtWidgets.QWidget):
                             case _:
                                 raise ValueError("Invalid datatype selected.")
                         self.add_kk_obj(obj)
-        return
+                        return True
+        return False
+
+    def import_data_files(self, paths: list[str]) -> None:
+        """
+        Sequentially imports multiple files via the same flow as `import_data`.
+
+        If a file's import is cancelled by the user (at any dialog step) and further files
+        remain, the user is prompted to either continue importing the remaining files or
+        cancel the rest of the operation.
+
+        Parameters
+        ----------
+        paths : list[str]
+            File paths to import, e.g. from a drag & drop event. Imported one at a time,
+            in order.
+
+        See Also
+        --------
+        import_data : Imports a single file, optionally pre-filling the dialog with a path.
+        dropEvent : Handles files dragged & dropped onto the widget.
+        """
+        for i, path in enumerate(paths):
+            imported = self.import_data(path=path)
+            remaining = len(paths) - i - 1
+            if not imported and remaining > 0:
+                response = QtWidgets.QMessageBox.question(
+                    self,
+                    "Continue Importing?",
+                    f"Import of '{os.path.basename(path)}' was cancelled.\n"
+                    f"Continue importing the remaining {remaining} file(s)?",
+                    QtWidgets.QMessageBox.StandardButton.Yes
+                    | QtWidgets.QMessageBox.StandardButton.No,
+                    QtWidgets.QMessageBox.StandardButton.Yes,
+                )
+                if response == QtWidgets.QMessageBox.StandardButton.No:
+                    break
+
+    def dragEnterEvent(
+        self, a0: QtGui.QDragEnterEvent | None
+    ) -> None:  # numpydoc ignore=GL08
+        """Accepts drag events that carry local file URLs."""
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if (
+            mime is not None
+            and mime.hasUrls()
+            and any(url.isLocalFile() for url in mime.urls())
+        ):
+            a0.acceptProposedAction()
+
+    def dragMoveEvent(
+        self, a0: QtGui.QDragMoveEvent | None
+    ) -> None:  # numpydoc ignore=GL08
+        """Accepts drag-move events that carry local file URLs."""
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if (
+            mime is not None
+            and mime.hasUrls()
+            and any(url.isLocalFile() for url in mime.urls())
+        ):
+            a0.acceptProposedAction()
+
+    def dropEvent(self, a0: QtGui.QDropEvent | None) -> None:
+        """
+        Imports files dropped onto the widget, using the same flow as "Import Data".
+
+        Multiple dropped files are imported sequentially (see `import_data_files`).
+        """
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if mime is None:
+            return
+        paths = [
+            url.toLocalFile()
+            for url in mime.urls()
+            if url.isLocalFile() and os.path.isfile(url.toLocalFile())
+        ]
+        a0.acceptProposedAction()
+        if paths:
+            self.import_data_files(paths)
 
     def duplicate(self) -> None:
         """Duplicates the currently selected object in the table."""

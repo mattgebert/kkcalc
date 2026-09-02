@@ -31,7 +31,7 @@ import numpy.typing as npt
 import abc
 import warnings
 from enum import Enum
-from typing import Self, Iterator, override, overload, Unpack, TypedDict
+from typing import Self, Iterator, override, overload, Unpack, TypedDict, Literal
 
 try:
     import pandas as pd
@@ -408,6 +408,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         *,
         number_density: float,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -421,6 +425,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         density: float,
         formula_mass: float,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -434,6 +442,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         density: float,
         stoichiometry: kk_stoichiometry | str,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -449,6 +461,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -464,6 +480,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -491,6 +511,14 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             Description of the combination of elements composing the material. By default, None.
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale. By default, False.
+        fix_distortions : bool, optional
+            Whether to fix-distortions during database scaling. By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling. By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling. By default, None.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` base class.
 
@@ -510,6 +538,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         *,
         number_density: float,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -523,6 +555,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         density: float,
         formula_mass: float,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -536,6 +572,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         density: float,
         stoichiometry: kk_stoichiometry | str,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -551,6 +591,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self: ...
 
@@ -566,6 +610,10 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -601,6 +649,14 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix-distortions during database scaling. By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling. By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling. By default, None.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -817,6 +873,16 @@ class asf(asf_abstract, atomic_scattering):
         If not provided, the original data is assumed to be the same as the input data.
     scale_to_database : bool, optional
         Whether to scale the atomic scattering factors to the Henke database scale.
+    fix_distortions : bool, optional
+        Whether to fix distortions in the atomic scattering factors.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+        Method to fix distortions in the atomic scattering factors.
+        `grad_min` uses a gradient minimization method to fix distortions.
+        `prepost_fit` uses a pre-edge/post-edge gradient fit method to fix distortions.
+    fix_predomain : tuple[float, float], optional
+        Domain to fix distortions in the atomic scattering factors before the data.
+    fix_postdomain : tuple[float, float], optional
+        Domain to fix distortions in the atomic scattering factors after the data.
     **kwargs :
         Additional keyword arguments for the `kkcalc2.models.common.atomic_scattering` such as:
         - `number_density` : float
@@ -837,6 +903,10 @@ class asf(asf_abstract, atomic_scattering):
         origin_dtype: KK_Datatype | None = None,
         origin_data: npt.NDArray | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Initialise the atomic scattering base class
@@ -879,7 +949,13 @@ class asf(asf_abstract, atomic_scattering):
             scale_to_database = False
 
         if scale_to_database:
-            self.scale_to_database()
+            self.scale_to_database(
+                merge_domain=None,
+                fix_distortions=fix_distortions,
+                fix_distortions_method=fix_distortions_method,
+                fix_predomain=fix_predomain,
+                fix_postdomain=fix_postdomain,
+            )
 
     @property
     def energies(self) -> np.ndarray:  # numpydoc ignore=PR02
@@ -972,6 +1048,9 @@ class asf(asf_abstract, atomic_scattering):
         self,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
     ) -> None:
         """
         Scale the data to the Henke database reference.
@@ -981,6 +1060,13 @@ class asf(asf_abstract, atomic_scattering):
 
         Origin data is unmodified, but factors are modified.
 
+        If `fix_distortions` is True, the method will attempt to fix distortions
+        in the data before scaling. The two methods available are:
+        - `grad_min`: This method identifies a gradient adjustment in the data to minimize
+        gradient distortions.
+        - `prepost_fit`: This method fits the data gradient before and after the specified
+        energy domain, then applying a slowly scaling ramp to correct for distortions.
+
         Parameters
         ----------
         merge_domain : tuple[float, float], optional
@@ -988,6 +1074,17 @@ class asf(asf_abstract, atomic_scattering):
         fix_distortions : bool, optional
             Whether to attempt to fix distortions in the data before scaling.
             By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions.
+            Options are 'grad_min' or 'prepost_fit'.
+        fix_predomain : tuple[float, float], optional
+            Energy range (eV) before the merge domain to fit for distortions.
+            Only used if `fix_distortions` is True and `fix_distortions_method`
+            is 'prepost_fit'.
+        fix_postdomain : tuple[float, float], optional
+            Energy range (eV) after the merge domain to fit for distortions.
+            Only used if `fix_distortions` is True and `fix_distortions_method`
+            is 'prepost_fit'.
 
         Raises
         ------
@@ -1005,6 +1102,9 @@ class asf(asf_abstract, atomic_scattering):
                     stoichiometry=self.stoichiometry,
                     merge_domain=merge_domain,
                     fix_distortions=fix_distortions,
+                    fix_distortions_method=fix_distortions_method,
+                    fix_predomain=fix_predomain,
+                    fix_postdomain=fix_postdomain,
                 )
                 return
             elif isinstance(self, asf_im):
@@ -1016,6 +1116,9 @@ class asf(asf_abstract, atomic_scattering):
                     stoichiometry=self.stoichiometry,
                     merge_domain=merge_domain,
                     fix_distortions=fix_distortions,
+                    fix_distortions_method=fix_distortions_method,
+                    fix_predomain=fix_predomain,
+                    fix_postdomain=fix_postdomain,
                 )
                 return
             raise ValueError(
@@ -1080,6 +1183,10 @@ class asf(asf_abstract, atomic_scattering):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -1110,6 +1217,16 @@ class asf(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix-distortions during database scaling. By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -1145,6 +1262,10 @@ class asf(asf_abstract, atomic_scattering):
             origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
             origin_data=np.c_[energies, refractive],
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1161,6 +1282,10 @@ class asf(asf_abstract, atomic_scattering):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -1190,6 +1315,16 @@ class asf(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix-distortions during database scaling. By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -1254,6 +1389,16 @@ class asf_re(asf):
     scale_to_database : bool, optional
         Whether to scale the scattering factors to the Henke Database background.
         By default False.
+    fix_distortions : bool, optional
+        Whether to fix-distortions during database scaling. By default, False.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+        Method to use for fixing distortions during database scaling. By default, "grad_min".
+    fix_predomain : tuple[float, float], optional
+        Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+        By default, None.
+    fix_postdomain : tuple[float, float], optional
+        Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+        By default, None.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments for the `atomic_scattering` object.
     """
@@ -1265,6 +1410,10 @@ class asf_re(asf):
         origin_dtype: KK_Datatype | None = None,
         origin_data: npt.NDArray | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Initialise the atomic scattering base class
@@ -1275,6 +1424,10 @@ class asf_re(asf):
             origin_dtype=origin_dtype,
             origin_data=origin_data,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1380,6 +1533,10 @@ class asf_re(asf):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> "asf_re":
         r"""
@@ -1410,6 +1567,16 @@ class asf_re(asf):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix-distortions during database scaling. By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -1430,6 +1597,10 @@ class asf_re(asf):
             formula_mass=formula_mass,
             stoichiometry=stoichiometry,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1445,6 +1616,10 @@ class asf_re(asf):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -1478,6 +1653,16 @@ class asf_re(asf):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix-distortions during database scaling. By default, False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -1501,6 +1686,10 @@ class asf_re(asf):
             formula_mass=formula_mass,
             stoichiometry=stoichiometry,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1689,6 +1878,16 @@ class asf_im(asf):
     scale_to_database : bool, optional
         Whether to scale the data to the background from the stoichiometry.
         By default False.
+    fix_distortions : bool, optional
+        Whether to fix distortions during database scaling. By default False.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+        Method to use for fixing distortions during database scaling. By default, "grad_min".
+    fix_predomain : tuple[float, float], optional
+        Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+        By default, None.
+    fix_postdomain : tuple[float, float], optional
+        Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+        By default, None.
     **kwargs : Unpack[PROPERTIES_DICT]
         Keyword arguments for the `kkcalc2.models.atomic_scattering` base class.
     """
@@ -1700,6 +1899,10 @@ class asf_im(asf):
         origin_dtype: KK_Datatype | None = None,
         origin_data: npt.NDArray[np.floating] | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Initialise the atomic scattering base class
@@ -1710,6 +1913,10 @@ class asf_im(asf):
             origin_dtype=origin_dtype,
             origin_data=origin_data,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1831,6 +2038,10 @@ class asf_im(asf):
         energies: npt.NDArray[np.floating],
         NEXAFS: npt.NDArray[np.floating],
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -1851,6 +2062,14 @@ class asf_im(asf):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix distortions in the data.
+        fix_distortions_method : str, optional
+            Method to use for fixing distortions. Options are "grad_min" or "prepost_fit".
+        fix_predomain : tuple[float, float], optional
+            Energy range to use for fixing distortions before the main domain.
+        fix_postdomain : tuple[float, float], optional
+            Energy range to use for fixing distortions after the main domain.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -1871,6 +2090,10 @@ class asf_im(asf):
             origin_dtype=KK_Datatype.NEXAFS,
             origin_data=np.c_[energies, NEXAFS],
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1900,6 +2123,10 @@ class asf_im(asf):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs,
     ) -> "asf_im":
         r"""
@@ -1930,6 +2157,14 @@ class asf_im(asf):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix distortions in the data.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions. Options are "grad_min" or "prepost_fit".
+        fix_predomain : tuple[float, float], optional
+            Energy range to use for fixing distortions (`prepost_fit` only) before the main domain.
+        fix_postdomain : tuple[float, float], optional
+            Energy range to use for fixing distortions (`prepost_fit` only) after the main domain.
         **kwargs
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -1950,6 +2185,10 @@ class asf_im(asf):
             formula_mass=formula_mass,
             stoichiometry=stoichiometry,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -1965,6 +2204,10 @@ class asf_im(asf):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -1998,6 +2241,14 @@ class asf_im(asf):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix distortions in the data.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions. Options are "grad_min" or "prepost_fit".
+        fix_predomain : tuple[float, float], optional
+            Energy range to use for fixing distortions (`prepost_fit` only) before the main domain.
+        fix_postdomain : tuple[float, float], optional
+            Energy range to use for fixing distortions (`prepost_fit` only) after the main domain.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -2015,6 +2266,10 @@ class asf_im(asf):
             formula_mass=formula_mass,
             stoichiometry=stoichiometry,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
 
@@ -2606,6 +2861,10 @@ class asf_complex(asf_abstract, atomic_scattering):
         energies: npt.NDArray[np.floating],
         NEXAFS: npt.NDArray[np.floating],
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -2623,6 +2882,14 @@ class asf_complex(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix distortions in the data. By default False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to fix distortions. Options are 'grad_min' or 'prepost_fit'.
+        fix_predomain : tuple[float, float], optional
+            Energy range to fix distortions in the pre-domain.
+        fix_postdomain : tuple[float, float], optional
+            Energy range to fix distortions in the post-domain.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -2652,6 +2919,10 @@ class asf_complex(asf_abstract, atomic_scattering):
             energies=energies,
             NEXAFS=NEXAFS.imag,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
         re = im.kk_transform()
@@ -2669,6 +2940,10 @@ class asf_complex(asf_abstract, atomic_scattering):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -2706,6 +2981,14 @@ class asf_complex(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix distortions in the data. By default False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to fix distortions. Options are 'grad_min' or 'prepost_fit'.
+        fix_predomain : tuple[float, float], optional
+            Energy range to fix distortions in the pre-domain.
+        fix_postdomain : tuple[float, float], optional
+            Energy range to fix distortions in the post-domain.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -2753,12 +3036,20 @@ class asf_complex(asf_abstract, atomic_scattering):
             energies=energies,
             refractive=refractive.real,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **common_kwargs,
         )
         im = asf_im.from_refractive(
             energies=energies,
             refractive=refractive.imag,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **common_kwargs,
         )
         # Create complex class.
@@ -2776,6 +3067,10 @@ class asf_complex(asf_abstract, atomic_scattering):
         formula_mass: float | None = None,
         stoichiometry: kk_stoichiometry | str | None = None,
         scale_to_database: bool = False,
+        fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> Self:
         r"""
@@ -2811,6 +3106,14 @@ class asf_complex(asf_abstract, atomic_scattering):
         scale_to_database : bool, optional
             Whether to scale the atomic scattering factors to the database scale.
             Requires a stoichiometry and a designated complexity (i.e. asf_im or asf_re).
+        fix_distortions : bool, optional
+            Whether to fix distortions in the data. By default False.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to fix distortions. Options are 'grad_min' or 'prepost_fit'.
+        fix_predomain : tuple[float, float], optional
+            Energy range to fix distortions before the main energy domain.
+        fix_postdomain : tuple[float, float], optional
+            Energy range to fix distortions after the main energy domain.
         **kwargs : Unpack[PROPERTIES_DICT]
             Additional keyword arguments for the `atomic_scattering` object.
 
@@ -2862,12 +3165,20 @@ class asf_complex(asf_abstract, atomic_scattering):
             energies=energies,
             refractive=delta,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **common_kwargs,
         )
         im = asf_im.from_refractive(
             energies=energies,
             refractive=beta,
             scale_to_database=scale_to_database,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **common_kwargs,
         )
         # Create complex class.
