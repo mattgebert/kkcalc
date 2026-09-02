@@ -57,9 +57,11 @@ def main():
         data_PS = np.genfromtxt(data_file, skip_header=4)
     except FileNotFoundError as e:
         # Try resource pathing via pkgutil
-        data_bytes = pkgutil.get_data("kkcalc", "data/PS_004_-dc.txt")
+        data_bytes = pkgutil.get_data("kkcalc2", "data/PS_004_-dc.txt")
         if data_bytes is None:
-            raise FileNotFoundError("Could not find example data file.") from e
+            raise FileNotFoundError(
+                "Could not find example data file from package kkcalc2 at `data/PS_004_-dc.txt`"
+            ) from e
         data_PS = np.genfromtxt(io.BytesIO(data_bytes), skip_header=4)
 
     assert data_PS.shape[1] == 2, "Data file must have two columns"
