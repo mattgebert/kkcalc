@@ -190,3 +190,71 @@ class TestDbScaling:
             factors_extended,
             factors_scaled,
         )
+
+
+class TestDbFixDistortionsMethod:
+    """Tests both `fix_distortions_method` options ("grad_min" and "prepost_fit") on example data."""
+
+    @pytest.fixture(scope="class")
+    def PS_asf_dataset(self) -> asf_im:
+        """Imaginary ASF dataset built from the example Polystyrene NEXAFS data."""
+        PS_datafile = pkgutil.get_data("kkcalc2", "data/PS_004_-dc.txt")
+        PS_data = np.genfromtxt(io.BytesIO(PS_datafile), skip_header=4)
+        PS_energies, PS_NEXAFS = PS_data[:, 0], PS_data[:, 1]
+        return asf_im.from_NEXAFS(
+            PS_energies,
+            PS_NEXAFS,
+            stoichiometry=kk_stoich(bs.POLYMER_PS),
+            density=1.05,
+        )
+
+    @pytest.mark.parametrize(
+        "fix_distortions_method, extra_kwargs",
+        [
+            ("grad_min", {}),
+            (
+                "prepost_fit",
+                {
+                    "fix_predomain": (277.0, 283.0),
+                    "fix_postdomain": (350.0, 385.0),
+                },
+            ),
+        ],
+    )
+    def test_fix_distortions_method(
+        self,
+        PS_asf_dataset: asf_im,
+        fix_distortions_method: str,
+        extra_kwargs: dict,
+    ) -> None:
+        """Both `fix_distortions_method` options produce a finite, valid extended dataset."""
+        density = 1.05
+        PS_asp_database = asp_db_im(bs.POLYMER_PS, density=density)
+
+        PS_asf_extended = asp_db_im_extended(
+            data_asf=PS_asf_dataset,
+            database=PS_asp_database,
+            merge_domain=(275.0, 390.0),
+            fix_distortions=True,
+            fix_distortions_method=fix_distortions_method,
+            **extra_kwargs,
+        )
+
+        assert PS_asf_extended.is_extended
+        assert PS_asf_extended.fix_distortions_method == fix_distortions_method
+        assert np.all(np.isfinite(PS_asf_extended.asf))
+
+    def test_prepost_fit_requires_predomain_and_postdomain(
+        self, PS_asf_dataset: asf_im
+    ) -> None:
+        """`prepost_fit` raises `ValueError` if `fix_predomain`/`fix_postdomain` are not provided."""
+        PS_asp_database = asp_db_im(bs.POLYMER_PS, density=1.05)
+
+        with pytest.raises(ValueError, match="fix_predomain"):
+            asp_db_im_extended(
+                data_asf=PS_asf_dataset,
+                database=PS_asp_database,
+                merge_domain=(275.0, 390.0),
+                fix_distortions=True,
+                fix_distortions_method="prepost_fit",
+            )
