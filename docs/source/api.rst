@@ -1,4 +1,4 @@
-pyNexafs API
+KKCalc2 API
 ============
 
 The API documentation for `KKCalc2` is generated from the docstrings in the codebase.

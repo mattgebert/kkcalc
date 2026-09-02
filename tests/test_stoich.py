@@ -1,8 +1,9 @@
 """Tests for the `stoich` module."""
 
-import pytest
-import periodictable.formulas as ptf
 import periodictable as pt
+import periodictable.formulas as ptf
+import pytest
+
 from kkcalc2 import stoichiometry as kk_stoich
 
 
@@ -177,7 +178,6 @@ class TestStoichometryOperations:
         """
         Tests the equivalence of various forms of `stiochiometry` objects.
         """
-        #
         polymer = kk_stoich(compound)
 
         # Test equivalence operations

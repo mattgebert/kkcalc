@@ -3,30 +3,33 @@ Object loader and lister for objects that implement asf_abstract and asp_abstrac
 Allows the loading of raw data and duplication objects.
 """
 
-from PyQt6 import QtWidgets, QtCore
-from kkcalc2.models import (
-    asf_abstract,
-    asf,
-    asf_re,
-    asf_im,
-    asf_complex,
-    asp_abstract,
-    asp,
-    asp_re,
-    asp_im,
-    asp_complex,
-    asp_db_im_extended,
-    asp_db_re_extended,
-    asp_db_complex_extended,
-    KK_Datatype,
-)
+import os
+import warnings
+
+from PyQt6 import QtCore, QtGui, QtWidgets
+
+from kkcalc2.gui.contrast_viewer import contrast_viewer
 from kkcalc2.gui.dialogs import (
     factor_complexity_dialog,
-    import_data_dialog,
     factor_dtype_dialog,
+    import_data_dialog,
 )
-from kkcalc2.gui.contrast_viewer import contrast_viewer
-import warnings
+from kkcalc2.models import (
+    KK_Datatype,
+    asf,
+    asf_abstract,
+    asf_complex,
+    asf_im,
+    asf_re,
+    asp,
+    asp_abstract,
+    asp_complex,
+    asp_db_complex_extended,
+    asp_db_im_extended,
+    asp_db_re_extended,
+    asp_im,
+    asp_re,
+)
 
 
 class kk_object_list(QtWidgets.QWidget):
@@ -51,6 +54,8 @@ class kk_object_list(QtWidgets.QWidget):
         self.setWindowTitle("kkcalc Object Loader")
         self._layout = QtWidgets.QVBoxLayout()
         self.setLayout(self._layout)
+        # Allow files to be dragged & dropped onto the widget, as an alternative to "Import Data".
+        self.setAcceptDrops(True)
 
         # Setup margins if parent is provided.
         if parent is not None:
@@ -240,7 +245,6 @@ class kk_object_list(QtWidgets.QWidget):
         for obj in objs:
             self.add_kk_obj(obj)
         # self.table.update()
-        return
 
     def itemViewClicked(self, item: QtWidgets.QTableWidgetItem):
         # Check if the item belongs to the checkbox column
@@ -254,7 +258,6 @@ class kk_object_list(QtWidgets.QWidget):
             elif item.row() in self._visible_rows:
                 self._visible_rows.remove(item.row())
             self.viewSelectionChanged.emit()
-        return
 
     def on_row_selection_change(self):
         # Alert the selected object has changed.
@@ -268,9 +271,9 @@ class kk_object_list(QtWidgets.QWidget):
             self.delete_btn.setEnabled(False)
         # Enable or disable the contrast button if two rows are selected.
         selection = self.table.selectedItems()
-        rows = set([item.row() for item in selection])
+        rows = {item.row() for item in selection}
         if len(rows) == 2 and all(
-            [isinstance(self._objs[row], (asf_complex, asp_complex)) for row in rows]
+            isinstance(self._objs[row], (asf_complex, asp_complex)) for row in rows
         ):
             self.contrast_btn.setEnabled(True)
         else:
@@ -281,12 +284,12 @@ class kk_object_list(QtWidgets.QWidget):
         if (
             len(materials) > 1  # Check if there are multiple rows selected
             and all(
-                [material == materials[0] for material in materials]
+                material == materials[0] for material in materials
             )  # Check if all materials are the same
             and all(
-                [obj.__class__ is objs[0].__class__ for obj in objs]
+                obj.__class__ is objs[0].__class__ for obj in objs
             )  # Check if all objects are the same class
-            and all([not self._objs[row].is_extended for row in rows])
+            and all(not self._objs[row].is_extended for row in rows)
         ):  # Check if all objects are not already extended:
             self.extend_btn.setEnabled(True)
             # self.extend_btn.setHidden(False)
@@ -305,9 +308,26 @@ class kk_object_list(QtWidgets.QWidget):
             return None
         return self._objs[selected[0].row()]
 
-    def import_data(self):
+    def import_data(self, path: str | bool | None = None) -> bool:
+        """
+        Opens the import data dialog flow, and adds the resulting object to the table.
+
+        Parameters
+        ----------
+        path : str | bool | None, optional
+            A file path to pre-fill the import dialog with (e.g. from a drag & drop event).
+            By default None, which opens the dialog with no file pre-selected.
+
+        Returns
+        -------
+        bool
+            True if an object was successfully imported, False if the user cancelled any step.
+        """
         # Collect the raw data
-        window_data = import_data_dialog()
+        if isinstance(path, bool):
+            # Bool comes from button press, so set path to None to open the dialog with no pre-filled file.
+            path = None
+        window_data = import_data_dialog(path=path)
         window_data.show()
         if window_data.exec():
             data_e, data_y = window_data.selected_data
@@ -321,12 +341,13 @@ class kk_object_list(QtWidgets.QWidget):
                         energies=data_e,
                         factors=data_y,
                         origin_dtype=KK_Datatype.ASF,
-                        name=window_data.load_filename,
+                        name=os.path.basename(window_data.load_filename),
                     )
                     warnings.warn(
                         "Real data loaded as asf_re object, implementation required for form."
                     )
                     self.add_kk_obj(obj)
+                    return True
                 elif complexity == window_complexity.EnumComplexity.IMAGINARY:
                     # Collect the datatype
                     window_dtype = factor_dtype_dialog(name=window_data.load_filename)
@@ -339,30 +360,114 @@ class kk_object_list(QtWidgets.QWidget):
                                     energies=data_e,
                                     factors=data_y,
                                     origin_dtype=KK_Datatype.ASF,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case KK_Datatype.REFRACTIVE:
                                 obj = asf_im.from_refractive(
                                     energies=data_e,
                                     refractive=data_y,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case KK_Datatype.REFRACTIVE_INDEX:
                                 obj = asf_im.from_refractive_index(
                                     energies=data_e,
                                     refractive_index=data_y,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case KK_Datatype.NEXAFS:
                                 obj = asf_im.from_NEXAFS(
                                     energies=data_e,
                                     NEXAFS=data_y,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case _:
                                 raise ValueError("Invalid datatype selected.")
                         self.add_kk_obj(obj)
-        return
+                        return True
+        return False
+
+    def import_data_files(self, paths: list[str]) -> None:
+        """
+        Sequentially imports multiple files via the same flow as `import_data`.
+
+        If a file's import is cancelled by the user (at any dialog step) and further files
+        remain, the user is prompted to either continue importing the remaining files or
+        cancel the rest of the operation.
+
+        Parameters
+        ----------
+        paths : list[str]
+            File paths to import, e.g. from a drag & drop event. Imported one at a time,
+            in order.
+
+        See Also
+        --------
+        import_data : Imports a single file, optionally pre-filling the dialog with a path.
+        dropEvent : Handles files dragged & dropped onto the widget.
+        """
+        for i, path in enumerate(paths):
+            imported = self.import_data(path=path)
+            remaining = len(paths) - i - 1
+            if not imported and remaining > 0:
+                response = QtWidgets.QMessageBox.question(
+                    self,
+                    "Continue Importing?",
+                    f"Import of '{os.path.basename(path)}' was cancelled.\n"
+                    f"Continue importing the remaining {remaining} file(s)?",
+                    QtWidgets.QMessageBox.StandardButton.Yes
+                    | QtWidgets.QMessageBox.StandardButton.No,
+                    QtWidgets.QMessageBox.StandardButton.Yes,
+                )
+                if response == QtWidgets.QMessageBox.StandardButton.No:
+                    break
+
+    def dragEnterEvent(
+        self, a0: QtGui.QDragEnterEvent | None
+    ) -> None:  # numpydoc ignore=GL08
+        """Accepts drag events that carry local file URLs."""
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if (
+            mime is not None
+            and mime.hasUrls()
+            and any(url.isLocalFile() for url in mime.urls())
+        ):
+            a0.acceptProposedAction()
+
+    def dragMoveEvent(
+        self, a0: QtGui.QDragMoveEvent | None
+    ) -> None:  # numpydoc ignore=GL08
+        """Accepts drag-move events that carry local file URLs."""
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if (
+            mime is not None
+            and mime.hasUrls()
+            and any(url.isLocalFile() for url in mime.urls())
+        ):
+            a0.acceptProposedAction()
+
+    def dropEvent(self, a0: QtGui.QDropEvent | None) -> None:
+        """
+        Imports files dropped onto the widget, using the same flow as "Import Data".
+
+        Multiple dropped files are imported sequentially (see `import_data_files`).
+        """
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if mime is None:
+            return
+        paths = [
+            url.toLocalFile()
+            for url in mime.urls()
+            if url.isLocalFile() and os.path.isfile(url.toLocalFile())
+        ]
+        a0.acceptProposedAction()
+        if paths:
+            self.import_data_files(paths)
 
     def duplicate(self) -> None:
         """Duplicates the currently selected object in the table."""
@@ -433,7 +538,7 @@ class kk_object_list(QtWidgets.QWidget):
     def calc_contrast(self):
         """Calculates the contrast between multiple selected objects if they are complex."""
         selection = self.table.selectedItems()
-        rows = set([item.row() for item in selection])
+        rows = {item.row() for item in selection}
         # Collect the complex objects
         objs = [
             self._objs[row]
@@ -445,12 +550,11 @@ class kk_object_list(QtWidgets.QWidget):
         viewer = contrast_viewer(objs=objs)
         viewer.show()
         self.contrast_viewers.append(viewer)  # Prevent garbage collection
-        return
 
     def extend_multiple(self):
         """Extends the selected objects across multiple edges."""
         selection = self.table.selectedItems()
-        rows = set([item.row() for item in selection])
+        rows = {item.row() for item in selection}
         # Collect the rows
         objs = [self._objs[row] for row in rows]
         # Convert any polynomial objects to factors
@@ -461,25 +565,39 @@ class kk_object_list(QtWidgets.QWidget):
             elif isinstance(obj, asp_abstract):
                 objs_asf.extend(obj.to_asf())
             else:
-                raise ValueError(
-                    "Invalid object selected to extend across multiple edges."
+                raise TypeError(
+                    f"Invalid object selected to extend across multiple edges of type {type(obj).__name__}."
                 )
 
+        stoich0 = objs[0].stoichiometry
+
+        if not all(obj.stoichiometry == stoich0 for obj in objs) or stoich0 is None:
+            # Create a map of names to stoichiometries for the error message
+            stoich_map = {obj.name: obj.stoichiometry for obj in objs}
+            # Dialog window error: stoichiometries must match
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            msg.setWindowTitle("Stoichiometry Mismatch")
+            msg.setText(
+                "Selected objects have different stoichiometries."
+                + "Please select objects with the same stoichiometry to extend across multiple edges.\n"
+                + f"Current Items:\n\t{'\n\t'.join(f'{name}: {stoich}' for name, stoich in stoich_map.items())}"
+            )
+            msg.exec()
+            return
         # Extend the objects
-        if isinstance(objs[0], asf_im) and all(
-            [isinstance(obj, asf_im) for obj in objs]
-        ):
+        if isinstance(objs[0], asf_im) and all(isinstance(obj, asf_im) for obj in objs):
             new_obj = asp_db_im_extended(
                 objs_asf, objs[0].stoichiometry, None, name=objs[0].name + "_extended"
             )
         elif isinstance(objs[0], asf_re) and all(
-            [isinstance(obj, (asf_re)) for obj in objs]
+            isinstance(obj, (asf_re)) for obj in objs
         ):
             new_obj = asp_db_re_extended(
                 objs_asf, objs[0].stoichiometry, None, name=objs[0].name + "_extended"
             )
         elif isinstance(objs[0], asf_complex) and all(
-            [isinstance(obj, asf_complex) for obj in objs]
+            isinstance(obj, asf_complex) for obj in objs
         ):
             new_obj = asp_db_complex_extended(
                 objs_asf, objs[0].stoichiometry, None, name=objs[0].name + "_extended"
