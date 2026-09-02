@@ -17,13 +17,13 @@ jobs:
     strategy:
       matrix:
         os: [Ubuntu]
-        python-version: ["3.13", "3.12"]
+        python-version: ["3.14", "3.13", "3.12"]
         include:
           - os: Windows
-            python-version: "3.13"
+            python-version: "3.14"
             if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
           - os: macOS
-            python-version: "3.13"
+            python-version: "3.14"
             if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
     steps:
     - uses: actions/checkout@v6
