@@ -309,13 +309,13 @@ class kk_object_list(QtWidgets.QWidget):
             return None
         return self._objs[selected[0].row()]
 
-    def import_data(self, path: str | None = None) -> bool:
+    def import_data(self, path: str | bool | None = None) -> bool:
         """
         Opens the import data dialog flow, and adds the resulting object to the table.
 
         Parameters
         ----------
-        path : str | None, optional
+        path : str | bool | None, optional
             A file path to pre-fill the import dialog with (e.g. from a drag & drop event).
             By default None, which opens the dialog with no file pre-selected.
 
@@ -325,6 +325,9 @@ class kk_object_list(QtWidgets.QWidget):
             True if an object was successfully imported, False if the user cancelled any step.
         """
         # Collect the raw data
+        if isinstance(path, bool):
+            # Bool comes from button press, so set path to None to open the dialog with no pre-filled file.
+            path = None
         window_data = import_data_dialog(path=path)
         window_data.show()
         if window_data.exec():
@@ -339,7 +342,7 @@ class kk_object_list(QtWidgets.QWidget):
                         energies=data_e,
                         factors=data_y,
                         origin_dtype=KK_Datatype.ASF,
-                        name=window_data.load_filename,
+                        name=os.path.basename(window_data.load_filename),
                     )
                     warnings.warn(
                         "Real data loaded as asf_re object, implementation required for form."
@@ -358,25 +361,25 @@ class kk_object_list(QtWidgets.QWidget):
                                     energies=data_e,
                                     factors=data_y,
                                     origin_dtype=KK_Datatype.ASF,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case KK_Datatype.REFRACTIVE:
                                 obj = asf_im.from_refractive(
                                     energies=data_e,
                                     refractive=data_y,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case KK_Datatype.REFRACTIVE_INDEX:
                                 obj = asf_im.from_refractive_index(
                                     energies=data_e,
                                     refractive_index=data_y,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case KK_Datatype.NEXAFS:
                                 obj = asf_im.from_NEXAFS(
                                     energies=data_e,
                                     NEXAFS=data_y,
-                                    name=window_data.load_filename,
+                                    name=os.path.basename(window_data.load_filename),
                                 )
                             case _:
                                 raise ValueError("Invalid datatype selected.")
@@ -568,6 +571,22 @@ class kk_object_list(QtWidgets.QWidget):
                     "Invalid object selected to extend across multiple edges."
                 )
 
+        stoich0 = objs[0].stoichiometry
+
+        if not all([obj.stoichiometry == stoich0 for obj in objs]) or stoich0 is None:
+            # Create a map of names to stoichiometries for the error message
+            stoich_map = {obj.name: obj.stoichiometry for obj in objs}
+            # Dialog window error: stoichiometries must match
+            msg = QtWidgets.QMessageBox()
+            msg.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            msg.setWindowTitle("Stoichiometry Mismatch")
+            msg.setText(
+                "Selected objects have different stoichiometries."
+                + "Please select objects with the same stoichiometry to extend across multiple edges.\n"
+                + f"Current Items:\n\t{'\n\t'.join(f'{name}: {stoich}' for name, stoich in stoich_map.items())}"
+            )
+            msg.exec()
+            return
         # Extend the objects
         if isinstance(objs[0], asf_im) and all(
             [isinstance(obj, asf_im) for obj in objs]
