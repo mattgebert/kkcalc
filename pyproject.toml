@@ -26,8 +26,8 @@ maintainers = [
 # Project compatibility:
 requires-python = ">=3.12"
 dependencies = [
+    "scipy>=1.17.1,<1.19.0", # Used for constants, interpolation and fitting.
     "numpy>=2.4,<2.6", # Basic array and matrix operations
-    "scipy~=1.17.1", # Used for constants, interpolation and fitting.
 ]
 optional-dependencies.gui = [
     "PyQt6~=6.10", # For GUI
