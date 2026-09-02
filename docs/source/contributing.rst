@@ -2,7 +2,7 @@
 Contributing
 ===========================
 
-Want to contribute to developement? That's fantastic! Have a discussion with us first via `issues <https://github.com/xraysoftmat/kkcalc-xraysoftmat/issues>`_ to avoid wasted effort, and so we can make our visions align.
+Want to contribute to developement? That's fantastic! Have a discussion with us first via `issues <https://github.com/xraysoftmat/kkcalc/issues>`_ to avoid wasted effort, and so we can make our visions align.
 
 To install for development, create your own `fork/branch <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo>`_ of ``kkcalc2`` on ``github`` so you can save and contribute your own changes, and clone that to your local file system using ``Github Desktop`` or ``Git`` via Windows Terminal / CMD.
 

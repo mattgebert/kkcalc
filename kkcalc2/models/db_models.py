@@ -4,24 +4,24 @@ A module for database models.
 Allows the calculation of atomic scattering factor data, generated for a given stoichiometry.
 """
 
+import abc
+from collections.abc import Sequence
+from typing import Literal, Self, Unpack, overload, override
+
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
-from typing import Self, override, overload, Unpack
 
-import abc
-from kkcalc2.stoich import stoichiometry as kk_stoichiometry
-
-# Import from submodules of models, as models.py will also call these classes.
-from kkcalc2.models.polynomials import asp, asp_im, asp_re, asp_complex
-from kkcalc2.models.factors import asf, asf_im, asf_re, asf_complex
 from kkcalc2 import conversions
-from kkcalc2.models.common import (
-    PROPERTIES_DICT,
-)
 
 # Load the real/imag scattering factors as they vary with energy
 from kkcalc2.asf_database import ASF_DATABASE
+from kkcalc2.models.common import PROPERTIES_DICT, PROPERTIES_DICT_NO_STOICH
+from kkcalc2.models.factors import asf, asf_complex, asf_im, asf_re
+
+# Import from submodules of models, as models.py will also call these classes.
+from kkcalc2.models.polynomials import asp, asp_complex, asp_im, asp_re
+from kkcalc2.stoich import stoichiometry as kk_stoichiometry
 
 
 class asp_db_abstract(asp, metaclass=abc.ABCMeta):
@@ -121,7 +121,11 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         data_y: npt.ArrayLike,
         stoichiometry: kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
+        *,
         fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
     ) -> npt.NDArray:
         r"""
         Scale the user data to the database data.
@@ -140,11 +144,27 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         merge_domain : tuple[float, float] | None
             The intersection energies (inclusive bounds) of `data_e` and database data.
             If None, the full range of the user data will be used to scale.
-        fix_distortions : bool
+        fix_distortions : bool | Sequence[bool]
             Fits a gradient correction to the ASF data, to minimize offsets between the database
             data and the ASF data. Provides the same functionality as used in
             `asp_db_extended.extend_data_with_db`. Correction is calculated using the merge domain,
             but is applied to the full data set.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"]
+            The method to use to fix distortions in the user data. Provides the same functionality as used in
+            `asp_db_extended.extend_data_with_db`. Only used if `fix_distortions` is True.
+            "grad_min" fits a gradient correction to the data, to minimize offsets between the database
+            data and the user data.
+            "prepost_fit" performs linear fits to the pre-edge (`fix_predomain`) and post-edge (`fix_postdomain`)
+            regions of the data, then applies linear corrections to match the database data in these regions,
+            before applying a final scaling to match the database at the post-edge.
+        fix_predomain : tuple[float, float] | None
+            The energy range to use for fitting the pre-edge region of the data, if `fix_distortions_method`
+            is "prepost_fit".Must contain at least 2 data points. Only used if `fix_distortions` is True and
+            `fix_distortions_method` is "prepost_fit".
+        fix_postdomain : tuple[float, float] | None
+            The energy range to use for fitting the post-edge region of the data, if `fix_distortions_method`
+            is "prepost_fit". Must contain at least 2 data points. Only used if `fix_distortions` is True and
+            `fix_distortions_method` is "prepost_fit".
 
         Returns
         -------
@@ -245,40 +265,129 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         ]  # essential to only use domain data to perform fit.
 
         if fix_distortions:
-            # Perform a fit along the domain
-            db_y = asp.eval_asf_on_coefs(
-                target_energies=energies,
-                energies=db_e,
-                coefs=db_coefs,
-            )  # Find equivalent values of the db_asp energies to the data energies
-            guess_grad = (
-                -(data_merge_range[1] - data_merge_range[0])
-                / (db_asp_merge_range[1] - db_asp_merge_range[0])
-                / data_y[-1]
-            )
-            fit_func = asp_db_extended.grad_min
             fit_y = scaled_data_y[
                 data_merge_lb_idx:db_merge_ub_end
             ]  # essential to only use domain data to perform fit.
 
-            (grad,), _ = opt.leastsq(
-                func=fit_func,
-                x0=guess_grad,
-                args=(energies, fit_y, db_asp_merge_range, db_y),
-                # Minimizes difference to the db_y values.
-            )
-            # Reassign the scaled data, but use full energy domain to generate values.
-            scaled_data_y = db_asp_merge_range[0] + asp_db_extended.grad_min(
-                grad,
-                data_e,
-                scaled_data_y,
-                db_asp_merge_range,
-                db_y=0,  # No minimization here.
-                # Adjust merge indexes, so we can scale whole dataset.
-                idx0=data_merge_lb_idx,
-                idx1=data_merge_ub_idx,
-            )
+            match fix_distortions_method:
+                case "grad_min":
+                    # Perform a fit along the domain
+                    db_y = asp.eval_asf_on_coefs(
+                        target_energies=energies,
+                        energies=db_e,
+                        coefs=db_coefs,
+                    )  # Find equivalent values of the db_asp energies to the data energies
+                    guess_grad = (
+                        -(data_merge_range[1] - data_merge_range[0])
+                        / (db_asp_merge_range[1] - db_asp_merge_range[0])
+                        / data_y[-1]
+                    )
+                    fit_func = asp_db_extended.grad_min
 
+                    (grad,), _ = opt.leastsq(
+                        func=fit_func,
+                        x0=guess_grad,
+                        args=(energies, fit_y, db_asp_merge_range, db_y),
+                    )
+                    # Reassign the scaled data
+                    scaled_data_y = db_asp_merge_range[0] + asp_db_extended.grad_min(
+                        grad,
+                        energies,
+                        fit_y,
+                        db_asp_merge_range,
+                        db_y=0,
+                        idx0=0,
+                        idx1=-1,
+                    )
+
+                case "prepost_fit":
+                    # Fit pre-edge and post-edge functions to the data, then use these to correct the data before merging.
+                    if fix_predomain is None:
+                        raise ValueError(
+                            "fix_predomain must be defined for prepost_fit method"
+                        )
+                    if fix_postdomain is None:
+                        raise ValueError(
+                            "fix_postdomain must be defined for prepost_fit method"
+                        )
+
+                    # First perform a linear fit to match the pre-edge region to the database
+                    pre_idx = (fix_predomain[0] < energies) & (
+                        energies < fix_predomain[1]
+                    )
+                    if pre_idx.sum() < 2:
+                        raise ValueError(
+                            f"`fix_predomain` ({fix_predomain[0]}, {fix_predomain[1]}) must contain at least 2 data points for fitting."
+                        )
+                    pre_x = energies[pre_idx]
+                    pre_y = fit_y[pre_idx]
+                    pre_db_y = asp.eval_asf_on_coefs(
+                        target_energies=pre_x,
+                        energies=db_e,
+                        coefs=db_coefs,
+                    )
+                    (pre_m, _) = np.polyfit(
+                        pre_x, pre_y - pre_db_y, 1
+                    )  # Fit a line to the difference
+                    # Apply the linear correction to the full domain
+                    intermediate_y = fit_y - (
+                        pre_m * (energies - pre_x[0])
+                    )  # Correct the gradient
+
+                    # Second perform a fit to match the post-edge of the database
+                    post_idx = (fix_postdomain[0] < energies) & (
+                        energies < fix_postdomain[1]
+                    )
+                    if post_idx.sum() < 2:
+                        raise ValueError(
+                            f"`fix_postdomain` ({fix_postdomain[0]}, {fix_postdomain[1]}) must contain at least 2 data points for fitting."
+                        )
+                    post_x = energies[post_idx]
+                    post_y = intermediate_y[post_idx]
+                    post_db_y = asp.eval_asf_on_coefs(
+                        target_energies=post_x,
+                        energies=db_e,
+                        coefs=db_coefs,
+                    )
+                    (post_m, _) = np.polyfit(
+                        post_x, post_y - post_db_y, 1
+                    )  # Fit a line to the difference
+
+                    # Slowly apply the linear correction to the full set, so by the endpoint it is fully applied.
+                    N = len(energies)
+                    correction = (
+                        np.arange(N)
+                        / N  # Ramping factor to slowly apply the correction over the domain
+                        * (post_m * (energies - energies[0]))
+                    )
+                    intermediate_y2 = (
+                        intermediate_y - correction
+                    )  # Correct the gradient
+
+                    # Use lines and offsets, to apply a scale correction
+                    m1, c1 = np.polyfit(pre_x, intermediate_y[pre_idx], 1)
+                    # Flatten the data and db data to apply scaling.
+                    intermediate_y2 -= m1 * energies + c1
+                    db_flattened = post_db_y - (post_x * m1 + c1)
+                    # Fit the data and db_data
+                    m2, c2 = np.polyfit(post_x, intermediate_y2[post_idx], 1)
+                    m3, c3 = np.polyfit(post_x, db_flattened, 1)
+                    # Scale the post-edge level, using the average x value in the post-edge domain.
+                    ave_x = np.mean(post_x)
+                    y_ave = m2 * ave_x + c2
+                    db_y_ave = m3 * ave_x + c3
+                    intermediate_y2 *= (
+                        db_y_ave / y_ave
+                    )  # Scale the data to match the db data at the post-edge
+                    # Add back the pre-edge gradient
+                    intermediate_y2 += m1 * energies + c1
+
+                    # Reassign the scaled data
+                    scaled_data_y = intermediate_y2
+                case _:
+                    raise ValueError(
+                        f"Invalid fix_distortions_method: {fix_distortions_method}. Must be 'grad_min' or 'prepost_fit'."
+                    )
         return scaled_data_y
 
 
@@ -360,7 +469,7 @@ class asp_db_re(asp_db_abstract, asp_re):
 
             # Add weighted asf data sets for KK calculation
             re_factors = np.zeros(
-                (len(energies))
+                len(energies)
             )  # Stores summations of real factors at each energy
 
             # Stores the current energy index for each element, defining factors at intermediate energies.
@@ -655,16 +764,25 @@ class asp_db_extended(asp):
 
     Parameters
     ----------
-    data_asf : asf | list[asf]
+    data_asf : asf | Sequence[asf]
         The atomic scattering factor object.
     database : asp_db | kk_stoichiometry | str
         The atomic scattering potential object, generated for a given material stoichiometry.
         Can also be a `kk_stoichiometry` object or a string representing the stoichiometry,
         which will be converted to an `asp_db` object.
-    merge_domain : tuple[float, float] | list[tuple[float, float]] | None
+    merge_domain : tuple[float, float] | Sequence[tuple[float, float]] | None
         The range of energies to merge the user data_asf with the db_asp data.
     fix_distortions : bool
         Flag to fix distortions in the user data_asf.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"] | Sequence[Literal["grad_min", "prepost_fit"]]
+        The method to use to fix distortions in the user data_asf. Provides the same functionality
+        as used in `asp_db_extended.extend_data_with_db`.
+    fix_predomain : tuple[float, float] | Sequence[tuple[float, float]] | None
+        The energy range to apply the `fix_distortions_method` to before the merge domain.
+        If None, no correction will be applied before the merge domain.
+    fix_postdomain : tuple[float, float] | Sequence[tuple[float, float]] | None
+        The energy range to apply the `fix_distortions_method` to after the merge domain.
+        If None, no correction will be applied after the merge domain.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `atomic_scattering` base classes.
 
@@ -691,28 +809,84 @@ class asp_db_extended(asp):
         data_asf: asf,
         database: asp_db_abstract,
         merge_domain: tuple[float, float] | None = None,
-        fix_distortions: bool = False,
+        *,
+        fix_distortions: Literal[False] = False,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None: ...  # numpydoc ignore=GL08
 
     @overload
     def __init__(
         self,
-        data_asf: list[asf],
+        data_asf: asf,
         database: asp_db_abstract,
-        merge_domain: list[tuple[float, float] | None] | None = None,
-        fix_distortions: bool = False,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["grad_min"],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf,
+        database: asp_db_abstract,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["prepost_fit"],
+        fix_predomain: tuple[float, float],
+        fix_postdomain: tuple[float, float],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf],
+        database: asp_db_abstract,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf],
+        database: asp_db_abstract,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Sequence[bool] | Literal[True] = True,
+        fix_distortions_method: Sequence[Literal["grad_min", "prepost_fit"]]
+        | Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        fix_postdomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None: ...  # numpydoc ignore=GL08
 
     def __init__(
         self,
-        data_asf: asf | list[asf],
+        data_asf: asf | Sequence[asf],
         database: asp_db_abstract,
         merge_domain: (
-            tuple[float, float] | list[tuple[float, float] | None] | None
+            tuple[float, float] | Sequence[tuple[float, float] | None] | None
         ) = None,
-        fix_distortions: bool = False,
+        *,
+        fix_distortions: bool | Sequence[bool] = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"]
+        | Sequence[Literal["grad_min", "prepost_fit"]] = "grad_min",
+        fix_predomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
+        fix_postdomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Check if data_asf is a list
@@ -795,6 +969,12 @@ class asp_db_extended(asp):
         """The merge domain(s) used to choose which `data_asf` values are used to create the extended data."""
         self.fix_distortions = fix_distortions
         """The fix distortions flag used to add extra processing to the provided `data_asf`."""
+        self.fix_distortions_method = fix_distortions_method
+        """The method used to fix distortions in the provided `data_asf`."""
+        self.fix_predomain = fix_predomain
+        """The energy range to apply the `fix_distortions_method` to before the merge domain."""
+        self.fix_postdomain = fix_postdomain
+        """The energy range to apply the `fix_distortions_method` to after the merge domain."""
 
         # Get the data pointers from the asp object
         asp_e, asp_coefs = database.energies, database.coefs
@@ -812,6 +992,27 @@ class asp_db_extended(asp):
             else:
                 raise ValueError("Merge domain must be a list of tuples or None")
 
+            if isinstance(fix_distortions, list):
+                fd = fix_distortions[i] if i < len(fix_distortions) else False
+            else:
+                fd = fix_distortions
+            if isinstance(fix_distortions_method, list):
+                fdm = (
+                    fix_distortions_method[i]
+                    if i < len(fix_distortions_method)
+                    else "grad_min"
+                )
+            else:
+                fdm = fix_distortions_method
+            if isinstance(fix_predomain, list):
+                fpred = fix_predomain[i] if i < len(fix_predomain) else None
+            else:
+                fpred = fix_predomain
+            if isinstance(fix_postdomain, list):
+                fpostd = fix_postdomain[i] if i < len(fix_postdomain) else None
+            else:
+                fpostd = fix_postdomain
+
             ### 1. Alignment of Energy Values:
             # Get the data pointers from the asf object
             data_e, data_y = d_asf.data
@@ -822,7 +1023,10 @@ class asp_db_extended(asp):
                 db_e=merge_e,
                 db_coefs=merge_coefs,
                 merge_domain=d_merge,
-                fix_distortions=fix_distortions,
+                fix_distortions=fd,
+                fix_distortions_method=fdm,
+                fix_predomain=fpred,
+                fix_postdomain=fpostd,
             )
 
         # Copy the kwargs from the data_asf / asp objects if not None.
@@ -842,7 +1046,7 @@ class asp_db_extended(asp):
                 extra_kwargs[key] = database._properties_dict[key]
 
         # Add to the kwargs if not already present, otherwise kwargs takes precedence.
-        for key in extra_kwargs.keys():
+        for key in extra_kwargs:
             if key not in kwargs:
                 kwargs[key] = extra_kwargs[key]
 
@@ -853,7 +1057,7 @@ class asp_db_extended(asp):
         super().__init__(energies=merge_e, coefs=merge_coefs, **kwargs)
 
         # Store the data_asf object for reference
-        self.dataset_asf: asf | list[asf] = (
+        self.dataset_asf: asf | Sequence[asf] = (
             data_asf if len(data_asf) > 1 else data_asf[0]
         )
         """
@@ -866,7 +1070,6 @@ class asp_db_extended(asp):
         The original `asp` (atomic scattering polynomial) object containing the database data,
         used to extend the `asf` object.
         """
-        return
 
     @staticmethod
     def extend_data_with_db(
@@ -874,8 +1077,12 @@ class asp_db_extended(asp):
         data_y: npt.NDArray,
         db_e: npt.NDArray,
         db_coefs: npt.NDArray,
+        *,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
     ) -> tuple[npt.NDArray, npt.NDArray]:
         """
         Merge the user data (factors) with the database data (polynomial coefs).
@@ -897,6 +1104,19 @@ class asp_db_extended(asp):
             Fits a gradient correction to the ASF data, to minimize offsets between the database
             data and the ASF data. Correction is calculated using the merge domain,
             but is applied to the full data set.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            The method to use for fixing distortions. Default is "grad_min".
+                - "grad_min": Minimizes the gradient difference between the scaled data and the database data
+                at the merge domain.
+                - "prepost_fit": Fits a pre-edge and post-edge function to the data using `fix_predomain` and
+                `fix_postdomain`, then minimizes the difference between the scaled data and the database data
+                in these regions.
+        fix_predomain : tuple[float, float] | None, optional
+            The energy range to use for fitting the pre-edge function if `fix_distortions_method` is "prepost_fit".
+            If None, the full range of the user data below the merge domain will be used.
+        fix_postdomain : tuple[float, float] | None, optional
+            The energy range to use for fitting the post-edge function if `fix_distortions_method` is "prepost_fit".
+            If None, the full range of the user data above the merge domain will be used.
 
         Returns
         -------
@@ -983,37 +1203,131 @@ class asp_db_extended(asp):
         ]  # essential to only use domain data to perform fit.
 
         if fix_distortions:
-            # Perform a fit along the domain
-            db_y = asp.eval_asf_on_coefs(
-                target_energies=energies,
-                energies=db_e,
-                coefs=db_coefs,
-            )  # Find equivalent values of the db_asp energies to the data energies
-            guess_grad = (
-                -(data_merge_range[1] - data_merge_range[0])
-                / (db_asp_merge_range[1] - db_asp_merge_range[0])
-                / data_y[-1]
-            )
-            fit_func = asp_db_extended.grad_min
             fit_y = scaled_data_y[
                 data_merge_lb_idx:db_merge_ub_end
             ]  # essential to only use domain data to perform fit.
-            (grad,), _ = opt.leastsq(
-                func=fit_func,
-                x0=guess_grad,
-                args=(energies, fit_y, db_asp_merge_range, db_y),
-            )
-            # Reassign the scaled data
-            merge_data_e = energies
-            merge_data_y = db_asp_merge_range[0] + asp_db_extended.grad_min(
-                grad,
-                energies,
-                fit_y,
-                db_asp_merge_range,
-                db_y=0,
-                idx0=0,
-                idx1=-1,
-            )
+
+            match fix_distortions_method:
+                case "grad_min":
+                    # Perform a fit along the domain
+                    db_y = asp.eval_asf_on_coefs(
+                        target_energies=energies,
+                        energies=db_e,
+                        coefs=db_coefs,
+                    )  # Find equivalent values of the db_asp energies to the data energies
+                    guess_grad = (
+                        -(data_merge_range[1] - data_merge_range[0])
+                        / (db_asp_merge_range[1] - db_asp_merge_range[0])
+                        / data_y[-1]
+                    )
+                    fit_func = asp_db_extended.grad_min
+
+                    (grad,), _ = opt.leastsq(
+                        func=fit_func,
+                        x0=guess_grad,
+                        args=(energies, fit_y, db_asp_merge_range, db_y),
+                    )
+                    # Reassign the scaled data
+                    merge_data_e = energies
+                    merge_data_y = db_asp_merge_range[0] + asp_db_extended.grad_min(
+                        grad,
+                        energies,
+                        fit_y,
+                        db_asp_merge_range,
+                        db_y=0,
+                        idx0=0,
+                        idx1=-1,
+                    )
+                case "prepost_fit":
+                    # Fit pre-edge and post-edge functions to the data, then use these to correct the data before merging.
+                    if fix_predomain is None:
+                        raise ValueError(
+                            "fix_predomain must be defined for prepost_fit method"
+                        )
+                    if fix_postdomain is None:
+                        raise ValueError(
+                            "fix_postdomain must be defined for prepost_fit method"
+                        )
+
+                    # First perform a linear fit to match the pre-edge region to the database
+                    pre_idx = (fix_predomain[0] < energies) & (
+                        energies < fix_predomain[1]
+                    )
+                    if pre_idx.sum() < 2:
+                        raise ValueError(
+                            f"`fix_predomain` ({fix_predomain[0]}, {fix_predomain[1]}) must contain at least 2 data points for fitting."
+                        )
+                    pre_x = energies[pre_idx]
+                    pre_y = fit_y[pre_idx]
+                    pre_db_y = asp.eval_asf_on_coefs(
+                        target_energies=pre_x,
+                        energies=db_e,
+                        coefs=db_coefs,
+                    )
+                    (pre_m, _) = np.polyfit(
+                        pre_x, pre_y - pre_db_y, 1
+                    )  # Fit a line to the difference
+                    # Apply the linear correction to the full domain
+                    intermediate_y = fit_y - (
+                        pre_m * (energies - pre_x[0])
+                    )  # Correct the gradient
+
+                    # Second perform a fit to match the post-edge of the database
+                    post_idx = (fix_postdomain[0] < energies) & (
+                        energies < fix_postdomain[1]
+                    )
+                    if post_idx.sum() < 2:
+                        raise ValueError(
+                            f"`fix_postdomain` ({fix_postdomain[0]}, {fix_postdomain[1]}) must contain at least 2 data points for fitting."
+                        )
+                    post_x = energies[post_idx]
+                    post_y = intermediate_y[post_idx]
+                    post_db_y = asp.eval_asf_on_coefs(
+                        target_energies=post_x,
+                        energies=db_e,
+                        coefs=db_coefs,
+                    )
+                    (post_m, _) = np.polyfit(
+                        post_x, post_y - post_db_y, 1
+                    )  # Fit a line to the difference
+
+                    # Slowly apply the linear correction to the full set, so by the endpoint it is fully applied.
+                    N = len(energies)
+                    correction = (
+                        np.arange(N)
+                        / N  # Ramping factor to slowly apply the correction over the domain
+                        * (post_m * (energies - energies[0]))
+                    )
+                    intermediate_y2 = (
+                        intermediate_y - correction
+                    )  # Correct the gradient
+
+                    # Use lines and offsets, to apply a scale correction
+                    m1, c1 = np.polyfit(pre_x, intermediate_y[pre_idx], 1)
+                    # Flatten the data and db data to apply scaling.
+                    intermediate_y2 -= m1 * energies + c1
+                    db_flattened = post_db_y - (post_x * m1 + c1)
+                    # Fit the data and db_data
+                    m2, c2 = np.polyfit(post_x, intermediate_y2[post_idx], 1)
+                    m3, c3 = np.polyfit(post_x, db_flattened, 1)
+                    # Scale the post-edge level, using the average x value in the post-edge domain.
+                    ave_x = np.mean(post_x)
+                    y_ave = m2 * ave_x + c2
+                    db_y_ave = m3 * ave_x + c3
+                    intermediate_y2 *= (
+                        db_y_ave / y_ave
+                    )  # Scale the data to match the db data at the post-edge
+                    # Add back the pre-edge gradient
+                    intermediate_y2 += m1 * energies + c1
+
+                    # Reassign the scaled data
+                    merge_data_y = intermediate_y2
+                    merge_data_e = energies
+
+                case _:
+                    raise ValueError(
+                        f"Invalid fix_distortions_method: {fix_distortions_method}. Must be 'grad_min' or 'prepost_fit'."
+                    )
         else:
             # Construct the merge data to use
             merge_data_e = energies
@@ -1053,7 +1367,7 @@ class asp_db_extended(asp):
         x: npt.NDArray[np.float64],
         y: npt.NDArray[np.float64],
         db_merge_range: tuple[float, float],
-        db_y: npt.NDArray[np.float64] | float | int,
+        db_y: npt.NDArray[np.float64] | float,
         idx0: int = 0,
         idx1: int = -1,
     ) -> npt.NDArray[np.float64]:
@@ -1126,6 +1440,9 @@ class asp_db_extended(asp):
             database=self.database_asp.copy(),
             merge_domain=self.merge_domain,
             fix_distortions=self.fix_distortions,
+            fix_distortions_method=self.fix_distortions_method,
+            fix_predomain=self.fix_predomain,
+            fix_postdomain=self.fix_postdomain,
             **kwargs,
         )
         # Need to copy the energies and coefs to ensure exact match
@@ -1144,7 +1461,7 @@ class asp_db_im_extended(asp_db_extended, asp_im):
 
     Parameters
     ----------
-    data_asf : asf | asf_im | list[asf | asf_im]
+    data_asf : asf | asf_im | Sequence[asf | asf_im]
         The atomic scattering factors.
     database : asp_db_im | kk_stoichiometry | str
         The database atomic scattering polynomial, generated for a given material stoichiometry.
@@ -1153,18 +1470,101 @@ class asp_db_im_extended(asp_db_extended, asp_im):
     merge_domain : tuple[float, float] | None
         The intersection energies to merge the user data_asf with the db_asp data (in eV).
         By default None, using full data domain.
-    fix_distortions : bool
+    fix_distortions : bool | Sequence[bool]
         Flag to fix distortions in the user data_asf. By default False.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"] | Sequence[Literal["grad_min", "prepost_fit"]]
+        The method to use for fixing distortions. By default "grad_min".
+    fix_predomain : tuple[float, float] | None | Sequence[tuple[float, float]]
+        The energy domain to fix before the main domain. By default None.
+    fix_postdomain : tuple[float, float] | None | Sequence[tuple[float, float]]
+        The energy domain to fix after the main domain. By default None.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `atomic_scattering` base classes.
     """
 
+    @overload
     def __init__(
         self,
-        data_asf: asf | asf_im | list[asf | asf_im],
+        data_asf: asf | asf_im,
+        database: asp_db_im,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf | asf_im,
+        database: asp_db_im,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["grad_min"],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf | asf_im,
+        database: asp_db_im,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["prepost_fit"],
+        fix_predomain: tuple[float, float],
+        fix_postdomain: tuple[float, float],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf | asf_im],
+        database: asp_db_im,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf | asf_im],
+        database: asp_db_im,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Sequence[bool] | Literal[True] = True,
+        fix_distortions_method: Sequence[Literal["grad_min", "prepost_fit"]]
+        | Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        fix_postdomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    def __init__(
+        self,
+        data_asf: asf | asf_im | Sequence[asf | asf_im],
         database: asp_db_im | kk_stoichiometry | str,
-        merge_domain: tuple[float, float] | list[tuple[float, float]] | None = None,
-        fix_distortions: bool = False,
+        merge_domain: tuple[float, float]
+        | Sequence[tuple[float, float] | None]
+        | None = None,
+        fix_distortions: Sequence[bool] | bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"]
+        | Sequence[Literal["grad_min", "prepost_fit"]] = "grad_min",
+        fix_predomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
+        fix_postdomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Convert the database to an asp_db_im object
@@ -1176,8 +1576,8 @@ class asp_db_im_extended(asp_db_extended, asp_im):
         elif isinstance(database, asp_db_im):
             im_db = database
         else:
-            raise ValueError(
-                "Database must be a stoichiometry, string, or asp_db_im object"
+            raise TypeError(
+                f"Database must be a stoichiometry, string, or asp_db_im object. Was {type(database)}"
             )
 
         # Construct the extended object
@@ -1186,8 +1586,48 @@ class asp_db_im_extended(asp_db_extended, asp_im):
             database=im_db,
             merge_domain=merge_domain,
             fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
             **kwargs,
         )
+
+    @classmethod
+    def from_NEXAFS(
+        cls: type[Self],
+        energies: npt.NDArray[np.floating],
+        NEXAFS: npt.NDArray[np.floating],
+        stoichiometry: kk_stoichiometry | str,
+        **kwargs: Unpack[PROPERTIES_DICT_NO_STOICH],
+    ):
+        """
+        Extend NEXAFS data using the kkcalc database.
+
+        Scales and extends the provided NEXAFS data using the `asp_db_im` database for a given stoichiometry.
+
+        Parameters
+        ----------
+        energies : npt.NDArray[np.floating]
+            The energy values of the NEXAFS data.
+        NEXAFS : npt.NDArray[np.floating]
+            The NEXAFS values corresponding to the energy values.
+        stoichiometry : kk_stoichiometry | str
+            The stoichiometry of the compound, i.e. the elemental composition.
+        **kwargs : Unpack[PROPERTIES_DICT_NO_STOICH]
+            Additional keyword arguments to pass to `atomic_scattering` base classes, excluding stoichiometry
+            which is determined by the database. These can be used to set object properties such as name, etc.
+
+        Returns
+        -------
+        asp_db_im_extended
+            An `asp_db_im_extended` object containing the extended imaginary scattering factor data.
+        """
+        asf_im_obj = asf_im.from_NEXAFS(
+            energies=energies,
+            NEXAFS=NEXAFS,
+            stoichiometry=stoichiometry,
+        )
+        return cls(data_asf=asf_im_obj, database=stoichiometry, **kwargs)
 
 
 class asp_db_re_extended(asp_db_extended, asp_re):
@@ -1198,7 +1638,7 @@ class asp_db_re_extended(asp_db_extended, asp_re):
 
     Parameters
     ----------
-    data_asf : asf | asf_re | list[asf | asf_re]
+    data_asf : asf | asf_re | Sequence[asf | asf_re]
         The atomic scattering factors.
     database : asp_db_re | kk_stoichiometry | str
         The database atomic scattering polynomial, generated for a given material stoichiometry.
@@ -1209,16 +1649,98 @@ class asp_db_re_extended(asp_db_extended, asp_re):
         By default None, using full data domain.
     fix_distortions : bool
         Flag to fix distortions in the user data_asf. By default False.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"]
+        The method to use for fixing distortions. By default "grad_min".
+    fix_predomain : tuple[float, float] | None
+        The energy domain to fix before the main domain. By default None.
+    fix_postdomain : tuple[float, float] | None
+        The energy domain to fix after the main domain. By default None.
+
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `atomic_scattering` base classes.
     """
 
+    @overload
     def __init__(
         self,
-        data_asf: asf | asf_re | list[asf | asf_re],
+        data_asf: asf | asf_re,
+        database: asp_db_re,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf | asf_re,
+        database: asp_db_re,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["grad_min"],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf | asf_re,
+        database: asp_db_re,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["prepost_fit"],
+        fix_predomain: tuple[float, float],
+        fix_postdomain: tuple[float, float],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf | asf_re],
+        database: asp_db_re,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf | asf_re],
+        database: asp_db_re,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Sequence[bool] | Literal[True] = True,
+        fix_distortions_method: Sequence[Literal["grad_min", "prepost_fit"]]
+        | Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        fix_postdomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    def __init__(
+        self,
+        data_asf: asf | asf_re | Sequence[asf | asf_re],
         database: asp_db_re | kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
-        fix_distortions: bool = False,
+        fix_distortions: bool | Sequence[bool] = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"]
+        | Sequence[Literal["grad_min", "prepost_fit"]] = "grad_min",
+        fix_predomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
+        fix_postdomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Convert the database to an asp_db_re object
@@ -1230,11 +1752,20 @@ class asp_db_re_extended(asp_db_extended, asp_re):
         elif isinstance(database, asp_db_re):
             re_db = database
         else:
-            raise ValueError(
-                "Database must be a stoichiometry, string, or asp_db_im object"
+            raise TypeError(
+                f"Database must be a stoichiometry, string, or asp_db_re object. Was {type(database)}"
             )
 
-        super().__init__(data_asf, re_db, merge_domain, fix_distortions, **kwargs)
+        super().__init__(
+            data_asf=data_asf,
+            re_db=re_db,
+            merge_domain=merge_domain,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
+            **kwargs,
+        )
 
 
 class asp_db_complex_extended(asp_db_extended, asp_complex):
@@ -1245,7 +1776,7 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
 
     Parameters
     ----------
-    data_asf : asf | asf_complex | list[asf | asf_complex]
+    data_asf : asf | asf_complex | Sequence[asf | asf_complex]
         The atomic scattering factors.
     database : asp_db_complex | kk_stoichiometry | str
         The database atomic scattering polynomial, generated for a given material stoichiometry.
@@ -1254,18 +1785,105 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
     merge_domain : tuple[float, float] | None
         The intersection energies to merge the user data_asf with the db_asp data (in eV).
         By default None, using full data domain.
-    fix_distortions : bool
+    fix_distortions : bool | Sequence[bool]
         Flag to fix distortions in the user data_asf. By default False.
+        If a sequence is provided, must be the same length as the number of data_asf objects, and applies to each in order.
+    fix_distortions_method : Literal["grad_min", "prepost_fit"] | Sequence[Literal["grad_min", "prepost_fit"]]
+        The method to use for fixing distortions. By default "grad_min".
+        If a sequence is provided, must be the same length as the number of data_asf objects, and applies to each in order.
+    fix_predomain : tuple[float, float] | None | Sequence[tuple[float, float] | None]
+        The energy domain to fix before the main domain. By default None.
+        If a sequence is provided, must be the same length as the number of data_asf objects, and applies to each in order.
+    fix_postdomain : tuple[float, float] | None | Sequence[tuple[float, float] | None]
+        The energy domain to fix after the main domain. By default None.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `atomic_scattering` base classes.
     """
 
+    @overload
     def __init__(
         self,
-        data_asf: asf_complex | list[asf_complex],
-        database: asp_db_complex | kk_stoichiometry | str,
+        data_asf: asf_complex,
+        database: asp_db_complex,
         merge_domain: tuple[float, float] | None = None,
-        fix_distortions: bool = False,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf_complex,
+        database: asp_db_complex,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["grad_min"],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: asf_complex,
+        database: asp_db_complex,
+        merge_domain: tuple[float, float] | None = None,
+        *,
+        fix_distortions: Literal[True],
+        fix_distortions_method: Literal["prepost_fit"],
+        fix_predomain: tuple[float, float],
+        fix_postdomain: tuple[float, float],
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf_complex],
+        database: asp_db_complex,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Literal[False] = False,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        data_asf: Sequence[asf_complex],
+        database: asp_db_complex,
+        merge_domain: Sequence[tuple[float, float] | None] | None = None,
+        *,
+        fix_distortions: Sequence[bool] | Literal[True] = True,
+        fix_distortions_method: Sequence[Literal["grad_min", "prepost_fit"]]
+        | Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        fix_postdomain: Sequence[tuple[float, float]]
+        | tuple[float, float]
+        | None = None,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    def __init__(
+        self,
+        data_asf: asf_complex | Sequence[asf_complex],
+        database: asp_db_complex | kk_stoichiometry | str,
+        merge_domain: tuple[float, float]
+        | Sequence[tuple[float, float] | None]
+        | None = None,
+        *,
+        fix_distortions: bool | Sequence[bool] = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"]
+        | Sequence[Literal["grad_min", "prepost_fit"]] = "grad_min",
+        fix_predomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
+        fix_postdomain: tuple[float, float]
+        | Sequence[tuple[float, float]]
+        | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ) -> None:  # numpydoc ignore=GL08
         # Convert the database to an asp_db_complex object
@@ -1277,11 +1895,20 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
         elif isinstance(database, asp_db_complex):
             complex_db = database
         else:
-            raise ValueError(
-                "Database must be a stoichiometry, string, or asp_db_im object"
+            raise TypeError(
+                f"Database must be a stoichiometry, string, or asp_db_complex object, but got type {database.__class__}"
             )
 
-        super().__init__(data_asf, complex_db, merge_domain, fix_distortions, **kwargs)
+        super().__init__(
+            data_asf=data_asf,
+            complex_db=complex_db,
+            merge_domain=merge_domain,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
+            **kwargs,
+        )
 
 
 if __name__ == "__main__":

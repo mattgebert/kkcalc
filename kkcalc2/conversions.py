@@ -10,7 +10,6 @@ atomic scattering factors (ASF) and various formats including:
 
 # Standard library imports
 from typing import overload
-import warnings
 
 # External imports
 import numpy as np
@@ -18,12 +17,22 @@ import numpy.typing as npt
 import scipy.constants as sc
 from scipy.constants import (
     Avogadro as N_A,
-    speed_of_light as c,
+)
+from scipy.constants import (
     Planck as h,  # 6.62e-34
-    elementary_charge as e,
-    pi,
-    epsilon_0,
+)
+from scipy.constants import (
     electron_mass as m_e,
+)
+from scipy.constants import (
+    elementary_charge as e,
+)
+from scipy.constants import (
+    epsilon_0,
+    pi,
+)
+from scipy.constants import (
+    speed_of_light as c,
 )
 
 # Internal imports
@@ -39,7 +48,7 @@ except KeyError:
 
 @staticmethod
 def energy_to_wavelength(
-    energies: npt.NDArray[np.float64 | np.int_] | float | int,
+    energies: npt.NDArray[np.float64 | np.int_] | float,
 ) -> npt.NDArray[np.float64] | float:
     """
     Convert photon energies in eV to wavelengths in Angstroms.
@@ -83,8 +92,8 @@ def refractive_to_ASF(
 
 @overload
 def refractive_to_ASF(
-    energies: float | int,
-    refractive_component: float | int,
+    energies: float,
+    refractive_component: float,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -95,7 +104,7 @@ def refractive_to_ASF(
 
 @overload
 def refractive_to_ASF(
-    energies: float | int,
+    energies: float,
     refractive_component: complex,
     number_density: float | None = None,
     density: float | None = None,
@@ -107,8 +116,8 @@ def refractive_to_ASF(
 
 @overload
 def refractive_to_ASF(
-    energies: npt.NDArray | float | int,
-    refractive_component: npt.NDArray | float | int | complex,
+    energies: npt.NDArray | float,
+    refractive_component: npt.NDArray | complex,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -118,10 +127,8 @@ def refractive_to_ASF(
 
 
 def refractive_to_ASF(
-    energies: npt.NDArray | int | float,
-    refractive_component: (
-        npt.NDArray[np.int_ | np.float64 | np.complex128] | int | float | complex
-    ),
+    energies: npt.NDArray | float,
+    refractive_component: (npt.NDArray[np.int_ | np.float64 | np.complex128] | complex),
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -245,8 +252,8 @@ def ASF_to_refractive(
 
 @overload
 def ASF_to_refractive(
-    energies: float | int,
-    factors: float | int,
+    energies: float,
+    factors: float,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -256,7 +263,7 @@ def ASF_to_refractive(
 
 @overload
 def ASF_to_refractive(
-    energies: float | int,
+    energies: float,
     factors: complex,
     number_density: float | None = None,
     density: float | None = None,
@@ -267,8 +274,8 @@ def ASF_to_refractive(
 
 @overload
 def ASF_to_refractive(
-    energies: npt.NDArray | float | int,
-    factors: npt.NDArray | float | int | complex,
+    energies: npt.NDArray | float,
+    factors: npt.NDArray | complex,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -277,10 +284,8 @@ def ASF_to_refractive(
 
 
 def ASF_to_refractive(
-    energies: npt.NDArray[np.float64 | np.int_] | float | int,
-    factors: (
-        npt.NDArray[np.float64 | np.int_ | np.complex128] | float | int | complex
-    ),
+    energies: npt.NDArray[np.float64 | np.int_] | float,
+    factors: (npt.NDArray[np.float64 | np.int_ | np.complex128] | complex),
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -351,21 +356,21 @@ def NEXAFS_to_ASF(
 
 @overload
 def NEXAFS_to_ASF(
-    energies: int | float, NEXAFS: int | float, reverse: bool = False
+    energies: float, NEXAFS: float, reverse: bool = False
 ) -> float: ...  # numpydoc ignore=GL08
 
 
 @overload
 def NEXAFS_to_ASF(
-    energies: npt.NDArray | int | float,
+    energies: npt.NDArray | float,
     NEXAFS: npt.NDArray | float,
     reverse: bool = False,
 ) -> npt.NDArray | float: ...  # numpydoc ignore=GL08
 
 
 def NEXAFS_to_ASF(
-    energies: npt.NDArray | float | int,
-    NEXAFS: npt.NDArray | float | int,
+    energies: npt.NDArray | float,
+    NEXAFS: npt.NDArray | float,
     reverse: bool = False,
 ) -> npt.NDArray | float:
     r"""
@@ -424,20 +429,20 @@ def ASF_to_NEXAFS(
 
 @overload
 def ASF_to_NEXAFS(
-    energies: int | float, factors: int | float | complex
+    energies: float, factors: complex
 ) -> float: ...  # numpydoc ignore=GL08
 
 
 @overload
 def ASF_to_NEXAFS(
-    energies: npt.NDArray | int | float,
-    factors: npt.NDArray | int | float | complex,
+    energies: npt.NDArray | float,
+    factors: npt.NDArray | complex,
 ) -> npt.NDArray | float: ...  # numpydoc ignore=GL08
 
 
 def ASF_to_NEXAFS(
-    energies: npt.NDArray | float | int,
-    factors: npt.NDArray | float | int | complex,
+    energies: npt.NDArray | float,
+    factors: npt.NDArray | complex,
 ) -> npt.NDArray[np.float64] | float:
     """
     Convert atomic scattering factors (ASF) to NEXAFS photoabsorption data.
@@ -477,8 +482,8 @@ def refractive_component_to_NEXAFS(
 
 @overload
 def refractive_component_to_NEXAFS(
-    energies: float | int,
-    refractive_component: float | int | complex,
+    energies: float,
+    refractive_component: complex,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -488,8 +493,8 @@ def refractive_component_to_NEXAFS(
 
 @overload
 def refractive_component_to_NEXAFS(
-    energies: npt.NDArray | float | int,
-    refractive_component: npt.NDArray | float | int | complex,
+    energies: npt.NDArray | float,
+    refractive_component: npt.NDArray | complex,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -498,8 +503,8 @@ def refractive_component_to_NEXAFS(
 
 
 def refractive_component_to_NEXAFS(
-    energies: npt.NDArray | float | int,
-    refractive_component: npt.NDArray | float | int | complex,
+    energies: npt.NDArray | float,
+    refractive_component: npt.NDArray | complex,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -560,8 +565,8 @@ def NEXAFS_to_refractive_component(
 
 @overload
 def NEXAFS_to_refractive_component(
-    energies: float | int,
-    NEXAFS: float | int,
+    energies: float,
+    NEXAFS: float,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -571,8 +576,8 @@ def NEXAFS_to_refractive_component(
 
 @overload
 def NEXAFS_to_refractive_component(
-    energies: npt.NDArray | float | int,
-    NEXAFS: npt.NDArray | float | int,
+    energies: npt.NDArray | float,
+    NEXAFS: npt.NDArray | float,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -581,8 +586,8 @@ def NEXAFS_to_refractive_component(
 
 
 def NEXAFS_to_refractive_component(
-    energies: npt.NDArray | float | int,
-    NEXAFS: npt.NDArray | float | int,
+    energies: npt.NDArray | float,
+    NEXAFS: npt.NDArray | float,
     number_density: float | None = None,
     density: float | None = None,
     formula_mass: float | None = None,
@@ -690,6 +695,7 @@ def ASF_to_ASP(
 def ASP_to_ASF(
     energies: npt.NDArray[np.float64 | np.int_],
     coefs: npt.NDArray[np.float64 | np.int_],
+    orders: npt.NDArray[np.integer] | None = None,
 ) -> npt.NDArray[np.float64]: ...  # numpydoc ignore=GL08
 
 
@@ -697,37 +703,38 @@ def ASP_to_ASF(
 def ASP_to_ASF(
     energies: npt.NDArray[np.float64 | np.int_],
     coefs: npt.NDArray[np.complex128],
+    orders: npt.NDArray[np.integer] | None = None,
 ) -> npt.NDArray[np.complex128]: ...  # numpydoc ignore=GL08
 
 
 @overload
 def ASP_to_ASF(
-    energies: npt.NDArray[np.float64 | np.int_],
+    energies: float,
     coefs: npt.NDArray[np.float64 | np.int_],
-    orders: npt.NDArray[np.integer] | None,
-) -> npt.NDArray[np.float64]: ...  # numpydoc ignore=GL08
+    orders: npt.NDArray[np.integer] | None = None,
+) -> float: ...  # numpydoc ignore=GL08
 
 
 @overload
 def ASP_to_ASF(
-    energies: npt.NDArray[np.float64 | np.int_],
+    energies: float,
     coefs: npt.NDArray[np.complex128],
-    orders: npt.NDArray[np.integer] | None,
-) -> npt.NDArray[np.complex128]: ...  # numpydoc ignore=GL08
+    orders: npt.NDArray[np.integer] | None = None,
+) -> complex: ...  # numpydoc ignore=GL08
 
 
 def ASP_to_ASF(
-    energies: npt.NDArray[np.float64 | np.int_],
+    energies: npt.NDArray[np.float64 | np.int_] | float,
     coefs: npt.NDArray[np.float64 | np.int_ | np.complex128],
     orders: npt.NDArray[np.integer] | None = None,
-) -> npt.NDArray[np.float64 | np.complex128]:
+) -> npt.NDArray[np.float64 | np.complex128] | float | complex:
     """
     Convert the atomic scattering polynomial (ASP) coefficients to atomic scattering factors (ASF).
 
     Parameters
     ----------
-    energies : array_like
-        An array of `N` or `N+1` photon energies in eV.
+    energies : array_like | float | int
+        An array of `N` or `N+1` photon energies in eV (or a single energy).
         using the starting energy of each interval.
     coefs : array_like
         An array with dimension (`N`, `M`), with `N` sets of `M` atomic
@@ -741,19 +748,21 @@ def ASP_to_ASF(
 
     Returns
     -------
-    npt.NDArray
+    npt.NDArray | float | complex
         An array of `N` or `N+1` atomic scattering factors, matching the input `energies` length.
         If `energies` has length `N+1`, the last ASF value will be calculated using the last ASP coefficient.
+        If a single (scalar) `energies` value was provided, a single scalar value is returned.
     """
     # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
     energies = np.asarray(energies, dtype=float)
     coefs = np.asarray(coefs)
-    # Check dimensions:
+    # Check dimensions: track whether a scalar energy was provided, to return a matching scalar result.
+    scalar_input = energies.ndim == 0
     if energies.ndim == 0:
         # Boost to 1D
         energies = np.array([energies])
     if coefs.ndim == 1:
-        warnings.warn("Single coefficient set provided, boosting to 2D.")
+        # warnings.warn("Single coefficient set provided, boosting to 2D.")
         # Boost to 2D
         coefs = np.array([coefs])
 
@@ -781,4 +790,6 @@ def ASP_to_ASF(
     if energies.shape[0] == coefs.shape[0] + 1:
         # Duplicate the final polynomial to define the final boundary.
         coefs = np.r_[coefs, coefs[-1:, :]]  # Duplicate the last row.
-    return np.sum(coefs * powers, axis=1)
+    result = np.sum(coefs * powers, axis=1)
+    # Only collapse to a scalar if a single (scalar) energy was requested; otherwise preserve array shape.
+    return result[0] if scalar_input else result

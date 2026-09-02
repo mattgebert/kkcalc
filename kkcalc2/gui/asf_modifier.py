@@ -3,20 +3,21 @@ Creates a widget for modifying an asf_abstract | asp_abstract object.
 Allows the modification of material properties such as name, stoichiometry, number density, density, and formula mass.
 """
 
-from PyQt6 import QtWidgets, QtCore, QtGui
+from PyQt6 import QtCore, QtGui, QtWidgets
+
 from kkcalc2.models import (
     asf_abstract,
-    asp_abstract,
-    asf_re,
-    asf_im,
     asf_complex,
+    asf_im,
+    asf_re,
+    asp_abstract,
+    asp_complex,
+    asp_db_extended,
+    asp_db_im,
     asp_db_im_extended,
     asp_db_re_extended,
     asp_im,
     asp_re,
-    asp_complex,
-    asp_db_im,
-    asp_db_extended,
 )
 from kkcalc2.stoich import stoichiometry
 
@@ -57,6 +58,9 @@ class kk_object_modifier(QtWidgets.QWidget):
 
         # Properties header and horizontal line
         properties_header = QtWidgets.QLabel("Properties")
+        # Add bold font
+        font = properties_header.font()
+        font.setBold(True)
 
         def hline_generator():
             line = QtWidgets.QFrame()
@@ -128,6 +132,51 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.extend_data_btn = QtWidgets.QPushButton("Extend Data")
         self.extend_data_btn.setToolTip("Extend the data by the stoichiometry database")
 
+        # Distortion fixing (applied to the data before merging with the database).
+        self.fix_distortions_checkbox = QtWidgets.QCheckBox("Fix Distortions")
+        self.fix_distortions_checkbox.setToolTip(
+            "Enable additional correction of the user data before merging with the database."
+        )
+        self.fix_distortions_method_combo = QtWidgets.QComboBox()
+        self.fix_distortions_method_combo.addItems(["grad_min", "prepost_fit"])
+        self.fix_distortions_method_combo.setItemData(
+            0,
+            "grad_min: Fits a single gradient correction to the data, minimizing the offset "
+            "between the scaled data and the database data at the merge domain boundaries. "
+            "Requires no additional configuration.",
+            QtCore.Qt.ItemDataRole.ToolTipRole,
+        )
+        self.fix_distortions_method_combo.setItemData(
+            1,
+            "prepost_fit: Fits separate linear corrections to a pre-edge and a post-edge energy "
+            "range (see 'Fix Pre/Post Domain' below), then applies these to match the data to the "
+            "database at the merge domain boundaries. Requires the pre/post domain fields.",
+            QtCore.Qt.ItemDataRole.ToolTipRole,
+        )
+        self.fix_distortions_method_combo.setToolTip(
+            self.fix_distortions_method_combo.itemData(
+                0, QtCore.Qt.ItemDataRole.ToolTipRole
+            )
+        )
+        fix_predomain_label = QtWidgets.QLabel("Fix Pre-Domain:")
+        self.fix_predomain_lb_edit = QtWidgets.QLineEdit()
+        self.fix_predomain_lb_edit.setToolTip(
+            "Lower bound of the pre-edge energy range used by the 'prepost_fit' method."
+        )
+        self.fix_predomain_ub_edit = QtWidgets.QLineEdit()
+        self.fix_predomain_ub_edit.setToolTip(
+            "Upper bound of the pre-edge energy range used by the 'prepost_fit' method."
+        )
+        fix_postdomain_label = QtWidgets.QLabel("Fix Post-Domain:")
+        self.fix_postdomain_lb_edit = QtWidgets.QLineEdit()
+        self.fix_postdomain_lb_edit.setToolTip(
+            "Lower bound of the post-edge energy range used by the 'prepost_fit' method."
+        )
+        self.fix_postdomain_ub_edit = QtWidgets.QLineEdit()
+        self.fix_postdomain_ub_edit.setToolTip(
+            "Upper bound of the post-edge energy range used by the 'prepost_fit' method."
+        )
+
         ### LAYOUTS
         # Names Layout
         l_names = QtWidgets.QHBoxLayout()
@@ -174,7 +223,15 @@ class kk_object_modifier(QtWidgets.QWidget):
         extn.addWidget(self.merge_dom_lb_edit, 3, 1, 1, 1)
         extn.addWidget(self.merge_dom_ub_edit, 3, 2, 1, 1)
         # extn.addWidget(self.merge_handle_checkbox, 3, 3, 1, 1) # Temporarily removed, do not show on UI. TODO: Implement.
-        extn.addWidget(self.extend_data_btn, 4, 0, 1, 4)
+        extn.addWidget(self.fix_distortions_checkbox, 4, 0, 1, 2)
+        extn.addWidget(self.fix_distortions_method_combo, 4, 2, 1, 2)
+        extn.addWidget(fix_predomain_label, 5, 0, 1, 1)
+        extn.addWidget(self.fix_predomain_lb_edit, 5, 1, 1, 1)
+        extn.addWidget(self.fix_predomain_ub_edit, 5, 2, 1, 1)
+        extn.addWidget(fix_postdomain_label, 6, 0, 1, 1)
+        extn.addWidget(self.fix_postdomain_lb_edit, 6, 1, 1, 1)
+        extn.addWidget(self.fix_postdomain_ub_edit, 6, 2, 1, 1)
+        extn.addWidget(self.extend_data_btn, 7, 0, 1, 4)
         self._layout.addLayout(extn)
 
         # Initialise internal object
@@ -197,11 +254,46 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.scale_to_db_btn.clicked.connect(self.scale)
         self.extend_data_btn.clicked.connect(self.extend)
         self.merge_handle_checkbox.stateChanged.connect(self.hasHandle.emit)
+        self.fix_distortions_checkbox.stateChanged.connect(
+            self.update_fix_distortions_UI
+        )
+        self.fix_distortions_method_combo.currentIndexChanged.connect(
+            self.update_fix_distortions_UI
+        )
 
         # Initialise UI
         self.clear()
         # Minimize the width.
         self.resize(self.minimumWidth(), self.height())
+
+    def update_fix_distortions_UI(self) -> None:
+        """
+        Updates the enabled state and tooltip of the fix-distortions controls.
+
+        The pre/post domain fields are only relevant (and enabled) when fixing distortions is
+        enabled and the "prepost_fit" method is selected. The combobox tooltip is updated to
+        describe the currently selected method.
+        """
+        index = self.fix_distortions_method_combo.currentIndex()
+        self.fix_distortions_method_combo.setToolTip(
+            self.fix_distortions_method_combo.itemData(
+                index, QtCore.Qt.ItemDataRole.ToolTipRole
+            )
+        )
+        needs_prepost = (
+            self.fix_distortions_checkbox.isChecked()
+            and self.fix_distortions_method_combo.currentText() == "prepost_fit"
+        )
+        for widget in (
+            self.fix_predomain_lb_edit,
+            self.fix_predomain_ub_edit,
+            self.fix_postdomain_lb_edit,
+            self.fix_postdomain_ub_edit,
+        ):
+            widget.setEnabled(needs_prepost)
+        self.fix_distortions_method_combo.setEnabled(
+            self.fix_distortions_checkbox.isChecked()
+        )
 
     @property
     def object(self) -> type[asf_abstract | asp_abstract] | None:
@@ -345,6 +437,13 @@ class kk_object_modifier(QtWidgets.QWidget):
         self.merge_handle_checkbox.setChecked(False)
         self.extend_data_btn.setEnabled(False)
         self.scale_to_db_btn.setEnabled(False)
+        self.fix_distortions_checkbox.setChecked(False)
+        self.fix_distortions_method_combo.setCurrentIndex(0)
+        self.fix_predomain_lb_edit.setText("")
+        self.fix_predomain_ub_edit.setText("")
+        self.fix_postdomain_lb_edit.setText("")
+        self.fix_postdomain_ub_edit.setText("")
+        self.update_fix_distortions_UI()
 
     @staticmethod
     def valid_stoichiometry(stoich: str) -> bool:
@@ -390,7 +489,6 @@ class kk_object_modifier(QtWidgets.QWidget):
     def run_validations(self) -> None:
         """Runs all validations on the object."""
         self.validate_stoichiometry_UI()
-        return
 
     def update_class_dependent_UI(self):
         """
@@ -448,16 +546,12 @@ class kk_object_modifier(QtWidgets.QWidget):
         if isinstance(obj, (asf_re, asp_re)):
             obj: asf_re | asp_re
             # Don't improve accuracy if object is not extended, as accuracy will be very poor.
-            transform = obj.kk_transform_inv(
-                improve_accuracy=True if obj.is_extended else False
-            )
+            transform = obj.kk_transform_inv(improve_accuracy=bool(obj.is_extended))
             transform.name = obj.name + "_kk_inv"
         elif isinstance(obj, (asf_im, asp_im)):
             obj: asf_im | asp_im
             # Don't improve accuracy if object is not extended, as accuracy will be very poor.
-            transform = obj.kk_transform(
-                improve_accuracy=True if obj.is_extended else False
-            )
+            transform = obj.kk_transform(improve_accuracy=bool(obj.is_extended))
             transform.name = obj.name + "_kk"
 
         # Send the transformed object
@@ -477,13 +571,13 @@ class kk_object_modifier(QtWidgets.QWidget):
             obj: asf_re | asf_im
             complex_obj = obj.calculate_complex_factors(
                 name=obj.name + "_complex",
-                improve_accuracy=True if obj.is_extended else False,
+                improve_accuracy=bool(obj.is_extended),
             )
-        elif isinstance(obj, asp_re | asp_im):
+        elif isinstance(obj, (asp_re, asp_im)):
             obj: asf_im | asp_im
             complex_obj = obj.calculate_complex_polynomial(
                 name=obj.name + "_complex",
-                improve_accuracy=True if obj.is_extended else False,
+                improve_accuracy=bool(obj.is_extended),
             )
         else:
             return
@@ -497,6 +591,9 @@ class kk_object_modifier(QtWidgets.QWidget):
         # Ignore if no object or already extended
         if obj is None or obj.is_extended:
             return
+
+        # Check if the `fix_distortions` option is enabled.
+        fix_dist = self.fix_distortions_checkbox.isChecked()
 
         stoich = obj.stoichiometry
         if stoich is None:
@@ -512,6 +609,15 @@ class kk_object_modifier(QtWidgets.QWidget):
         # Scale the object.
         if isinstance(obj, (asf_im, asf_re)) and obj.stoichiometry is not None:
             copy: type[asf_im | asf_re] = obj.copy(name=obj.name + "_scaled")
+
+            # If the `fix_distortions` option is enabled, collect the fix-distortions options and pass them to the `scale_to_database` method.
+            if fix_dist:
+                fix_kwargs = self.fix_distortions_kwargs()
+                if fix_kwargs is not None:
+                    copy.scale_to_database(**fix_kwargs)
+                    return copy
+
+            # Otherwise
             copy.scale_to_database()
             return copy
 
@@ -569,6 +675,11 @@ class kk_object_modifier(QtWidgets.QWidget):
             diag.exec()
             return
 
+        # Get the fix-distortions options from the UI.
+        fix_kwargs = self.fix_distortions_kwargs()
+        if fix_kwargs is None:
+            return
+
         # Create the merge database
         extended: asp_db_extended
         database_asp = asp_db_im(stoichiometry=stoich)
@@ -579,8 +690,8 @@ class kk_object_modifier(QtWidgets.QWidget):
                 data_asf=obj_asf,
                 database=database_asp,
                 merge_domain=(lb, ub),
-                fix_distortions=False,
                 name=obj.name + "_ext",
+                **fix_kwargs,
             )
             return extended
 
@@ -591,8 +702,8 @@ class kk_object_modifier(QtWidgets.QWidget):
                 data_asf=obj_asf,
                 database=database_asp,
                 merge_domain=(lb, ub),
-                fix_distortions=False,
                 name=obj.name + "_ext",
+                **fix_kwargs,
             )
             return extended
 
@@ -602,8 +713,8 @@ class kk_object_modifier(QtWidgets.QWidget):
                 data_asf=obj,
                 database=database_asp,
                 merge_domain=(lb, ub),
-                fix_distortions=False,
                 name=obj.name + "_ext",
+                **fix_kwargs,
             )
             return extended
 
@@ -613,12 +724,61 @@ class kk_object_modifier(QtWidgets.QWidget):
                 data_asf=obj,
                 database=database_asp,
                 merge_domain=(lb, ub),
-                fix_distortions=False,
                 name=obj.name + "_ext",
+                **fix_kwargs,
             )
             return extended
 
         return
+
+    def fix_distortions_kwargs(self) -> dict | None:
+        """
+        Collects the fix-distortions options from the UI, as constructor keyword arguments.
+
+        Returns
+        -------
+        dict | None
+            A dictionary of `fix_distortions`/`fix_distortions_method`/`fix_predomain`/
+            `fix_postdomain` keyword arguments for `asp_db_extended` subclasses. `None` if the
+            "prepost_fit" method was selected but the pre/post domain fields are invalid
+            (a dialog is shown to the user in this case).
+        """
+        if not self.fix_distortions_checkbox.isChecked():
+            return {"fix_distortions": False}
+
+        method = self.fix_distortions_method_combo.currentText()
+        if method == "grad_min":
+            return {"fix_distortions": True, "fix_distortions_method": "grad_min"}
+
+        # "prepost_fit": also requires valid pre/post domain bounds.
+        try:
+            fix_predomain = (
+                float(self.fix_predomain_lb_edit.text()),
+                float(self.fix_predomain_ub_edit.text()),
+            )
+            fix_postdomain = (
+                float(self.fix_postdomain_lb_edit.text()),
+                float(self.fix_postdomain_ub_edit.text()),
+            )
+        except ValueError:
+            diag = QtWidgets.QDialog()
+            diag.setWindowTitle("Cannot Extend Data")
+            diag._layout = QtWidgets.QVBoxLayout()
+            diag.setLayout(diag._layout)
+            diag._layout.addWidget(
+                QtWidgets.QLabel(
+                    "Invalid pre/post-domain bounds for the 'prepost_fit' method."
+                )
+            )
+            diag.exec()
+            return None
+
+        return {
+            "fix_distortions": True,
+            "fix_distortions_method": "prepost_fit",
+            "fix_predomain": fix_predomain,
+            "fix_postdomain": fix_postdomain,
+        }
 
     def extend(self) -> None:
         """

@@ -9,12 +9,12 @@ import pytest
 
 # import warnings
 from kkcalc2.models import (
-    asp_db_im,
-    asp_db_re,
     # asp_db_im_extended,
     # asp_db_re_extended,
     asp_db_complex,
     # asp_db_complex_extended,
+    asp_db_im,
+    asp_db_re,
 )
 
 from ..test_stoich import basic_stoichs as bs

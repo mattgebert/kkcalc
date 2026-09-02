@@ -254,7 +254,7 @@ jobs:
           path: ./dist/docs/
 
       - name: Config | Re-zip Artifacts for PSR
-        if: ${{ always() && inputs.gui }}
+        if: ${{ always() }}
         # Files are in subdirectories.
         # echo "Removing original file $file..."
         # rm -rf "$file"

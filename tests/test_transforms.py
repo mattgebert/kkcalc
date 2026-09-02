@@ -7,6 +7,7 @@ https://en.wikipedia.org/wiki/Hilbert_transform#Table_of_selected_Hilbert_transf
 """
 
 import numpy as np
+
 import kkcalc2 as kkc
 
 
@@ -53,6 +54,51 @@ class TestKKTransforms:
 
         assert np.allclose(f2_sub_transform, f2_sub_expected, atol=1e-6), (
             "Kramers-Kronig transform of cosine did not match expected result."
+        )
+
+    def test_kk_transform_round_trip_with_relativistic_correction(self):
+        """
+        Test that `KK_PP` followed by `KK_PP_inv` recovers the original data.
+
+        Regression test for a bug where `KK_PP_inv` leaked the `relativistic_correction`
+        into the result as a spurious `-target_energies * relativistic_correction` term
+        (instead of only removing it as an additive offset on the real/f1 data), causing the
+        inverse transform to grow unboundedly (linearly) with energy instead of recovering
+        the original imaginary/f2 data.
+        """
+        f = 1
+        omega = 2 * np.pi * f
+        x1 = np.linspace(2 * f, 10 * f, 2000)
+        relativistic_correction = 5.0
+
+        # Original 'imaginary' (f2) data.
+        f2_true = np.sin(omega * x1)
+        f2_poly = kkc.conversions.ASF_to_ASP(x1, f2_true)
+
+        # Forward transform: f2 -> f1 (adds the relativistic correction as an additive offset).
+        f1 = kkc.transforms.KK_PP(x1, x1, f2_poly, relativistic_correction)
+        f1_poly = kkc.conversions.ASF_to_ASP(x1, f1)
+
+        # Inverse transform: f1 -> f2 (should remove the offset, not reintroduce it scaled by energy).
+        f2_recovered = kkc.transforms.KK_PP_inv(
+            x1, x1, f1_poly, relativistic_correction
+        )
+
+        # Compare values within a subset to avoid edge effects (trim away from the domain endpoints).
+        idx_subset = (x1 > 3 * f) & (x1 < 9 * f)
+        assert idx_subset.sum() > 0, "Test subset is empty; check the domain bounds."
+        assert np.allclose(f2_recovered[idx_subset], f2_true[idx_subset], atol=1e-1), (
+            "Round-trip KK_PP -> KK_PP_inv did not recover the original data."
+        )
+
+        # The previous bug caused an unbounded, energy-linear growth in error, with a slope
+        # approximately equal to `relativistic_correction`; guard against that specific failure
+        # mode by checking the residual's linear trend in energy is small in comparison.
+        residual = f2_recovered[idx_subset] - f2_true[idx_subset]
+        slope, _intercept = np.polyfit(x1[idx_subset], residual, 1)
+        assert abs(slope) < 0.5 * relativistic_correction, (
+            "Residual error grows linearly with energy, indicating the relativistic "
+            "correction is leaking into the inverse transform again."
         )
 
     # def test_kk_transform_sq_reciporical(self):

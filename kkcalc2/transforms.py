@@ -3,16 +3,17 @@ This module contains the Kramers-Kronig transform methods.
 """
 
 import math
-import numpy as np
-import numpy.typing as npt
 import warnings
 
-DEF_ITER: int = 50
+import numpy as np
+import numpy.typing as npt
+
+from kkcalc2 import conversions
+
+DEF_ITER: int = 10
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
 """The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
-
-from kkcalc2 import conversions  # noqa E402
 
 
 def KK_General_PP(
@@ -292,14 +293,12 @@ def KK_PP(
         target_energies, (len(energies) - 1, 1)
     ).T  # Results in a 2D of shape (N, M)
     coefs_T = imag_coefs.T
-    #
     Symb_1 = (
         (coefs_T[0, :] * E + coefs_T[1, :]) * (X2 - X1)
         + 0.5 * coefs_T[0, :] * (X2**2 - X1**2)
         - (coefs_T[3, :] / E + coefs_T[4, :] * E**-2) * np.log(np.abs(X2 / X1))
         + coefs_T[4, :] / E * (X2**-1 - X1**-1)
     )
-    #
     Symb_2 = (
         (-coefs_T[0, :] * E + coefs_T[1, :]) * (X2 - X1)
         + 0.5 * coefs_T[0, :] * (X2**2 - X1**2)
@@ -312,7 +311,6 @@ def KK_PP(
         - coefs_T[3, :] * E**-1
         + coefs_T[4, :] * E**-2
     ) * np.log(np.abs((X2 + E) / (X1 + E)))
-    #
     Symb_3 = (
         (1 - 1 * ((X2 == E) | (X1 == E)))
         * (
@@ -392,12 +390,18 @@ def KK_PP_inv(
     np.ndarray
         The real part of the scattering factors evaluated at `target_energies`.
     """
+    # The relativistic correction is an additive constant on the real (f1) data only; f2 has no
+    # analogous additive term. It must be removed from the order-0 (constant) coefficient before
+    # performing the integral, rather than passed through to the inner `KK_PP` call - otherwise it
+    # leaks into the result as a spurious `-target_energies * relativistic_correction` term.
+    real_coefs = np.asarray(real_coefs, dtype=float).copy()
+    real_coefs[:, 1] -= relativistic_correction
     ## Inverse KK is only a minor modification of the forward algorithm
     return -target_energies * KK_PP(
         target_energies=target_energies,
         energies=energies,
         imag_coefs=np.roll(real_coefs, 1, axis=1),
-        relativistic_correction=-relativistic_correction,
+        relativistic_correction=0,
     )
 
 

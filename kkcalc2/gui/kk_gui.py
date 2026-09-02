@@ -6,24 +6,25 @@ or imaginary components, and perform a Kramers-Kronig transform on it.
 The interface is built using the PyQt6 library.
 """
 
-from PyQt6 import QtWidgets, QtCore, QtGui
-import os
 import io
-import numpy as np
-from matplotlib.widgets import SpanSelector
-import matplotlib.pyplot as plt
+import os
 import pkgutil
 
-from kkcalc2.gui.asf_viewer import asf_viewer, GraphType
-from kkcalc2.gui.asf_modifier import kk_object_modifier
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.widgets import SpanSelector
+from PyQt6 import QtCore, QtGui, QtWidgets
+
 from kkcalc2.gui.asf_loader import kk_object_list
+from kkcalc2.gui.asf_modifier import kk_object_modifier
+from kkcalc2.gui.asf_viewer import GraphType, asf_viewer
 from kkcalc2.models import (
     asf_abstract,
+    asf_im,
+    asf_re,
     asp_abstract,
     asp_im,
     asp_re,
-    asf_im,
-    asf_re,
 )
 from kkcalc2.stoich import stoichiometry
 
@@ -176,7 +177,6 @@ class kk_gui(QtWidgets.QWidget):
                     def handle_update(x, y):
                         min_x, max_x = pix_to_data(handle_ax, x, y)
                         self.on_handle_update(min_x, max_x)
-                        return
 
                     # Create the handle
                     self._handle = SpanSelector(
@@ -212,7 +212,6 @@ class kk_gui(QtWidgets.QWidget):
         # Update the lb and ub values
         self.obj_modifier.merge_dom_lb_edit.setText(f"{min_x:.2f}")
         self.obj_modifier.merge_dom_ub_edit.setText(f"{max_x:.2f}")
-        return
 
     def on_view_change(self):
         """
@@ -220,8 +219,8 @@ class kk_gui(QtWidgets.QWidget):
         """
         objs = self.obj_list.checked_objects
         if self._has_handle:
-            # Create a temporary asf object to pass to the viewer using the handle
-            objs = objs
+            # TODO: Create a temporary asf object to pass to the viewer using the handle
+            pass
         # Update the viewer
         self.viewer.scattering_objects = objs
 

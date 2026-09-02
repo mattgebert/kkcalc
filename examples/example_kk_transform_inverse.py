@@ -4,14 +4,16 @@ An example script showing the KK transform inverse process.
 
 if __name__ == "__main__":
     import os
-    import numpy as np
+
     import matplotlib.pyplot as plt
+    import numpy as np
+
+    from kkcalc2 import stoichiometry
     from kkcalc2.models import (
         asf_im,
         asp_db_re,
         asp_db_re_extended,
     )
-    from kkcalc2 import stoichiometry
 
     POLYSTYRENE = "CH"
     PS_NAME = "Polystyrene"

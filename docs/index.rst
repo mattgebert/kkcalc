@@ -23,9 +23,9 @@
 Links
 #####
 
-Please raise any `issues <https://github.com/xraysoftmat/kkcalc-xraysoftmat/issues>`_ here.
+Please raise any `issues <https://github.com/xraysoftmat/kkcalc/issues>`_ here.
 
-- Development (Github): https://github.com/xraysoftmat/kkcalc-xraysoftmat/
+- Development (Github): https://github.com/xraysoftmat/kkcalc/
 - Documentation (ReadtheDocs): https://kkcalc2.readthedocs.io/
 - PyPI: https://pypi.python.org/pypi/kkcalc2/
 

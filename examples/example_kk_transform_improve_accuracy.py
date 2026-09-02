@@ -6,15 +6,17 @@ of the `asp_db_extended` model to improve the accuracy of the Kramers-Kronig tra
 The dataset is the Polystryene Carbon K-Edge.
 """
 
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from kkcalc2 import stoichiometry
 from kkcalc2.models import (
     asf_im,
     asp_db_im,
     asp_db_im_extended,
 )
-from kkcalc2 import stoichiometry
-import numpy as np
-import matplotlib.pyplot as plt
-import os
 
 if __name__ == "__main__":
     # This file is part of the Kramers-Kronig Calculator software package.
@@ -61,7 +63,7 @@ if __name__ == "__main__":
         past_points = []
         ax = axs[j]
 
-        for i in range(0, 5):
+        for i in range(5):
             # Perform the transfom with i improvement iterations
             PS_extended_real = asp_obj.kk_transform(
                 relativistic_correction=ps_stoich.relativistic_correction,

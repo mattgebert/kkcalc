@@ -23,15 +23,16 @@ Workflow to accomodate:
 Items 1-4 not usually performed by users. Items 5-7 must be integrated into KKCalc program.
 """
 
+import gzip
+import io
+import json
 import os
 import os.path
-import scipy.interpolate
-import json
-import numpy.typing as npt
-import numpy as np
-import gzip
 import pkgutil
-import io
+
+import numpy as np
+import numpy.typing as npt
+import scipy.interpolate
 
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 classical_electron_radius = 2.81794029957951365441605230194258e-15  # meters
@@ -46,13 +47,11 @@ try:
     )
     with io.BytesIO(data_resource) as f:
         Elements_DATA = [line.decode("utf-8").strip("\r\n").split() for line in f]
-except IOError:
+except OSError:
     # Try a relative path if pkgutil fails (e.g. when running the script directly)
-    Elements_DATA = [
-        line.strip("\r\n").split()
-        for line in open(os.path.join(BASEDIR, "db_data", "elements.dat"))
-    ]
-Database = dict()
+    with open(os.path.join(BASEDIR, "db_data", "elements.dat"), "r") as f:
+        Elements_DATA = [line.strip("\r\n").split() for line in f]
+Database = {}
 
 
 #################################################################################################################
@@ -72,11 +71,12 @@ def LoadData(filename: str) -> npt.NDArray:
     """
     data = []
     if os.path.isfile(filename):
-        for line in open(filename):
-            try:
-                data.append([float(f) for f in line.split()])
-            except ValueError:
-                pass
+        with open(filename, "r") as f:
+            for line in f:
+                try:
+                    data.append([float(f) for f in line.split()])
+                except ValueError:
+                    pass
         data = np.array(data)
     else:
         print("Error:", filename, "is not a valid file name.")
@@ -275,7 +275,7 @@ BL_data = parse_BL_file(briggs_file=file)
 for z, symbol, name, atomic_mass, Henke_file in Elements_DATA:
     # print(z, symbol, name, atomic_mass, Henke_file)
     # Get basic metadata
-    Element_Database = dict()
+    Element_Database = {}
     Element_Database["mass"] = float(atomic_mass)
     Element_Database["name"] = name
     Element_Database["symbol"] = symbol
@@ -365,6 +365,5 @@ with open(output_path, "w") as f:
     json.dump(Database, f, indent=None)  # Indent: 1 for readability, None for compact.
 
 # Compress the database file
-with open(output_path, "rb") as f_in:
-    with gzip.open(output_path + ".gz", "wb") as f_out:
-        f_out.writelines(f_in)
+with open(output_path, "rb") as f_in, gzip.open(output_path + ".gz", "wb") as f_out:
+    f_out.writelines(f_in)
