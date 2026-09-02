@@ -3,29 +3,32 @@
 """
 
 import abc
-import numpy as np
-import numpy.typing as npt
 import warnings
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Self, overload, Unpack, override
+from typing import TYPE_CHECKING, Self, Unpack, overload, override
+
+import numpy as np
+import numpy.typing as npt
 import scipy.constants as sc
 
+from kkcalc2 import conversions, transforms
 from kkcalc2.models.common import (
-    atomic_scattering,
-    atomic_scattering_abstract,
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
+    atomic_scattering,
+    atomic_scattering_abstract,
 )
-from kkcalc2 import conversions, transforms
 from kkcalc2.stoich import stoichiometry as kk_stoichiometry
 
 if TYPE_CHECKING:
     from kkcalc2.models.factors import (
         asf as asf_type,
+    )
+    from kkcalc2.models.factors import (
+        asf_abstract,
+        asf_complex,
         asf_im,
         asf_re,
-        asf_complex,
-        asf_abstract,
     )
 
 has_pandas: bool
@@ -59,7 +62,6 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The polynomial coefficients for the scattering factors, with shape `(N, M)`,
             where N is the number of segments and `M` is the number of polynomial coefficients.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -73,7 +75,6 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The energy values defining the intervals for the polynomial coefficients.
             Has length `N+1`, where `N` is the number of segments.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -87,7 +88,6 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             The polynomial orders for the scattering factors, with length `M`. If None,
             then kkcalc2 internally assumes the polynomial orders are by default [1, 0, -1, -2, -3].
         """
-        pass
 
     @staticmethod
     # @doc_copy(conversions.ASP_to_ASF)
@@ -163,7 +163,6 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         asf
             An atomic scattering factor object with the same polynomial coefficients as the piecewise polynomial.
         """
-        pass
 
     # @doc_copy(to_atomic_scattering_factors)
     # @abc.abstractmethod
@@ -259,11 +258,11 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         pass
 
     @overload
-    def __call__(self, target_energies: float | int) -> float:  # numpydoc ignore=GL08
+    def __call__(self, target_energies: float) -> float:  # numpydoc ignore=GL08
         pass
 
     def __call__(
-        self, target_energies: npt.NDArray | npt.ArrayLike | float | int | None = None
+        self, target_energies: npt.NDArray | npt.ArrayLike | float | None = None
     ) -> npt.NDArray | float:
         r"""
         Calculate scattering factors from object polynomial coefficients at desired `energies`.
@@ -502,7 +501,6 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A new `asp` object with the same atomic scattering polynomial coefficients
             and properties, but unique memory allocation.
         """
-        pass
 
 
 class asp(asp_abstract, atomic_scattering):
@@ -885,11 +883,11 @@ class asp(asp_abstract, atomic_scattering):
 
     @overload
     def eval_refractive(
-        self, target_energies: float | int
+        self, target_energies: float
     ) -> float | complex: ...  # numpydoc ignore=GL08
 
     def eval_refractive(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray | float | complex:
         r"""
         Determine energy-dependent refractive index component.
@@ -961,7 +959,7 @@ class asp(asp_abstract, atomic_scattering):
         """
         # Check keys are valid properties
         for key in kwargs:
-            if key not in PROPERTIES_DICT.__annotations__.keys():
+            if key not in PROPERTIES_DICT.__annotations__:
                 raise ValueError(f"Invalid property: {key}.")
 
         # Copy the object properties
@@ -1352,12 +1350,10 @@ class asp_im(asp):
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
 
     @overload
-    def eval_NEXAFS(
-        self, target_energies: float | int
-    ) -> float: ...  # numpydoc ignore=GL08
+    def eval_NEXAFS(self, target_energies: float) -> float: ...  # numpydoc ignore=GL08
 
     def eval_NEXAFS(
-        self, target_energies: npt.NDArray | npt.ArrayLike | float | int | None = None
+        self, target_energies: npt.NDArray | npt.ArrayLike | float | None = None
     ) -> npt.NDArray | float:
         r"""
         Calculate scattering factors from object polynomial coefficients at desired `energies`.
@@ -1397,11 +1393,11 @@ class asp_im(asp):
 
     @overload
     def eval_betas(
-        self, target_energies: float | int
+        self, target_energies: float
     ) -> float | complex: ...  # numpydoc ignore=GL08
 
     def eval_betas(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray | float | complex:
         r"""
         Determine the energy-dependent, imaginary, absorption refractive index component ($\beta$).
@@ -1442,12 +1438,10 @@ class asp_im(asp):
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
 
     @overload
-    def attenuation_length(
-        self, energies: float | int
-    ) -> float: ...  # numpydoc ignore=GL08
+    def attenuation_length(self, energies: float) -> float: ...  # numpydoc ignore=GL08
 
     def attenuation_length(
-        self, energies: npt.ArrayLike | npt.NDArray | int | float
+        self, energies: npt.ArrayLike | npt.NDArray | float
     ) -> npt.NDArray | float:
         r"""
         Calculate the attenuation_length for the material at (a) specified energies.
@@ -1851,13 +1845,11 @@ class asp_re(asp):
     ) -> npt.NDArray[np.floating]: ...  # numpydoc ignore=GL08
 
     @overload
-    def critical_angle(
-        self, energies: float | int
-    ) -> float: ...  # numpydoc ignore=GL08
+    def critical_angle(self, energies: float) -> float: ...  # numpydoc ignore=GL08
 
     def critical_angle(
         self,
-        energies: npt.ArrayLike | npt.NDArray[np.floating | np.integer] | int | float,
+        energies: npt.ArrayLike | npt.NDArray[np.floating | np.integer] | float,
     ) -> npt.NDArray[np.floating] | float:
         r"""
         Calculate the critical angle for the material at (a) specified energies.
@@ -1897,11 +1889,11 @@ class asp_re(asp):
 
     @overload
     def eval_deltas(
-        self, target_energies: float | int
+        self, target_energies: float
     ) -> float | complex: ...  # numpydoc ignore=GL08
 
     def eval_deltas(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray | float | complex:
         r"""
         Determine the energy-dependent, real, dispersive refractive index component ($\delta$).
@@ -1925,7 +1917,7 @@ class asp_re(asp):
 
     @property
     def deltas(self) -> npt.NDArray:
-        """
+        r"""
         The real, dispersive refractive index component ($\delta$) at the object's `energies`.
 
         Returns
@@ -1996,10 +1988,8 @@ class asp_complex(asp_abstract, atomic_scattering):
 
             # Check if re is a subset of im
             if all(
-                [
-                    en in im.energies and en >= im_min and en <= im_max
-                    for en in re.energies
-                ]
+                (en in im.energies and en >= im_min and en <= im_max)
+                for en in re.energies
             ):
                 im = im.extend_energies(re.energies)  # Fill in any additional energies
                 im = im.truncate_energies(
@@ -2009,10 +1999,8 @@ class asp_complex(asp_abstract, atomic_scattering):
 
             # Check if im is a subset of re
             elif all(
-                [
-                    en in re.energies and en >= re_min and en <= re_max
-                    for en in im.energies
-                ]
+                (en in re.energies and en >= re_min and en <= re_max)
+                for en in im.energies
             ):
                 re = re.extend_energies(im.energies)  # Fill in any additional energies
                 re = re.truncate_energies(
@@ -2038,7 +2026,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         )
 
         if not isinstance(re, asp) or not isinstance(im, asp):
-            raise ValueError(f"Real and imaginary parts must be of type {asp}.")
+            raise TypeError(f"Real and imaginary parts must be of type {asp}.")
 
         if (
             re.orders is not None
@@ -2170,9 +2158,7 @@ class asp_complex(asp_abstract, atomic_scattering):
             return None
         elif re_orders is None:
             return im_orders
-        elif im_orders is None:
-            return re_orders
-        elif re_orders == im_orders:
+        elif im_orders is None or re_orders == im_orders:
             return re_orders
         else:
             raise ValueError(
@@ -2243,11 +2229,11 @@ class asp_complex(asp_abstract, atomic_scattering):
     @overload
     def eval_refractive(
         self,
-        target_energies: float | int,  # numpydoc ignore=GL08
+        target_energies: float,  # numpydoc ignore=GL08
     ) -> complex: ...
 
     def eval_refractive(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray[np.complex128] | complex:
         r"""
         Calculate refractive coefficients from object polynomial coefficients at desired `energies`.
@@ -2297,11 +2283,11 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_refractive_index(  # numpydoc ignore=GL08
-        self, target_energies: float | int
+        self, target_energies: float
     ) -> complex: ...
 
     def eval_refractive_index(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray[np.complexfloating] | complex:
         r"""
         Calculate the refractive index from the atomic scattering factors at desired `energies`.
@@ -2348,11 +2334,11 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_betas(
-        self, target_energies: float | int
+        self, target_energies: float
     ) -> float | complex: ...  # numpydoc ignore=GL08
 
     def eval_betas(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray | float | complex:
         r"""
         Determine the energy-dependent, imaginary, absorption refractive index component ($\beta$).
@@ -2398,11 +2384,11 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_deltas(
-        self, target_energies: float | int
+        self, target_energies: float
     ) -> float | complex: ...  # numpydoc ignore=GL08
 
     def eval_deltas(
-        self, target_energies: npt.NDArray | float | int | None = None
+        self, target_energies: npt.NDArray | float | None = None
     ) -> npt.NDArray | float | complex:
         r"""
         Determine the energy-dependent, real, dispersive refractive index component ($\delta$).
@@ -2430,7 +2416,7 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @property
     def deltas(self) -> npt.NDArray:
-        """
+        r"""
         The energy-dependent, real, dispersive refractive index component ($\delta$) at the object's `energies`.
 
         Returns
@@ -2494,16 +2480,8 @@ class asp_complex(asp_abstract, atomic_scattering):
                 # Full energies
                 energies = np.sort(np.unique(np.r_[energies_self, energies_other]))
                 # Get the common lowebound and upperbound
-                lower_bound = (
-                    energies_other[0]
-                    if energies_self[0] < energies_other[0]
-                    else energies_self[0]
-                )
-                upper_bound = (
-                    energies_other[-1]
-                    if energies_self[-1] > energies_other[-1]
-                    else energies_self[-1]
-                )
+                lower_bound = max(energies_self[0], energies_other[0])
+                upper_bound = min(energies_self[-1], energies_other[-1])
                 # Find bounds of the common energies
                 lb_idx = np.argmax(energies == lower_bound)
                 ub_idx = np.argmax(energies == upper_bound)
@@ -2621,12 +2599,10 @@ class asp_complex(asp_abstract, atomic_scattering):
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
 
     @overload
-    def critical_angle(
-        self, energies: float | int
-    ) -> float: ...  # numpydoc ignore=GL08
+    def critical_angle(self, energies: float) -> float: ...  # numpydoc ignore=GL08
 
     def critical_angle(
-        self, energies: npt.NDArray[np.floating | np.integer] | int | float
+        self, energies: npt.NDArray[np.floating | np.integer] | float
     ) -> npt.NDArray[np.floating] | float:
         r"""
         Calculate the critical angle for the material at (a) specified energies.
@@ -2656,12 +2632,10 @@ class asp_complex(asp_abstract, atomic_scattering):
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
 
     @overload
-    def attenuation_length(
-        self, energies: float | int
-    ) -> float: ...  # numpydoc ignore=GL08
+    def attenuation_length(self, energies: float) -> float: ...  # numpydoc ignore=GL08
 
     def attenuation_length(
-        self, energies: npt.NDArray[np.floating | np.integer] | int | float
+        self, energies: npt.NDArray[np.floating | np.integer] | float
     ) -> npt.NDArray[np.floating] | float:
         r"""
         Calculate the attenuation_length for the material at (a) specified energies.

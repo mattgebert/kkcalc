@@ -7,9 +7,9 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 """
 
 # Standard library imports
+import datetime
 import os
 import sys
-from datetime import date
 
 # Sphinx imports
 from sphinx_pyproject import SphinxConfig
@@ -28,11 +28,9 @@ config = SphinxConfig(pyproj, globalns=globals())
 
 # -- Options for HTML output ----------------------------------------------
 html_theme = config["html_theme"]
-html_theme_options = (
-    config["html_theme_options"] if "html_theme_options" in config else {}
-)
-html_sidebars = config["html_sidebars"] if "html_sidebars" in config else {"**": []}
-html_context = config["html_context"] if "html_context" in config else {}
+html_theme_options = config.get("html_theme_options", {})
+html_sidebars = config.get("html_sidebars", {"**": []})
+html_context = config.get("html_context", {})
 html_last_updated_fmt = "%b %d, %Y"
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -62,9 +60,7 @@ os.environ["MPLBACKEND"] = "Agg"  # avoid tkinter import errors on rtfd.io
 # -- Project information -----------------------------------------------------
 
 project = "KKCalc2"
-copyright = (
-    f"2024-{date.today().year}, Matthew Gebert, Benjamin Watts, kkcalc maintainers"
-)
+copyright = f"2024-{datetime.datetime.now(tz=datetime.UTC).date().year}, Matthew Gebert, Benjamin Watts, kkcalc maintainers"
 author = "Matthew Gebert, Benjamin Watts"
 
 # The version info for the project you're documenting, acts as replacement for

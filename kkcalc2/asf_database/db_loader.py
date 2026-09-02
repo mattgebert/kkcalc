@@ -6,14 +6,15 @@ By default, the database file is expected to be in the same directory as this mo
 Can load a compressed gzip version of the database for smaller distribution size.
 """
 
-import os
+import gzip
+import io
 import json
+import os
+import pkgutil
+from typing import TypedDict
+
 import numpy as np
 import numpy.typing as npt
-from typing import TypedDict
-import gzip
-import pkgutil
-import io
 
 
 class ASFElement(TypedDict):
@@ -68,8 +69,9 @@ def load_asf_database() -> dict[int, ASFElement]:
             else:
                 json_database = json.load(io.BytesIO(json_data))
         else:
-            json_database = json.load(gzip.open(io.BytesIO(gzip_json_data)))
-    except Exception as e:
+            with gzip.open(io.BytesIO(gzip_json_data), "rt") as f:
+                json_database = json.load(f)
+    except FileNotFoundError as e:
         print("Failed to load ASF database via `pkgutil`.", e)
 
     if json_database is None:
@@ -88,7 +90,7 @@ def load_asf_database() -> dict[int, ASFElement]:
 
     # Convert lists to numpy arrays and convert dictionary keys to integers
     asf_database = {}
-    for Z in json_database.keys():
+    for Z in json_database:
         try:
             intZ = int(Z)
             # Use the same values but with integer keys

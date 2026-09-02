@@ -6,23 +6,25 @@ Use `python -m kkcalc` to run the program.
 """
 
 # Standard Library Imports
-import os
 import io
-import traceback
+import os
 import pkgutil
+import traceback
 
 # External Imports
 import numpy as np
 
+from kkcalc2 import stoichiometry
+
 # Internal Imports
 from kkcalc2.models import asf_im
-from kkcalc2 import stoichiometry
 
 # Optional Imports
 hasQT: bool
 try:
     import PyQt6  # noqa: F401
-    import PyQt6.QtWidgets as QtWidgets  # noqa: F401
+    from PyQt6 import QtWidgets
+
     from kkcalc2.gui.kk_gui import kk_gui
 
     hasQT = True
@@ -90,14 +92,14 @@ def main_with_traceback():
     """
     try:
         main()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Catch all exceptions to show a GUI error message
         # Create a QT window to display the error
         app = QtWidgets.QApplication([])
         app.setApplicationName("kkcalc: Kramers-Kronig Calculator (Error)")
         error_dialog = QtWidgets.QErrorMessage()
         # Prepare the message: the error and the traceback
         msg = f"An error occurred, causing kkcalc to crash.:\
-               \n{str(e)}\
+               \n{e!s}\
                \nPlease report this issue at https://github.com/xraysoftmat/kkcalc/issues"
         error_dialog.showMessage(msg)
         app.exec()

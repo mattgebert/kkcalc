@@ -2,21 +2,25 @@
 File for Atomic scattering viewer GUI, build in PyQt6
 """
 
-from PyQt6 import QtCore, QtWidgets
+import warnings
+from enum import Enum
+from typing import Literal
+
+import matplotlib.colors
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+import pandas as pd
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
+)
+from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar,
 )
-from enum import Enum
-import matplotlib.pyplot as plt
-import matplotlib.colors
-from typing import Literal
-from kkcalc2.models import asf_abstract, asp_abstract, asf_im, asf_re, asf_complex
+from PyQt6 import QtCore, QtWidgets
+
+from kkcalc2.models import asf_abstract, asf_complex, asf_im, asf_re, asp_abstract
 from kkcalc2.models.factors import KK_Datatype
-import numpy.typing as npt
-import numpy as np
-import warnings
-import pandas as pd
 
 # No way to attach these docs to the enum, so we will just define them here
 GRAPH_TYPE_DOCS = [
@@ -137,7 +141,7 @@ class asf_viewer(QtWidgets.QWidget):
         """The current graphing style"""
 
         # Setup the scattering object list
-        self._scattering_objects: list[type[asp_abstract] | type[asf_abstract]] = []
+        self._scattering_objects: list[type[asp_abstract | asf_abstract]] = []
 
         # Connect the graph type change to the switch_graph_style function
         def graph_fn(_):
@@ -181,8 +185,8 @@ class asf_viewer(QtWidgets.QWidget):
         """
         # Check inputs
         for obj in objs:
-            if not isinstance(obj, asf_abstract) and not isinstance(obj, asp_abstract):
-                raise ValueError("Invalid scattering object")
+            if not isinstance(obj, (asf_abstract, asp_abstract)):
+                raise TypeError(f"Invalid scattering object of type {type(obj)}")
         self._scattering_objects = objs
 
         # Update the snap x combo box with the new objects
@@ -339,7 +343,7 @@ class asf_viewer(QtWidgets.QWidget):
                 snap_idx = (obj.energies >= snap_dom[0]) & (obj.energies <= snap_dom[1])
                 ydata = ydata[snap_idx]
             # Get the normalisation scales
-            if isinstance(obj, asf_re) or isinstance(obj, asf_im):
+            if isinstance(obj, (asf_re, asf_im)):
                 mn, mx = ydata.min(), ydata.max()
                 if isinstance(obj, asf_re):
                     ret_vals = [(mn, mx), None, None]
@@ -662,7 +666,7 @@ class asf_viewer(QtWidgets.QWidget):
                     else:
                         c_indx -= 2
             else:
-                raise ValueError("Invalid scattering object")
+                raise TypeError(f"Invalid scattering object of type {type(obj)}")
         if graph_style in [GraphType.RE_IM_SEPARATE, GraphType.ABS_PHASE_SEPARATE]:
             # Add the legend
             if len(self.ax1.get_lines()) > 0:
@@ -682,7 +686,6 @@ class asf_viewer(QtWidgets.QWidget):
         # Draw the plot
         self.figure.tight_layout()
         self.canvas.draw()
-        return
 
     def switch_legend(self, state: bool | None = None):
         """
@@ -771,13 +774,14 @@ if __name__ == "__main__":
     ui = asf_viewer()
 
     # Import kkcalc functions
-    from kkcalc2.asf_database import asp_db_extended
-    from kkcalc2.models.common import atomic_scattering
-    from kkcalc2.stoich import stoichiometry
+    import os
 
     # Import some example data
     import numpy as np
-    import os
+
+    from kkcalc2.asf_database import asp_db_extended
+    from kkcalc2.models.common import atomic_scattering
+    from kkcalc2.stoich import stoichiometry
 
     PS = "C10H8"
     PS_stoich = stoichiometry(PS)

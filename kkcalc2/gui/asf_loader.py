@@ -6,29 +6,30 @@ Allows the loading of raw data and duplication objects.
 import os
 import warnings
 
-from PyQt6 import QtWidgets, QtCore, QtGui
-from kkcalc2.models import (
-    asf_abstract,
-    asf,
-    asf_re,
-    asf_im,
-    asf_complex,
-    asp_abstract,
-    asp,
-    asp_re,
-    asp_im,
-    asp_complex,
-    asp_db_im_extended,
-    asp_db_re_extended,
-    asp_db_complex_extended,
-    KK_Datatype,
-)
+from PyQt6 import QtCore, QtGui, QtWidgets
+
+from kkcalc2.gui.contrast_viewer import contrast_viewer
 from kkcalc2.gui.dialogs import (
     factor_complexity_dialog,
-    import_data_dialog,
     factor_dtype_dialog,
+    import_data_dialog,
 )
-from kkcalc2.gui.contrast_viewer import contrast_viewer
+from kkcalc2.models import (
+    KK_Datatype,
+    asf,
+    asf_abstract,
+    asf_complex,
+    asf_im,
+    asf_re,
+    asp,
+    asp_abstract,
+    asp_complex,
+    asp_db_complex_extended,
+    asp_db_im_extended,
+    asp_db_re_extended,
+    asp_im,
+    asp_re,
+)
 
 
 class kk_object_list(QtWidgets.QWidget):
@@ -244,7 +245,6 @@ class kk_object_list(QtWidgets.QWidget):
         for obj in objs:
             self.add_kk_obj(obj)
         # self.table.update()
-        return
 
     def itemViewClicked(self, item: QtWidgets.QTableWidgetItem):
         # Check if the item belongs to the checkbox column
@@ -258,7 +258,6 @@ class kk_object_list(QtWidgets.QWidget):
             elif item.row() in self._visible_rows:
                 self._visible_rows.remove(item.row())
             self.viewSelectionChanged.emit()
-        return
 
     def on_row_selection_change(self):
         # Alert the selected object has changed.
@@ -272,9 +271,9 @@ class kk_object_list(QtWidgets.QWidget):
             self.delete_btn.setEnabled(False)
         # Enable or disable the contrast button if two rows are selected.
         selection = self.table.selectedItems()
-        rows = set([item.row() for item in selection])
+        rows = {item.row() for item in selection}
         if len(rows) == 2 and all(
-            [isinstance(self._objs[row], (asf_complex, asp_complex)) for row in rows]
+            isinstance(self._objs[row], (asf_complex, asp_complex)) for row in rows
         ):
             self.contrast_btn.setEnabled(True)
         else:
@@ -285,12 +284,12 @@ class kk_object_list(QtWidgets.QWidget):
         if (
             len(materials) > 1  # Check if there are multiple rows selected
             and all(
-                [material == materials[0] for material in materials]
+                material == materials[0] for material in materials
             )  # Check if all materials are the same
             and all(
-                [obj.__class__ is objs[0].__class__ for obj in objs]
+                obj.__class__ is objs[0].__class__ for obj in objs
             )  # Check if all objects are the same class
-            and all([not self._objs[row].is_extended for row in rows])
+            and all(not self._objs[row].is_extended for row in rows)
         ):  # Check if all objects are not already extended:
             self.extend_btn.setEnabled(True)
             # self.extend_btn.setHidden(False)
@@ -539,7 +538,7 @@ class kk_object_list(QtWidgets.QWidget):
     def calc_contrast(self):
         """Calculates the contrast between multiple selected objects if they are complex."""
         selection = self.table.selectedItems()
-        rows = set([item.row() for item in selection])
+        rows = {item.row() for item in selection}
         # Collect the complex objects
         objs = [
             self._objs[row]
@@ -551,12 +550,11 @@ class kk_object_list(QtWidgets.QWidget):
         viewer = contrast_viewer(objs=objs)
         viewer.show()
         self.contrast_viewers.append(viewer)  # Prevent garbage collection
-        return
 
     def extend_multiple(self):
         """Extends the selected objects across multiple edges."""
         selection = self.table.selectedItems()
-        rows = set([item.row() for item in selection])
+        rows = {item.row() for item in selection}
         # Collect the rows
         objs = [self._objs[row] for row in rows]
         # Convert any polynomial objects to factors
@@ -567,13 +565,13 @@ class kk_object_list(QtWidgets.QWidget):
             elif isinstance(obj, asp_abstract):
                 objs_asf.extend(obj.to_asf())
             else:
-                raise ValueError(
-                    "Invalid object selected to extend across multiple edges."
+                raise TypeError(
+                    f"Invalid object selected to extend across multiple edges of type {type(obj).__name__}."
                 )
 
         stoich0 = objs[0].stoichiometry
 
-        if not all([obj.stoichiometry == stoich0 for obj in objs]) or stoich0 is None:
+        if not all(obj.stoichiometry == stoich0 for obj in objs) or stoich0 is None:
             # Create a map of names to stoichiometries for the error message
             stoich_map = {obj.name: obj.stoichiometry for obj in objs}
             # Dialog window error: stoichiometries must match
@@ -588,20 +586,18 @@ class kk_object_list(QtWidgets.QWidget):
             msg.exec()
             return
         # Extend the objects
-        if isinstance(objs[0], asf_im) and all(
-            [isinstance(obj, asf_im) for obj in objs]
-        ):
+        if isinstance(objs[0], asf_im) and all(isinstance(obj, asf_im) for obj in objs):
             new_obj = asp_db_im_extended(
                 objs_asf, objs[0].stoichiometry, None, name=objs[0].name + "_extended"
             )
         elif isinstance(objs[0], asf_re) and all(
-            [isinstance(obj, (asf_re)) for obj in objs]
+            isinstance(obj, (asf_re)) for obj in objs
         ):
             new_obj = asp_db_re_extended(
                 objs_asf, objs[0].stoichiometry, None, name=objs[0].name + "_extended"
             )
         elif isinstance(objs[0], asf_complex) and all(
-            [isinstance(obj, asf_complex) for obj in objs]
+            isinstance(obj, asf_complex) for obj in objs
         ):
             new_obj = asp_db_complex_extended(
                 objs_asf, objs[0].stoichiometry, None, name=objs[0].name + "_extended"

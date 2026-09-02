@@ -1,11 +1,12 @@
 """Module to provide utility functions and definitions for the kkcalc package."""
 
-from typing import Callable, Any, TypeAlias, ParamSpec, TypeVar
+from collections.abc import Callable
+from typing import Any, ParamSpec, TypeVar
 
 # Setup typing for the decorator function.
 P = ParamSpec("P")
 T = TypeVar("T")
-WrappedFunctionDecorator: TypeAlias = Callable[[Callable[P, T]], Callable[P, T]]
+WrappedFunctionDecorator = Callable[[Callable[P, T]], Callable[P, T]]
 
 
 # Decorator for copying docstrings

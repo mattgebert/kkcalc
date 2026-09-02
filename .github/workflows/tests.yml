@@ -42,7 +42,7 @@ jobs:
         if: ${{ matrix.os == 'Ubuntu' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1-mesa-glx libxcb-xinerama0 xvfb
+          sudo apt-get install -y libegl1 libgl1-mesa-dev libxcb-xinerama0 xvfb
 
       - name: Setup environment
         run: |

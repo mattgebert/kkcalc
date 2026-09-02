@@ -9,26 +9,29 @@ Includes:
 
 # Stdlib
 # import warnings
-import pkgutil
 import io
+import pkgutil
+
+import numpy as np
 
 # External
 import pytest
-import numpy as np
+
+from kkcalc2 import stoichiometry as kk_stoich
+from kkcalc2.asf_database.db_loader import load_asf_database
 
 # Internal
 from kkcalc2.models import (
-    asp_db_im,
-    asp_db_re,
-    asp_db_im_extended,
-    # asp_db_re_extended,
-    asp_db_complex,
     # asp_db_complex_extended,
     asf_im,
+    # asp_db_re_extended,
+    asp_db_complex,
+    asp_db_im,
+    asp_db_im_extended,
+    asp_db_re,
 )
-from kkcalc2.asf_database.db_loader import load_asf_database
+
 from ..test_stoich import basic_stoichs as bs
-from kkcalc2 import stoichiometry as kk_stoich
 
 
 class TestDatabaseLoading:

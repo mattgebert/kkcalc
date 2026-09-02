@@ -17,76 +17,66 @@ for model completeness.
 from kkcalc2 import conversions
 from kkcalc2 import transforms as transforms
 
+# Import the usage models
+from kkcalc2.models import common, db_models, factors, polynomials
+
 # Import the common base models
 from kkcalc2.models.common import (
-    atomic_scattering_abstract,
-    atomic_scattering,
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
-)
-
-# Import the usage models
-import kkcalc2.models.polynomials as polynomials
-import kkcalc2.models.factors as factors
-import kkcalc2.models.common as common
-import kkcalc2.models.db_models as db_models
-from kkcalc2.models.polynomials import asp, asp_im, asp_re, asp_complex, asp_abstract
-from kkcalc2.models.factors import (
-    asf_abstract,
-    asf,
-    asf_im,
-    asf_re,
-    asf_complex,
-    KK_Datatype,
+    atomic_scattering,
+    atomic_scattering_abstract,
 )
 
 # Import the database models
 from kkcalc2.models.db_models import (
     asp_db_abstract,
-    asp_db_im,
-    asp_db_re,
     asp_db_complex,
-    asp_db_extended,
-    asp_db_im_extended,
-    asp_db_re_extended,
     asp_db_complex_extended,
+    asp_db_extended,
+    asp_db_im,
+    asp_db_im_extended,
+    asp_db_re,
+    asp_db_re_extended,
 )
+from kkcalc2.models.factors import (
+    KK_Datatype,
+    asf,
+    asf_abstract,
+    asf_complex,
+    asf_im,
+    asf_re,
+)
+from kkcalc2.models.polynomials import asp, asp_abstract, asp_complex, asp_im, asp_re
 
 __all__ = [
-    # Conversions module
-    "conversions",
-    # Kramers-Kronig Transforms module
-    "transforms",
-    # Class modules
-    "polynomials",
-    "factors",
-    "common",
-    "db_models",
-    # Common models and types
-    "atomic_scattering_abstract",
-    "atomic_scattering",
-    "PROPERTIES_DICT",
-    "PROPERTIES_DICT_NO_STOICH",
-    # Atomic Scattering Factor models and types
-    "asf_abstract",
-    "asf",
-    "asf_im",
-    "asf_re",
-    "asf_complex",
-    "KK_Datatype",
-    # Atomic Scattering Polynomial models and types
-    "asp_abstract",
-    "asp",
-    "asp_im",
-    "asp_re",
-    "asp_complex",
-    # Database models
-    "asp_db_abstract",
-    "asp_db_im",
-    "asp_db_re",
-    "asp_db_complex",
-    "asp_db_extended",
-    "asp_db_im_extended",
-    "asp_db_re_extended",
-    "asp_db_complex_extended",
+    "PROPERTIES_DICT",  # Common models and types
+    "PROPERTIES_DICT_NO_STOICH",  # Common models and types
+    "KK_Datatype",  # Atomic Scattering Factor models and types
+    "asf",  # Atomic Scattering Factor models and types
+    "asf_abstract",  # Atomic Scattering Factor models and types
+    "asf_complex",  # Atomic Scattering Factor models and types
+    "asf_im",  # Atomic Scattering Factor models and types
+    "asf_re",  # Atomic Scattering Factor models and types
+    "asp",  # Atomic Scattering Polynomial models and types
+    "asp_abstract",  # Atomic Scattering Polynomial models and types
+    "asp_complex",  # Atomic Scattering Polynomial models and types
+    "asp_db_abstract",  # Database models
+    "asp_db_complex",  # Database models
+    "asp_db_complex_extended",  # Database models
+    "asp_db_extended",  # Database models
+    "asp_db_im",  # Database models
+    "asp_db_im_extended",  # Database models
+    "asp_db_re",  # Database models
+    "asp_db_re_extended",  # Database models
+    "asp_im",  # Atomic Scattering Polynomial models and types
+    "asp_re",  # Atomic Scattering Polynomial models and types
+    "atomic_scattering",  # Common models and types
+    "atomic_scattering_abstract",  # Common models and types
+    "common",  # Class modules
+    "conversions",  # Conversions module
+    "db_models",  # Class modules
+    "factors",  # Class modules
+    "polynomials",  # Class modules
+    "transforms",  # Kramers-Kronig Transforms module
 ]

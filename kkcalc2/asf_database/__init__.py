@@ -22,7 +22,7 @@ for the imaginary part of the scattering factors, corresponding to the energies 
 
 from typing import Literal
 
-from kkcalc2.asf_database.db_loader import load_asf_database, ASFElement
+from kkcalc2.asf_database.db_loader import ASFElement, load_asf_database
 
 ASF_DATABASE: dict[int, ASFElement] = (
     load_asf_database()
@@ -34,8 +34,8 @@ _database_backend: Literal["kkcalc", "periodictable"] = "kkcalc"
 __all__ = [
     "ASF_DATABASE",
     "ASFElement",
-    "set_database_backend",
     "get_database_backend",
+    "set_database_backend",
 ]
 
 

@@ -4,22 +4,24 @@ A module for database models.
 Allows the calculation of atomic scattering factor data, generated for a given stoichiometry.
 """
 
+import abc
+from collections.abc import Sequence
+from typing import Literal, Self, Unpack, overload, override
+
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
-from typing import Self, override, overload, Unpack, Literal, Sequence
 
-import abc
-from kkcalc2.stoich import stoichiometry as kk_stoichiometry
-
-# Import from submodules of models, as models.py will also call these classes.
-from kkcalc2.models.polynomials import asp, asp_im, asp_re, asp_complex
-from kkcalc2.models.factors import asf, asf_im, asf_re, asf_complex
 from kkcalc2 import conversions
-from kkcalc2.models.common import PROPERTIES_DICT, PROPERTIES_DICT_NO_STOICH
 
 # Load the real/imag scattering factors as they vary with energy
 from kkcalc2.asf_database import ASF_DATABASE
+from kkcalc2.models.common import PROPERTIES_DICT, PROPERTIES_DICT_NO_STOICH
+from kkcalc2.models.factors import asf, asf_complex, asf_im, asf_re
+
+# Import from submodules of models, as models.py will also call these classes.
+from kkcalc2.models.polynomials import asp, asp_complex, asp_im, asp_re
+from kkcalc2.stoich import stoichiometry as kk_stoichiometry
 
 
 class asp_db_abstract(asp, metaclass=abc.ABCMeta):
@@ -324,7 +326,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                         energies=db_e,
                         coefs=db_coefs,
                     )
-                    (pre_m, pre_c) = np.polyfit(
+                    (pre_m, _) = np.polyfit(
                         pre_x, pre_y - pre_db_y, 1
                     )  # Fit a line to the difference
                     # Apply the linear correction to the full domain
@@ -347,7 +349,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                         energies=db_e,
                         coefs=db_coefs,
                     )
-                    (post_m, post_c) = np.polyfit(
+                    (post_m, _) = np.polyfit(
                         post_x, post_y - post_db_y, 1
                     )  # Fit a line to the difference
 
@@ -368,7 +370,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                     intermediate_y2 -= m1 * energies + c1
                     db_flattened = post_db_y - (post_x * m1 + c1)
                     # Fit the data and db_data
-                    m2, c2 = np.polyfit(post_x, intermediate_y2[post_idx], 1)  #
+                    m2, c2 = np.polyfit(post_x, intermediate_y2[post_idx], 1)
                     m3, c3 = np.polyfit(post_x, db_flattened, 1)
                     # Scale the post-edge level, using the average x value in the post-edge domain.
                     ave_x = np.mean(post_x)
@@ -467,7 +469,7 @@ class asp_db_re(asp_db_abstract, asp_re):
 
             # Add weighted asf data sets for KK calculation
             re_factors = np.zeros(
-                (len(energies))
+                len(energies)
             )  # Stores summations of real factors at each energy
 
             # Stores the current energy index for each element, defining factors at intermediate energies.
@@ -1044,7 +1046,7 @@ class asp_db_extended(asp):
                 extra_kwargs[key] = database._properties_dict[key]
 
         # Add to the kwargs if not already present, otherwise kwargs takes precedence.
-        for key in extra_kwargs.keys():
+        for key in extra_kwargs:
             if key not in kwargs:
                 kwargs[key] = extra_kwargs[key]
 
@@ -1068,7 +1070,6 @@ class asp_db_extended(asp):
         The original `asp` (atomic scattering polynomial) object containing the database data,
         used to extend the `asf` object.
         """
-        return
 
     @staticmethod
     def extend_data_with_db(
@@ -1263,7 +1264,7 @@ class asp_db_extended(asp):
                         energies=db_e,
                         coefs=db_coefs,
                     )
-                    (pre_m, pre_c) = np.polyfit(
+                    (pre_m, _) = np.polyfit(
                         pre_x, pre_y - pre_db_y, 1
                     )  # Fit a line to the difference
                     # Apply the linear correction to the full domain
@@ -1286,7 +1287,7 @@ class asp_db_extended(asp):
                         energies=db_e,
                         coefs=db_coefs,
                     )
-                    (post_m, post_c) = np.polyfit(
+                    (post_m, _) = np.polyfit(
                         post_x, post_y - post_db_y, 1
                     )  # Fit a line to the difference
 
@@ -1307,7 +1308,7 @@ class asp_db_extended(asp):
                     intermediate_y2 -= m1 * energies + c1
                     db_flattened = post_db_y - (post_x * m1 + c1)
                     # Fit the data and db_data
-                    m2, c2 = np.polyfit(post_x, intermediate_y2[post_idx], 1)  #
+                    m2, c2 = np.polyfit(post_x, intermediate_y2[post_idx], 1)
                     m3, c3 = np.polyfit(post_x, db_flattened, 1)
                     # Scale the post-edge level, using the average x value in the post-edge domain.
                     ave_x = np.mean(post_x)
@@ -1366,7 +1367,7 @@ class asp_db_extended(asp):
         x: npt.NDArray[np.float64],
         y: npt.NDArray[np.float64],
         db_merge_range: tuple[float, float],
-        db_y: npt.NDArray[np.float64] | float | int,
+        db_y: npt.NDArray[np.float64] | float,
         idx0: int = 0,
         idx1: int = -1,
     ) -> npt.NDArray[np.float64]:
@@ -1575,8 +1576,8 @@ class asp_db_im_extended(asp_db_extended, asp_im):
         elif isinstance(database, asp_db_im):
             im_db = database
         else:
-            raise ValueError(
-                "Database must be a stoichiometry, string, or asp_db_im object"
+            raise TypeError(
+                f"Database must be a stoichiometry, string, or asp_db_im object. Was {type(database)}"
             )
 
         # Construct the extended object
@@ -1751,8 +1752,8 @@ class asp_db_re_extended(asp_db_extended, asp_re):
         elif isinstance(database, asp_db_re):
             re_db = database
         else:
-            raise ValueError(
-                "Database must be a stoichiometry, string, or asp_db_re object"
+            raise TypeError(
+                f"Database must be a stoichiometry, string, or asp_db_re object. Was {type(database)}"
             )
 
         super().__init__(
@@ -1894,7 +1895,7 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
         elif isinstance(database, asp_db_complex):
             complex_db = database
         else:
-            raise ValueError(
+            raise TypeError(
                 f"Database must be a stoichiometry, string, or asp_db_complex object, but got type {database.__class__}"
             )
 

@@ -2,11 +2,13 @@
 A class that extends the asf_viewer class to display the contrast of a material.
 """
 
-from kkcalc2.gui.asf_viewer import asf_viewer
-from kkcalc2.models import asf_complex, asp_complex, KK_Datatype
-from PyQt6 import QtWidgets
 from typing import override
+
 import numpy as np
+from PyQt6 import QtWidgets
+
+from kkcalc2.gui.asf_viewer import asf_viewer
+from kkcalc2.models import KK_Datatype, asf_complex, asp_complex
 
 
 class contrast_viewer(asf_viewer):
@@ -130,6 +132,7 @@ class contrast_viewer(asf_viewer):
 if __name__ == "__main__":
     # Generate some example data
     import os
+
     from kkcalc2 import stoichiometry
     from kkcalc2.models import asf_im
 

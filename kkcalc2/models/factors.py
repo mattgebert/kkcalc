@@ -5,33 +5,37 @@ Defines the types of data that can be used, and conversion between.
 """
 
 # In polynomials.py, the equivalent import is only done via type checking or in functions, to prevent recursion.
-from kkcalc2.models.polynomials import (
-    asp as asp_type,
-    asp_abstract,
-    asp_im,
-    asp_re,
-    asp_complex,
-)
+import abc
+import warnings
+from collections.abc import Iterator
+from enum import Enum
+from typing import Literal, Self, TypedDict, Unpack, overload, override
+
+import numpy as np
+import numpy.typing as npt
+
+from kkcalc2 import conversions
 
 ## ..
 from kkcalc2.models.common import (
-    atomic_scattering_abstract,
-    atomic_scattering,
     PROPERTIES_DICT,
     PROPERTIES_DICT_NO_STOICH,
+    atomic_scattering,
+    atomic_scattering_abstract,
 )
-from kkcalc2 import conversions
+from kkcalc2.models.polynomials import (
+    asp as asp_type,
+)
+from kkcalc2.models.polynomials import (
+    asp_abstract,
+    asp_complex,
+    asp_im,
+    asp_re,
+)
 from kkcalc2.stoich import (
     stoichiometry as kk_stoichiometry,
 )  # To prevent overlap use with the `stoichiometry` argument.
 from kkcalc2.transforms import DEF_ITER, DEF_TOL
-
-import numpy as np
-import numpy.typing as npt
-import abc
-import warnings
-from enum import Enum
-from typing import Self, Iterator, override, overload, Unpack, TypedDict, Literal
 
 try:
     import pandas as pd
@@ -91,9 +95,9 @@ class KK_Datatype(Enum):
     """For undefined data types."""
     NEXAFS = 1  # AKA Photoabsorption, XANES.
     """Near edge X-ray absorption fine structure (NEXAFS)."""
-    XANES = 1  # AKA Photoabsorption, NEXAFS.
+    XANES = 1  # noqa: PIE796 - intentional overlap. AKA Photoabsorption, NEXAFS.
     """X-ray absorption near edge structure (XANES)."""
-    PHOTOABSORPTION = 1  # AKA NEXAFS, XANES.
+    PHOTOABSORPTION = 1  # noqa: PIE796 - intentional overlap. AKA NEXAFS, XANES.
     """Photoabsorption."""
     REFRACTIVE = 2
     r"""Refractive components, with dispersive :math:`\delta` and absorptive :math:`\beta` components.
@@ -135,7 +139,6 @@ class KK_Datatype(Enum):
     """
 
 
-#
 for i, dtype in enumerate(KK_Datatype):
     name = dtype.name.upper()
     if name in KK_DATATYPE_DOCS:
@@ -739,7 +742,6 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         asp
             Atomic scattering polynomial object.
         """
-        pass
 
     # @abc.abstractmethod
     # @doc_copy(to_atomic_scattering_polynomial)
@@ -849,7 +851,6 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             A new `asf` object with the same atomic scattering factors,
             and properties, but unique memory allocation.
         """
-        pass
 
 
 class asf(asf_abstract, atomic_scattering):
@@ -3022,14 +3023,14 @@ class asf_complex(asf_abstract, atomic_scattering):
         common_kwargs = {}
         common_kwargs.update(kwargs)
         common_kwargs.update(
-            dict(
-                number_density=number_density,
-                density=density,
-                formula_mass=formula_mass,
-                stoichiometry=stoichiometry,
+            {
+                "number_density": number_density,
+                "density": density,
+                "formula_mass": formula_mass,
+                "stoichiometry": stoichiometry,
                 # origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
                 # origin_data=np.c_[energies, refractive],
-            )
+            }
         )
         # Return asf instances
         re = asf_re.from_refractive(
@@ -3147,14 +3148,14 @@ class asf_complex(asf_abstract, atomic_scattering):
         common_kwargs = {}
         common_kwargs.update(kwargs)
         common_kwargs.update(
-            dict(
-                number_density=number_density,
-                density=density,
-                formula_mass=formula_mass,
-                stoichiometry=stoichiometry,
+            {
+                "number_density": number_density,
+                "density": density,
+                "formula_mass": formula_mass,
+                "stoichiometry": stoichiometry,
                 # origin_dtype=KK_Datatype.REFRACTIVE_INDEX,
                 # origin_data=np.c_[energies, refractive_index],
-            )
+            }
         )
         # Convert to refractive index to refractive component
         delta = 1 - refractive_index.real

@@ -12,6 +12,7 @@ the `kkcalc2`/`kkcalc2_tr` console-script entry points (see `pyproject.toml`).
 
 import io
 import pkgutil
+import typing
 
 import numpy as np
 import pytest
@@ -22,7 +23,7 @@ import kkcalc2.__main__ as main_module
 class DummyWindow:
     """A stand-in for `kk_gui`, recording constructor arguments instead of building a real window."""
 
-    instances: list["DummyWindow"] = []
+    instances: typing.ClassVar[list["DummyWindow"]] = []
 
     def __init__(
         self, objs=None, autohide_modifier: bool = False

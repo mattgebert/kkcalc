@@ -2,18 +2,22 @@
 This module contains the dialog classes for the GUI.
 """
 
-from PyQt6 import QtWidgets, QtCore, QtGui
-from enum import Enum
 import os
-import pandas as pd
-import numpy as np
-from typing import Any
-from kkcalc2.models.factors import KK_Datatype, KK_DATATYPE_DOCS
+from enum import Enum
+from typing import Any, ClassVar
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
+)
+from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar,
 )
+from PyQt6 import QtCore, QtGui, QtWidgets
+
+from kkcalc2.models.factors import KK_DATATYPE_DOCS, KK_Datatype
 
 
 class factor_complexity_dialog(QtWidgets.QDialog):
@@ -115,7 +119,7 @@ class import_data_dialog(QtWidgets.QDialog):
     DEFAULT_X_LABEL = "Energy (eV)"
     DEFAULT_Y_LABEL = "Amplitude (A.U.)"
 
-    PROCESSOR_DOC = {
+    PROCESSOR_DOC: ClassVar[dict[str, str]] = {
         "PANDAS": "Import data using Pandas",
         "NUMPY": "Import data from a NumPy file",
         "ASCII_READ_ONLY": "Import data from an ASCII file reading each line",
@@ -188,13 +192,9 @@ class import_data_dialog(QtWidgets.QDialog):
         self.delimiter_edit = QtWidgets.QLineEdit()
         self.delimiter_edit.setPlaceholderText("Tab (\\t), Space ( ), Comma (,), etc.")
         self.delimiter_edit.setToolTip(
-            "".join(
-                [
-                    "The delimiter used to separate the data.\n",
-                    "For example, a comma (,) or tab (\\t)\n",
-                    "Leave blank for auto-detection.",
-                ]
-            )
+            "The delimiter used to separate the data.\n"
+            + "For example, a comma (,) or tab (\\t)\n"
+            + "Leave blank for auto-detection.",
         )
         header_label = QtWidgets.QLabel("Skip Headers:")
         self.skip_header_rows_edit = QtWidgets.QSpinBox()
@@ -395,8 +395,7 @@ class import_data_dialog(QtWidgets.QDialog):
                 self.load_filename = fname
                 self.load_dtype = dtype
                 self.load_headers = temp_headers
-        except Exception as e:
-            print("Importing Error:", e)
+        except Exception as e:  # noqa: BLE001 # Generic catch is acceptable here, as we want to catch all errors and display them to the user.
             self.load_data = None
             self.load_dtype = None
             self.load_headers = None
@@ -419,12 +418,13 @@ class import_data_dialog(QtWidgets.QDialog):
                 self.load_data, str
             ):
                 self.result_rows_edit.setText(str(len(self.load_data)))
-                if len(self.load_data) > 0:
-                    if hasattr(self.load_data[0], "__len__") and not isinstance(
-                        self.load_data[0], str
-                    ):
-                        self.result_cols_edit.setText(str(len(self.load_data[0])))
-                        self.result_accept_btn.setEnabled(True)
+                if (
+                    len(self.load_data) > 0
+                    and hasattr(self.load_data[0], "__len__")
+                    and not isinstance(self.load_data[0], str)
+                ):
+                    self.result_cols_edit.setText(str(len(self.load_data[0])))
+                    self.result_accept_btn.setEnabled(True)
             else:
                 self.result_rows_edit.setText("")
                 self.result_cols_edit.setText("")

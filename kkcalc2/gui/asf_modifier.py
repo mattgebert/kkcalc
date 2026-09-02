@@ -3,20 +3,21 @@ Creates a widget for modifying an asf_abstract | asp_abstract object.
 Allows the modification of material properties such as name, stoichiometry, number density, density, and formula mass.
 """
 
-from PyQt6 import QtWidgets, QtCore, QtGui
+from PyQt6 import QtCore, QtGui, QtWidgets
+
 from kkcalc2.models import (
     asf_abstract,
-    asp_abstract,
-    asf_re,
-    asf_im,
     asf_complex,
+    asf_im,
+    asf_re,
+    asp_abstract,
+    asp_complex,
+    asp_db_extended,
+    asp_db_im,
     asp_db_im_extended,
     asp_db_re_extended,
     asp_im,
     asp_re,
-    asp_complex,
-    asp_db_im,
-    asp_db_extended,
 )
 from kkcalc2.stoich import stoichiometry
 
@@ -57,6 +58,9 @@ class kk_object_modifier(QtWidgets.QWidget):
 
         # Properties header and horizontal line
         properties_header = QtWidgets.QLabel("Properties")
+        # Add bold font
+        font = properties_header.font()
+        font.setBold(True)
 
         def hline_generator():
             line = QtWidgets.QFrame()
@@ -485,7 +489,6 @@ class kk_object_modifier(QtWidgets.QWidget):
     def run_validations(self) -> None:
         """Runs all validations on the object."""
         self.validate_stoichiometry_UI()
-        return
 
     def update_class_dependent_UI(self):
         """
@@ -543,16 +546,12 @@ class kk_object_modifier(QtWidgets.QWidget):
         if isinstance(obj, (asf_re, asp_re)):
             obj: asf_re | asp_re
             # Don't improve accuracy if object is not extended, as accuracy will be very poor.
-            transform = obj.kk_transform_inv(
-                improve_accuracy=True if obj.is_extended else False
-            )
+            transform = obj.kk_transform_inv(improve_accuracy=bool(obj.is_extended))
             transform.name = obj.name + "_kk_inv"
         elif isinstance(obj, (asf_im, asp_im)):
             obj: asf_im | asp_im
             # Don't improve accuracy if object is not extended, as accuracy will be very poor.
-            transform = obj.kk_transform(
-                improve_accuracy=True if obj.is_extended else False
-            )
+            transform = obj.kk_transform(improve_accuracy=bool(obj.is_extended))
             transform.name = obj.name + "_kk"
 
         # Send the transformed object
@@ -572,13 +571,13 @@ class kk_object_modifier(QtWidgets.QWidget):
             obj: asf_re | asf_im
             complex_obj = obj.calculate_complex_factors(
                 name=obj.name + "_complex",
-                improve_accuracy=True if obj.is_extended else False,
+                improve_accuracy=bool(obj.is_extended),
             )
-        elif isinstance(obj, asp_re | asp_im):
+        elif isinstance(obj, (asp_re, asp_im)):
             obj: asf_im | asp_im
             complex_obj = obj.calculate_complex_polynomial(
                 name=obj.name + "_complex",
-                improve_accuracy=True if obj.is_extended else False,
+                improve_accuracy=bool(obj.is_extended),
             )
         else:
             return

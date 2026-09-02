@@ -11,15 +11,15 @@ def kkcalc_app():
     """
     An example application using the kk_gui module.
     """
-    import PyQt6.QtWidgets as QtWidgets
+    from PyQt6 import QtWidgets
 
     # Create the Application
     app = QtWidgets.QApplication([])
     app.setApplicationName("kkcalc: Kramers-Kronig Calculator")
 
     # Generate some example data
-    from kkcalc2.models import asp_db_im
     from kkcalc2 import stoichiometry
+    from kkcalc2.models import asp_db_im
 
     PS_NAME = "Polystyrene"
     PS_STOICHIOMETRY = "CH"

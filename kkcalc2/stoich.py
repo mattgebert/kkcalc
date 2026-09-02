@@ -8,31 +8,32 @@ Includes
 from __future__ import (
     annotations,
 )  # Required to allow union of string and class in type hints
+
 import re
-from typing import Self, TYPE_CHECKING, TypeAlias, Iterable, Unpack
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Self, Unpack
+
+# Internal
+from kkcalc2.asf_database import ASF_DATABASE, ASFElement
 
 # External
 has_periodictable: bool
 """Flag to indicate if the periodictable module is available."""
 try:
     import periodictable as pt
-    from periodictable.formulas import Formula as Formula
-    from periodictable.core import Element as Element
+    from periodictable.core import Element
+    from periodictable.formulas import Formula
 
     has_periodictable = True
 except ImportError:
     has_periodictable = False
 
-# Internal
-from kkcalc2.asf_database import ASF_DATABASE, ASFElement  # noqa: E402
-
 if TYPE_CHECKING:
     # Do not compile at runtime due to circular import.
-    from kkcalc2.models.db_models import asp_db_im, asp_db_re, asp_db_complex
-    from periodictable.formulas import Formula
     from kkcalc2.models.common import (
         PROPERTIES_DICT,
     )
+    from kkcalc2.models.db_models import asp_db_complex, asp_db_im, asp_db_re
 
 # Generate a list of atomic elements. Should already be sorted from the periodictable module.
 ELEMENTS: list[tuple[str, int, float]]
@@ -94,7 +95,7 @@ def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
     return sum([(z - (z / 82.5) ** 2.37) * n for z, n in composition])
 
 
-CompositionAlias: TypeAlias = (
+type CompositionAlias = (
     Iterable[tuple[int, float]]
     | "Formula"
     | str
@@ -138,13 +139,17 @@ class stoichiometry:
     """Type alias for the composition parameter."""
 
     def __init__(self, composition: CompositionAlias) -> None:  # numpydoc ignore=GL08
-        self._composition: list[tuple[int, float]] | "Formula"
+        self._composition: list[tuple[int, float]] | Formula
         """A list of tuples, where each tuple contains the atomic number and the counts of an element."""
         if isinstance(composition, type(self)):
             # Copy the formula / list.
             c = composition._composition
-            if isinstance(c, Formula):
-                self._composition = Formula(c)
+            # Optional check for periodictable Formula object, and convert to a new Formula object if so.
+            if has_periodictable:
+                if isinstance(c, Formula):
+                    self._composition = Formula(c.structure)
+                else:
+                    self._composition = c.copy()
             else:
                 self._composition = c.copy()
         elif has_periodictable and isinstance(composition, Formula):
@@ -524,8 +529,8 @@ class stoichiometry:
             )
 
     def atomic_scattering_polynomial_im(
-        self, **kwargs: Unpack["PROPERTIES_DICT"]
-    ) -> "asp_db_im":
+        self, **kwargs: Unpack[PROPERTIES_DICT]
+    ) -> asp_db_im:
         """
         Generate a piecewise polynomial of the imaginary atomic scattering factors for the given stoichiometry.
 
@@ -555,8 +560,8 @@ class stoichiometry:
     )
 
     def atomic_scattering_polynomial_re(
-        self, **kwargs: Unpack["PROPERTIES_DICT"]
-    ) -> "asp_db_re":
+        self, **kwargs: Unpack[PROPERTIES_DICT]
+    ) -> asp_db_re:
         """
         Generate a piecewise polynomial of the real atomic scattering factors for the given stoichiometry.
 
@@ -585,7 +590,7 @@ class stoichiometry:
         atomic_scattering_polynomial_re  # Alias for atomic_scattering_polynomial_re
     )
 
-    def asp_complex(self, **kwargs: Unpack["PROPERTIES_DICT"]) -> "asp_db_complex":
+    def asp_complex(self, **kwargs: Unpack[PROPERTIES_DICT]) -> asp_db_complex:
         """
         Generate a piecewise polynomial of the complex atomic scattering factors for the given stoichiometry.
 
@@ -666,12 +671,8 @@ class stoichiometry:
         # <Paren> or <Remainder> groups are then also processed by a recursive call.
         # +? is a non-greedy match, to capture the smallest possible group.
         search = re.compile(
-            "".join(
-                [
-                    r"((?P<Element>[A-Z][a-z]?)|\((?P<Paren>.+?)\))",
-                    r"(?P<Number>\d*(\.\d+)?)(?P<Remainder>.*)",
-                ]
-            )
+            r"((?P<Element>[A-Z][a-z]?)|\((?P<Paren>.+?)\))"
+            + r"(?P<Number>\d*(\.\d+)?)(?P<Remainder>.*)",
         )
         # Perform the search on the formula
         m = re.search(search, formula)
@@ -702,7 +703,7 @@ class stoichiometry:
     @staticmethod
     def from_chemical_formula(
         formula: str, recursion: bool = True, use_peroidictable: bool = True
-    ) -> "stoichiometry":
+    ) -> stoichiometry:
         """
         Parse a chemical formula string to obtain a stoichiometry.
 

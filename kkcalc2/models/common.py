@@ -3,10 +3,13 @@ Classes for common attributes between atomic scattering factor and polynomial mo
 """
 
 import abc
-from kkcalc2.stoich import stoichiometry as kk_stoichiometry, CompositionAlias
+from typing import Self, TypedDict
+
 import numpy as np
 from scipy.constants import N_A
-from typing import Self, TypedDict
+
+from kkcalc2.stoich import CompositionAlias
+from kkcalc2.stoich import stoichiometry as kk_stoichiometry
 
 
 class PROPERTIES_DICT_NO_STOICH(TypedDict, total=False):
@@ -88,7 +91,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         stoichiometry | None
             Stoichiometry of the material.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -101,7 +103,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         float | None
             Material density.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -114,7 +115,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         float | None
             Material number density.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -129,7 +129,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         float | None
             Atomic mass sum of the materials chemical formula.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -142,7 +141,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         str
             Material/sample name.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -155,7 +153,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         bool
             `True` if the material has been extended by the KKCalc2 database.
         """
-        pass
 
     @property
     def _properties_dict(self) -> PROPERTIES_DICT:
@@ -202,7 +199,6 @@ class atomic_scattering_abstract(metaclass=abc.ABCMeta):
         atomic_scattering_abstract
             Copy instance of the object.
         """
-        pass
 
 
 class atomic_scattering(atomic_scattering_abstract):
@@ -329,7 +325,6 @@ class atomic_scattering(atomic_scattering_abstract):
 
         # Finally assign if the material has been extended by the KKCalc2 database.
         self._is_extended = is_extended  # has to be done after the other assignments, otherwise cannot set stoichiometry.
-        return
 
     @atomic_scattering_abstract.name.getter
     def name(self) -> str | None:  # numpydoc ignore=PR02
@@ -347,15 +342,13 @@ class atomic_scattering(atomic_scattering_abstract):
             The Material/sample name. If no name but a `stoichiometry` is provided,
             returns the stoichiometry string. If no `stoichiometry` either, then returns `None`.
         """
-        if self._name is None:
-            if self.stoichiometry is not None:
-                return str(self.stoichiometry)
+        if self._name is None and self.stoichiometry is not None:
+            return str(self.stoichiometry)
         return self._name
 
     @name.setter
     def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
         self._name = name
-        return
 
     @property
     def number_density(self) -> float | None:  # numpydoc ignore=PR02
@@ -397,7 +390,6 @@ class atomic_scattering(atomic_scattering_abstract):
         if self.stoichiometry is not None:
             # The number density and density are linked, so remove any density when setting a number density, to avoid confusion.
             self._density = None
-        return
 
     @number_density.deleter
     def number_density(self) -> None:  # numpydoc ignore=GL08
@@ -442,7 +434,6 @@ class atomic_scattering(atomic_scattering_abstract):
         if self.stoichiometry is not None:
             # The number density and density are linked, so remove any number density when setting a density, to avoid confusion.
             self._number_density = None
-        return
 
     @density.deleter
     def density(self) -> None:  # numpydoc ignore=GL08
@@ -489,7 +480,6 @@ class atomic_scattering(atomic_scattering_abstract):
             )
         else:
             self._formula_mass = formula_mass
-        return
 
     @formula_mass.deleter
     def formula_mass(self) -> None:  # numpydoc ignore=GL08
@@ -558,7 +548,6 @@ class atomic_scattering(atomic_scattering_abstract):
             raise ValueError(
                 "Stoichiometry is immutable on a dataset once extended by the KKCalc2 database."
             )
-        return
 
     @stoichiometry.deleter
     def stoichiometry(self) -> None:  # numpydoc ignore=GL08
@@ -568,7 +557,6 @@ class atomic_scattering(atomic_scattering_abstract):
             raise ValueError(
                 "Stoichiometry is immutable on a dataset once extended by the KKCalc2 database."
             )
-        return
 
     @property
     def is_extended(self) -> bool:  # numpydoc ignore=PR02
@@ -631,7 +619,6 @@ class atomic_scattering(atomic_scattering_abstract):
                     self.is_extended = properties[key]  # type: ignore
                 case _:
                     raise ValueError(f"Invalid property: {key}")
-        return
 
     def copy(self) -> Self:
         """
