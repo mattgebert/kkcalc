@@ -16,16 +16,16 @@ jobs:
     strategy:
       matrix:
         os: [Ubuntu]
-        python-version: ["3.13", "3.12"]
+        python-version: ["3.14", "3.13", "3.12"]
         # sphinx-version:
         #   ["sphinx==6.0", "sphinx==6.2", "sphinx==7.0", "sphinx>=7.3"]
         include:
             - os: Windows
-              python-version: "3.13" # replace with latest supported on Windows
+              python-version: "3.14" # replace with latest supported on Windows
               if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
             # sphinx-version: "sphinx" # version shouldn't really matter here
             - os: macOS
-              python-version: "3.13" # replace with latest supported on macOS
+              python-version: "3.14" # replace with latest supported on macOS
               if: ${{ github.repository_owner == 'xraysoftmat' || github.repository_owner == 'benajamin' }}
     defaults:
       run:
