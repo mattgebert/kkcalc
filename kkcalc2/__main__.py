@@ -46,7 +46,7 @@ def main():
     # Generate some example data
 
     PS_NAME = "Polystyrene"
-    PS_STOICHIOMETRY = "CH"
+    PS_STOICHIOMETRY = "C8H8"
     ps_stoich = stoichiometry(PS_STOICHIOMETRY)
 
     # Import Data

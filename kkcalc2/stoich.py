@@ -129,6 +129,11 @@ class stoichiometry:
     TYPING : TypeAlias
         Type alias for the composition parameter and property.
 
+    Raises
+    ------
+    ValueError
+        If the composition is invalid.
+
     See Also
     --------
     stoichiometry.from_chemical_formula : Convert a chemical formula string to a stoichiometry object.

@@ -2,22 +2,26 @@
 This module contains the dialog classes for the GUI.
 """
 
+# stdlib
 import os
 from enum import Enum
 from typing import Any, ClassVar
 
+# external
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-)
-from matplotlib.backends.backend_qt5agg import (
+from matplotlib.backends.backend_qt import (
     NavigationToolbar2QT as NavigationToolbar,
+)
+from matplotlib.backends.backend_qtagg import (
+    FigureCanvasQTAgg as FigureCanvas,
 )
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+# Internal
 from kkcalc2.models.factors import KK_DATATYPE_DOCS, KK_Datatype
+from kkcalc2.stoich import stoichiometry
 
 
 class factor_complexity_dialog(QtWidgets.QDialog):
@@ -712,13 +716,165 @@ class import_data_dialog(QtWidgets.QDialog):
             return None
 
 
+class add_database_dialog(QtWidgets.QDialog):
+    class EnumComplexity(Enum):
+        REAL = 0
+        IMAGINARY = 1
+        COMPLEX = 2
+
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None = None,
+        name: str | None = None,
+        with_complexity: bool = True,
+    ) -> None:
+        """
+        Creates a dialog to add a database entry.
+
+        Allows the selection of a name and stoichiometry formula for the database entry.
+
+        Parameters
+        ----------
+        parent : QtWidgets.QWidget, optional
+            The parent widget for the dialog.
+        name : str, optional
+            The name of the database entry.
+        with_complexity : bool, optional
+            Whether to include a complexity selection (real/imaginary/complex) in the dialog.
+
+        Returns
+        -------
+        QtWidgets.QDialog
+            The dialog for adding a database entry.
+        """
+        super().__init__(parent)
+        self.setWindowTitle(
+            "Add Database Entry" if name is None else f"Add Database Entry: {name}"
+        )
+        layout = QtWidgets.QVBoxLayout()
+        self.setLayout(layout)
+
+        layout.addWidget(QtWidgets.QLabel("Enter the name of the database entry:"))
+        self.name_edit = QtWidgets.QLineEdit()
+        if name is not None:
+            self.name_edit.setText(name)
+        layout.addWidget(self.name_edit)
+
+        if with_complexity:
+            # Add a set of radios
+            layout.addWidget(QtWidgets.QLabel("Select the complexity of the data:"))
+            self.complexity_buttons = [
+                QtWidgets.QPushButton("Real"),
+                QtWidgets.QPushButton("Imaginary"),
+                QtWidgets.QPushButton("Complex"),
+            ]
+            for button in self.complexity_buttons:
+                button.setCheckable(True)
+            blayout = QtWidgets.QHBoxLayout()
+            layout.addLayout(blayout)
+            for button in self.complexity_buttons:
+                blayout.addWidget(button)
+            self.complexity: add_database_dialog.EnumComplexity | None = None
+            """The selected complexity of the data."""
+        else:
+            self.complexity = None
+            """The selected complexity of the data."""
+
+        layout.addWidget(QtWidgets.QLabel("Enter the stoichiometry formula:"))
+        self.stoichiometry_edit = QtWidgets.QLineEdit()
+        layout.addWidget(self.stoichiometry_edit)
+
+        # Add a hind for the stoichiometry edit to show valid examples
+        self.name_edit.setPlaceholderText("e.g., P3HT")
+        self.stoichiometry_edit.setPlaceholderText("e.g., C11H14S")
+
+        # Add a button box for OK and Cancel
+        self.button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok
+            | QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+        layout.addWidget(self.button_box)
+
+        # Connections
+        self.stoichiometry_edit.editingFinished.connect(self.on_stoich_finish_edit)
+        for button in self.complexity_buttons:
+            button.clicked.connect(self.on_complexity_push)
+
+    def on_complexity_push(self):
+        """
+        Collects the selected complexity, then closes the dialog.
+        """
+        sender = self.sender()
+        if sender is not None and sender in self.complexity_buttons:
+            idx = self.complexity_buttons.index(sender)
+            for i, button in enumerate(self.complexity_buttons):
+                if i == idx:
+                    button.setChecked(True)
+                else:
+                    button.setChecked(False)
+
+    def on_stoich_finish_edit(self):
+        """
+        Validates the stoichiometry formula when editing is finished.
+        """
+        formula = self.stoichiometry_edit.text()
+        try:
+            _ = stoichiometry(formula)
+            if formula.strip() == "":
+                self.stoichiometry_edit.setStyleSheet(None)
+            else:
+                self.stoichiometry_edit.setStyleSheet("background-color: lightgreen;")
+        except ValueError:
+            self.stoichiometry_edit.setStyleSheet("background-color: red;")
+
+    @property
+    def name(self) -> str:
+        """
+        Returns the name of the database entry.
+        """
+        return self.name_edit.text()
+
+    @property
+    def stoichiometry(self) -> stoichiometry:
+        """
+        Returns the stoichiometry formula of the database entry.
+        """
+        return stoichiometry(self.stoichiometry_edit.text())
+
+    def accept(self) -> None:
+        """
+        Validates the inputs and accepts the dialog if valid.
+        """
+        if self.name.strip() == "":
+            self.name_edit.setStyleSheet("background-color: red;")
+            return
+        else:
+            self.name_edit.setStyleSheet(None)
+
+        try:
+            _ = stoichiometry(self.stoichiometry_edit.text())
+            self.stoichiometry_edit.setStyleSheet(None)
+        except ValueError:
+            self.stoichiometry_edit.setStyleSheet("background-color: red;")
+            return
+
+        super().accept()
+
+
 if __name__ == "__main__":
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
 
     # Test each dialog
-    dialogs = [factor_complexity_dialog, factor_dtype_dialog, import_data_dialog][2:]
+    dialogs = [
+        # factor_complexity_dialog,
+        # factor_dtype_dialog,
+        # import_data_dialog
+        add_database_dialog
+    ]
     for dialog in dialogs:
         d = dialog()
         d.show()
