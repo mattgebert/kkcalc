@@ -5,11 +5,13 @@ Allows the loading of raw data and duplication objects.
 
 import os
 import warnings
+from collections.abc import Sequence
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from kkcalc2.gui.contrast_viewer import contrast_viewer
 from kkcalc2.gui.dialogs import (
+    add_database_dialog,
     factor_complexity_dialog,
     factor_dtype_dialog,
     import_data_dialog,
@@ -24,8 +26,11 @@ from kkcalc2.models import (
     asp,
     asp_abstract,
     asp_complex,
+    asp_db_complex,
     asp_db_complex_extended,
+    asp_db_im,
     asp_db_im_extended,
+    asp_db_re,
     asp_db_re_extended,
     asp_im,
     asp_re,
@@ -48,7 +53,9 @@ class kk_object_list(QtWidgets.QWidget):
     """A signal emitted when the selected row (object) changes."""
 
     def __init__(
-        self, parent=None, objs: list[type[asf_abstract | asp_abstract]] | None = None
+        self,
+        parent=None,
+        objs: Sequence[type[asf_abstract | asp_abstract]] | None = None,
     ):
         super().__init__(parent=parent)
         self.setWindowTitle("kkcalc Object Loader")
@@ -64,6 +71,7 @@ class kk_object_list(QtWidgets.QWidget):
 
         # Create the load data buttons
         self.import_data_btn = QtWidgets.QPushButton("Import Data")
+        self.add_db_btn = QtWidgets.QPushButton("Add from Database")
 
         # Create the table
         self.table = QtWidgets.QTableWidget(0, 4, self)
@@ -100,6 +108,7 @@ class kk_object_list(QtWidgets.QWidget):
 
         # Assign elements to the layout
         self._layout.addWidget(self.import_data_btn)
+        self._layout.addWidget(self.add_db_btn)
         self._layout.addWidget(self.table)
         self._layout.addLayout(hlayout)
         hlayout.addWidget(self.duplicate_btn)
@@ -132,6 +141,39 @@ class kk_object_list(QtWidgets.QWidget):
         self.delete_btn.clicked.connect(self.delete)
         self.contrast_btn.clicked.connect(self.calc_contrast)
         self.extend_btn.clicked.connect(self.extend_multiple)
+        self.add_db_btn.clicked.connect(self.add_database)
+
+    def add_database(self):
+        """
+        Opens a dialog to add objects from the database.
+        """
+        default_name = "db_obj"
+        unique = False
+        i = -1
+        while not unique:
+            unique = True
+            for name in self._objs.values():
+                if name == default_name:
+                    unique = False
+                    i += 1
+                    default_name = f"db_obj{i}"
+                    break
+
+        dialog = add_database_dialog(
+            parent=self, name=default_name, with_complexity=True
+        )
+        dialog.show()
+        if dialog.exec():
+            name = dialog.name
+            stoich = dialog.stoichiometry
+            complexity = dialog.complexity
+            if complexity == dialog.EnumComplexity.REAL:
+                obj = asp_db_re(stoich)
+            elif complexity == dialog.EnumComplexity.IMAGINARY:
+                obj = asp_db_im(stoich)
+            else:  # complexity == dialog.EnumComplexity.COMPLEX:
+                obj = asp_db_complex(stoich)
+            self.add_kk_objs([obj])
 
     def update_kk_obj(self, obj: type[asf_abstract | asp_abstract]) -> None:
         """
@@ -229,7 +271,7 @@ class kk_object_list(QtWidgets.QWidget):
         self.viewSelectionChanged.emit()
         return
 
-    def add_kk_objs(self, objs: list[type[asf_abstract | asp_abstract]]) -> None:
+    def add_kk_objs(self, objs: Sequence[type[asf_abstract | asp_abstract]]) -> None:
         """
         Adds multiple objects to the table.
 
@@ -300,6 +342,11 @@ class kk_object_list(QtWidgets.QWidget):
     @property
     def checked_objects(self) -> list[type[asf_abstract | asp_abstract]]:
         return [self._objs[row] for row in self._visible_rows]
+
+    @property
+    def all_objects(self) -> list[type[asf_abstract | asp_abstract]]:
+        """All objects currently loaded into the table, regardless of visibility."""
+        return [self._objs[row] for row in sorted(self._objs)]
 
     @property
     def selected_object(self) -> type[asf_abstract | asp_abstract] | None:

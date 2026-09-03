@@ -93,7 +93,7 @@ class TestMain:
 
         assert asf_ps.name == "Polystyrene"
         assert asf_ps.stoichiometry is not None
-        assert str(asf_ps.stoichiometry) == "CH"
+        assert str(asf_ps.stoichiometry) == "C8H8"
 
         # Compare against the packaged example data file directly.
         raw = pkgutil.get_data("kkcalc2", "data/PS_004_-dc.txt")
