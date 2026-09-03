@@ -7,6 +7,100 @@ CHANGELOG
 ..
     version list
 
+.. _changelog-v1.1.0:
+
+v1.1.0 (2026-09-03)
+===================
+
+Bug Fixes
+---------
+
+* **__init__.py**: Remove gui import into toplevel module (`649b305`_)
+
+* **__main__.py**: Incorrect pathing to polystyrene data for GUI, updated for kkcalc2 (`49f6bf6`_)
+
+* **adjust-instantiation-for-complex-classes**: Avoids a bug where classes attempted to use abstract
+  asf class, rather than the im or re versions (`37f1586`_)
+
+* **asp**: Fix asp.extend_energies bug (`d566225`_)
+
+* **asp_db_im_extended**: Added shortcut method to input nexafs data to create an extended db object
+  (`f05cfd6`_)
+
+* **common.py**: Ensure fomula masses utilise stoichiometry first if available (`a1c906f`_)
+
+* **common.py**: Remove variable propogation errors (`d844205`_)
+
+* **dialogs.py**: Adjusts pandas to be the default loader, and fixes header default kwarg
+  (`3ea8d11`_)
+
+* **polynomials**: Add properties for refractive index values to ASP (`3319e73`_)
+
+* **poylnomials.py**: Add none check before using np.asarray (`f027313`_)
+
+* **transforms.py**: Adjust the inverse transform to subtract the relativistic correction (atomic
+  number) before transforming (`dcbc768`_)
+
+* **transforms.py**: Reduced ``DEF_ITER`` to 10 iterations, to avoid division beyond floating
+  precision (`26c7d23`_)
+
+* **update-loader-for-minor-bugs**: Firsttly prevents failure with None stoichiometry for combining
+  multiple edges. secondly adjusts to use basename instead of full path for a new instance name
+  (`1f49cfa`_)
+
+Build System
+------------
+
+* **deps**: Update numpy requirement from ~=2.4.0 to >=2.4,<2.6 (`219489c`_)
+
+* **deps**: Update scipy requirement from ~=1.17.1 to >=1.17.1,<1.19.0 (`f652f1a`_)
+
+Documentation
+-------------
+
+* **index.rst, contributing.rst**: Fix broken links to github (`8d4f360`_)
+
+* **install.rst**: Add short section for periodictable dependency (`b24a974`_)
+
+* **install.rst, api.rst**: Minor doc fixes (`164b077`_)
+
+* **README.md**: Add zenodo reference (`e750040`_)
+
+Features
+--------
+
+* **add-periodictable-backend**: Add alternative implementation for periodictable calculations
+  (`3a77da6`_)
+
+* **asf_modifier.py**: Add new GUI implementation of fix distortions, that allow for the two methods
+  to be selected (`2a1bb40`_)
+
+* **db_models.py**: Add new datascaling method ``prepost_fit`` (`180fb3d`_)
+
+.. _164b077: https://github.com/xraysoftmat/kkcalc/commit/164b0771762d9f2f2199d4f71dbe7ea09f337540
+.. _180fb3d: https://github.com/xraysoftmat/kkcalc/commit/180fb3d679479ead6713d2b56c476e51ef8c0f73
+.. _1f49cfa: https://github.com/xraysoftmat/kkcalc/commit/1f49cfa6d76af42fa3b9406b725f1baaf6b19062
+.. _219489c: https://github.com/xraysoftmat/kkcalc/commit/219489cf91b37779cd6cee500f08c2374cb9f432
+.. _26c7d23: https://github.com/xraysoftmat/kkcalc/commit/26c7d23c280c29f750fc64a35c9e8d684bd2da4c
+.. _2a1bb40: https://github.com/xraysoftmat/kkcalc/commit/2a1bb405efea3c212f0f0adf5245fa6fbf12cdcf
+.. _3319e73: https://github.com/xraysoftmat/kkcalc/commit/3319e73ae6a9b8bdc937af89d473f82f86b75412
+.. _37f1586: https://github.com/xraysoftmat/kkcalc/commit/37f15863bc7c7dc30e0ceecbddfe21744354c0df
+.. _3a77da6: https://github.com/xraysoftmat/kkcalc/commit/3a77da6c2f8ff55f428439caf876056b39858bcc
+.. _3ea8d11: https://github.com/xraysoftmat/kkcalc/commit/3ea8d1104a836cebc65839a937c56af2b4021275
+.. _49f6bf6: https://github.com/xraysoftmat/kkcalc/commit/49f6bf692606fe31f31b759d3526117cbfe9cce4
+.. _649b305: https://github.com/xraysoftmat/kkcalc/commit/649b30551dca829e5d68e3cae141d188a74c81af
+.. _8d4f360: https://github.com/xraysoftmat/kkcalc/commit/8d4f360fd95c6bbf7b85c84d6f934faa4304c488
+.. _a1c906f: https://github.com/xraysoftmat/kkcalc/commit/a1c906fbb7814c4f9d6bd2eafe6be00cb4becf3d
+.. _b24a974: https://github.com/xraysoftmat/kkcalc/commit/b24a9742d72def8b9ba9bc75d0d017d780c6c9e6
+.. _d566225: https://github.com/xraysoftmat/kkcalc/commit/d566225b6c88a8fe72f460e13d35baaa5a4f2d26
+.. _d844205: https://github.com/xraysoftmat/kkcalc/commit/d844205a8edf5a84a13cec860198067c85628645
+.. _dcbc768: https://github.com/xraysoftmat/kkcalc/commit/dcbc768a950c8179b34ceb3ae40deb55988735eb
+.. _e750040: https://github.com/xraysoftmat/kkcalc/commit/e750040f96fded5cf8044282d6db9a84e96d353c
+.. _f027313: https://github.com/xraysoftmat/kkcalc/commit/f027313485b300a017dd746f65d7960ffc14cbf5
+.. _f05cfd6: https://github.com/xraysoftmat/kkcalc/commit/f05cfd625de2f4d41424d4eaa4e9c222acd57d28
+.. _f652f1a: https://github.com/xraysoftmat/kkcalc/commit/f652f1a1268550a3e32bc736caf8d117aa1703a3
+
+
 .. _changelog-v1.0.0:
 
 v1.0.0 (2026-03-17)
