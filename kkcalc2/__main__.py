@@ -28,8 +28,11 @@ try:
     from kkcalc2.gui.kk_gui import kk_gui
 
     hasQT = True
-except ImportError:
-    hasQT = False
+except ImportError as e:
+    if "qt" in str(e).lower():
+        hasQT = False
+    else:
+        raise
 
 
 def main():
