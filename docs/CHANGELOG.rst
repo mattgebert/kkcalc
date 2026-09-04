@@ -7,6 +7,12 @@ CHANGELOG
 ..
     version list
 
+.. _changelog-v1.2.0:
+
+v1.2.0 (2026-09-03)
+===================
+
+
 .. _changelog-v1.1.0:
 
 v1.1.0 (2026-09-03)
