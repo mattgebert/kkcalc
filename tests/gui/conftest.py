@@ -10,6 +10,8 @@ import os
 
 import pytest
 
+from kkcalc2.models.factors import asf_im
+
 # Force the offscreen platform plugin before any Qt import, so tests can run without a display.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 PyQt6 = pytest.importorskip("PyQt6", reason="PyQt6 is required for GUI tests.")
@@ -30,3 +32,14 @@ def qapp() -> QtWidgets.QApplication:
     if app is None:
         app = QtWidgets.QApplication([])
     return app
+
+
+@pytest.fixture
+def modifier(qapp, PS_asf_dataset: asf_im):
+    """A `kk_object_modifier` widget pre-loaded with the example Polystyrene ASF dataset."""
+    from kkcalc2.gui.asf_modifier import kk_object_modifier
+
+    widget = kk_object_modifier()
+    widget.object = PS_asf_dataset
+    yield widget
+    widget.deleteLater()

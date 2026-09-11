@@ -673,6 +673,14 @@ class asp_db_complex(asp_complex):
             kwargs["is_extended"] = True  # We have extended the data
             asp_complex.__init__(self, re=re_db, im=im_db, **kwargs)
 
+            # Restore the components as asp_db_re and asp_db_im to ensure the correct types are used
+            self._re = asp_db_re(
+                energies=self._re.energies, coefs=self._re.coefs, **kwargs
+            )
+            self._im = asp_db_im(
+                energies=self._im.energies, coefs=self._im.coefs, **kwargs
+            )
+
     @override
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
@@ -707,7 +715,11 @@ class asp_db_complex(asp_complex):
         data_y: npt.ArrayLike,
         stoichiometry: kk_stoichiometry | str,
         merge_domain: tuple[float, float] | None = None,
+        *,
         fix_distortions: bool = False,
+        fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
+        fix_predomain: tuple[float, float] | None = None,
+        fix_postdomain: tuple[float, float] | None = None,
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.complex128]]:
         """
         Scale the user data to the database data.
@@ -723,9 +735,19 @@ class asp_db_complex(asp_complex):
         merge_domain : tuple[float, float] | None
             The intersection energies of the user data and database data.
             If None, the full range of the user data will be used.
+        fix_distortions : bool, optional
+            Whether to fix distortions during database scaling. By default False.
+            Provides the same functionality as used in `asp_db_extended.extend_data_with_db`.
+        fix_distortions_method : Literal["grad_min", "prepost_fit"], optional
+            Method to use for fixing distortions during database scaling. By default, "grad_min".
+        fix_predomain : tuple[float, float], optional
+            Pre-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
+        fix_postdomain : tuple[float, float], optional
+            Post-domain range for fixing distortions during database scaling (`prepost_fit` only).
+            By default, None.
         fix_distortions : bool
-            Flag to fix distortions in the user data. Provides the same functionality as used in
-            `asp_db_extended.extend_data_with_db`.
+            Flag to fix distortions in the user data.
 
         Returns
         -------
@@ -741,10 +763,24 @@ class asp_db_complex(asp_complex):
         data_im = data_y.imag
         # Use the db to scale the data
         energies, data_re = asp_db_re.scale_data(
-            data_e, data_re, stoichiometry, merge_domain, fix_distortions
+            data_e,
+            data_re,
+            stoichiometry,
+            merge_domain,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
         )
         energies2, data_im = asp_db_im.scale_data(
-            data_e, data_im, stoichiometry, merge_domain, fix_distortions
+            data_e,
+            data_im,
+            stoichiometry,
+            merge_domain,
+            fix_distortions=fix_distortions,
+            fix_distortions_method=fix_distortions_method,
+            fix_predomain=fix_predomain,
+            fix_postdomain=fix_postdomain,
         )
         assert np.all(energies == energies2), (
             "Energies for real and imaginary components do not match after scaling."
@@ -753,6 +789,32 @@ class asp_db_complex(asp_complex):
         data_y = data_re + 1j * data_im
         # Return the scaled data
         return energies, data_y
+
+    @asp_complex.re.getter
+    @override
+    def re(self) -> asp_db_re:
+        """
+        The real part object of the atomic scattering polynomial.
+
+        Returns
+        -------
+        asp_re
+            The real part component of the atomic scattering polynomial.
+        """
+        return self._re
+
+    @asp_complex.im.getter
+    @override
+    def im(self) -> asp_db_im:
+        """
+        The imaginary part object of the atomic scattering polynomial.
+
+        Returns
+        -------
+        asp_im
+            The imaginary part component of the atomic scattering polynomial.
+        """
+        return self._im
 
 
 class asp_db_extended(asp):
@@ -1758,7 +1820,7 @@ class asp_db_re_extended(asp_db_extended, asp_re):
 
         super().__init__(
             data_asf=data_asf,
-            re_db=re_db,
+            database=re_db,
             merge_domain=merge_domain,
             fix_distortions=fix_distortions,
             fix_distortions_method=fix_distortions_method,
@@ -1901,7 +1963,7 @@ class asp_db_complex_extended(asp_db_extended, asp_complex):
 
         super().__init__(
             data_asf=data_asf,
-            complex_db=complex_db,
+            database=complex_db,
             merge_domain=merge_domain,
             fix_distortions=fix_distortions,
             fix_distortions_method=fix_distortions_method,
