@@ -1370,6 +1370,88 @@ class asf(asf_abstract, atomic_scattering):
             **common_kwargs,
         )
 
+    def __add__(self, other: Self) -> Self:
+        """
+        Add two `asf` objects together.
+
+        This operation requires that both `asf` objects have the same energies.
+        If the energies do not match, a `ValueError` is raised.
+
+        Alternatively, two `asf` objects can be converted to `asp` objects,
+        and then added together, which will interpolate the coefficients to a common energy grid.
+        This can then be converted back to an `asf` object if desired.
+
+        Parameters
+        ----------
+        other : asf
+            Another `asf` object to add to this one.
+
+        Returns
+        -------
+        asf
+            A new `asf` object with the sum of the factors.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not an instance of the same class as `self`.
+        ValueError
+            If the energies of `self` and `other` do not match.
+        """
+        if type(other) is not type(self):
+            raise TypeError(f"Cannot add {type(self)} and {type(other)}")
+        if not np.array_equal(self.energies, other.energies):
+            raise ValueError(
+                f"Cannot add {type(self)} and {type(other)} with different energies"
+            )
+        # Create a new asf object with the sum of the factors
+        return type(self)(
+            energies=self.energies.copy(),
+            factors=self.factors + other.factors,
+            **self._properties_dict,
+        )
+
+    def __sub__(self, other: Self) -> Self:
+        """
+        Subtract two `asf` objects.
+
+        This operation requires that both `asf` objects have the same energies.
+        If the energies do not match, a `ValueError` is raised.
+
+        Alternatively, two `asf` objects can be converted to `asp` objects,
+        and then subtracted, which will interpolate the coefficients to a common energy grid.
+        This can then be converted back to an `asf` object if desired.
+
+        Parameters
+        ----------
+        other : asf
+            Another `asf` object to subtract from this one.
+
+        Returns
+        -------
+        asf
+            A new `asf` object with the difference of the factors.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not an instance of the same class as `self`.
+        ValueError
+            If the energies of `self` and `other` do not match.
+        """
+        if type(other) is not type(self):
+            raise TypeError(f"Cannot subtract {type(self)} and {type(other)}")
+        if not np.array_equal(self.energies, other.energies):
+            raise ValueError(
+                f"Cannot subtract {type(self)} and {type(other)} with different energies"
+            )
+        # Create a new asf object with the difference of the factors
+        return type(self)(
+            energies=self.energies.copy(),
+            factors=self.factors - other.factors,
+            **self._properties_dict,
+        )
+
 
 class asf_re(asf):
     """
@@ -3245,3 +3327,73 @@ class asf_complex(asf_abstract, atomic_scattering):
         common_kwargs.update(kwargs)
         # Create a new object
         return type(self)(re=self.re.copy(), im=self.im.copy(), **common_kwargs)
+
+    def __add__(self: Self, other: Self) -> Self:
+        """
+        Add two `asf_complex` objects together.
+
+        Parameters
+        ----------
+        other : asf_complex
+            The other `asf_complex` object to add.
+
+        Returns
+        -------
+        asf_complex
+            A new `asf_complex` object representing the sum of the two objects.
+
+        Raises
+        ------
+        ValueError
+            If the energies of the two objects do not match.
+
+        See Also
+        --------
+        kkcalc2.models.common.atomic_scattering : The base class for material attributes.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot add {type(self)} and {type(other)}. Both must be of the same type."
+            )
+        if not np.all(self.energies == other.energies):
+            raise ValueError(
+                "Energies of the two `asf_complex` objects must match for addition."
+            )
+        new_re = self.re + other.re
+        new_im = self.im + other.im
+        return type(self)(re=new_re, im=new_im, **self._properties_dict)
+
+    def __sub__(self: Self, other: Self) -> Self:
+        """
+        Subtract one `asf_complex` object from another.
+
+        Parameters
+        ----------
+        other : asf_complex
+            The other `asf_complex` object to subtract.
+
+        Returns
+        -------
+        asf_complex
+            A new `asf_complex` object representing the difference of the two objects.
+
+        Raises
+        ------
+        ValueError
+            If the energies of the two objects do not match.
+
+        See Also
+        --------
+        kkcalc2.models.common.atomic_scattering : The base class for material attributes.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot subtract {type(self)} and {type(other)}. Both must be of the same type."
+            )
+        if not np.all(self.energies == other.energies):
+            raise ValueError(
+                "Energies of the two `asf_complex` objects must match for subtraction."
+            )
+        new_re = self.re - other.re
+        new_im = self.im - other.im
+        return type(self)(re=new_re, im=new_im, **self._properties_dict)

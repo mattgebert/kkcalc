@@ -9,7 +9,6 @@ import numpy as np
 # Internal
 import kkcalc2 as kk
 
-
 if __name__ == "__main__":
     formula = "C10H14S"  # P3HT
     energies = np.linspace(100, 3000, 5000)

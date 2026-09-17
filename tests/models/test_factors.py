@@ -298,3 +298,39 @@ class TestKKTransformRoundTrip:
             "Residual error grows linearly with energy, indicating the relativistic "
             "correction is leaking into the inverse transform again."
         )
+
+
+class TestAsfArithmetic:
+    """
+    Tests that arithmetic operations on `asf` objects produce the expected results.
+    """
+
+    def test_addition(self, nexafs_asf: NexafsAsf) -> None:
+        """Adding two `asf` objects returns a new `asf` object with the sum of their factors."""
+        result = nexafs_asf.im + nexafs_asf.im
+
+        assert isinstance(result, asf_im)
+        assert np.allclose(
+            result.factors, nexafs_asf.im.factors + nexafs_asf.im.factors
+        )
+
+    def test_addition_fails_with_types(self, nexafs_asf: NexafsAsf) -> None:
+        with pytest.raises(TypeError):
+            _ = (
+                nexafs_asf.im + nexafs_asf.re
+            )  # Adding an `asf` object to a non-`asf` object should raise a TypeError.
+
+    def test_subtraction(self, nexafs_asf: NexafsAsf) -> None:
+        """Subtracting two `asf` objects returns a new `asf` object with the difference of their factors."""
+        result = nexafs_asf.im - nexafs_asf.im
+
+        assert isinstance(result, asf_im)
+        assert np.allclose(
+            result.factors, nexafs_asf.im.factors - nexafs_asf.im.factors
+        )
+
+    def test_subtraction_fails_with_types(self, nexafs_asf: NexafsAsf) -> None:
+        with pytest.raises(TypeError):
+            _ = (
+                nexafs_asf.im - nexafs_asf.re
+            )  # Subtracting an `asf` object from a non-`asf` object should raise a TypeError.
