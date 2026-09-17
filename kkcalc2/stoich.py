@@ -223,7 +223,7 @@ class stoichiometry:
         bool
             True if the stoichiometry of the compounds are equal, False otherwise.
         """
-        if isinstance(other, self.__class__):
+        if isinstance(other, type(self)):
             return self.composition == other.composition
         elif isinstance(other, str):
             # Try to convert the string to a stoichiometry object.
@@ -329,8 +329,8 @@ class stoichiometry:
             A new stoichiometry object with the composition of the two combined.
         """
         if isinstance(other, str):
-            return self.__class__(self.composition + stoichiometry(other).composition)
-        return self.__class__(self.composition + other.composition)
+            return type(self)(self.composition + stoichiometry(other).composition)
+        return type(self)(self.composition + other.composition)
 
     def __radd__(self, other: Self | str) -> Self:
         """
@@ -394,9 +394,7 @@ class stoichiometry:
         Self
             A new stoichiometry object with the composition multiplied by the scalar.
         """
-        return self.__class__(
-            [(elem, count * other) for elem, count in self.composition]
-        )
+        return type(self)([(elem, count * other) for elem, count in self.composition])
 
     def __rmul__(self, other: float) -> Self:
         """
@@ -454,7 +452,7 @@ class stoichiometry:
         >>> stoichiometry("C9H12O6S2") // 2
         C4H6O3S1
         """
-        return self.__class__(
+        return type(self)(
             [(elem, int(count // other)) for elem, count in self.composition]
         )
 
@@ -467,7 +465,7 @@ class stoichiometry:
         stoichiometry
             A copy of the stoichiometry object, with a unique composition reference.
         """
-        return self.__class__(self.composition.copy())
+        return type(self)(self.composition.copy())
 
     @property
     def composition(self) -> list[tuple[int, float]]:

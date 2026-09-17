@@ -110,7 +110,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         if "stoichiometry" not in props or props["stoichiometry"] is None:
             raise ValueError("Stoichiometry must be defined to copy the object")
         # Copy the object
-        return self.__class__(
+        return type(self)(
             energies=self.energies.copy(), coefs=self.coefs.copy(), **props
         )
 
@@ -706,7 +706,7 @@ class asp_db_complex(asp_complex):
         for key, value in kwargs.items():
             if value is not None:
                 prop_args[key] = value.copy() if hasattr(value, "copy") else value  # type: ignore
-        return self.__class__(energies=energies, coefs=coefs, **prop_args)  # type: ignore
+        return type(self)(energies=energies, coefs=coefs, **prop_args)  # type: ignore
 
     @classmethod
     def scale_data(
@@ -1497,7 +1497,7 @@ class asp_db_extended(asp):
             if hasattr(kwargs[key], "copy"):
                 kwargs[key] = kwargs[key].copy()
         # Create the copy
-        obj = self.__class__(
+        obj = type(self)(
             data_asf=self.dataset_asf.copy(),
             database=self.database_asp.copy(),
             merge_domain=self.merge_domain,

@@ -629,7 +629,7 @@ class atomic_scattering(atomic_scattering_abstract):
         atomic_scattering
             Copy of the class instance.
         """
-        cls = self.__class__
+        cls = type(self)
         obj = cls(
             name=self.name,
             number_density=None,

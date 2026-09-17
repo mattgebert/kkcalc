@@ -348,9 +348,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         start, stop, step = key.indices(len(self))
         energies = self.energies[start : stop + 1 : step]
         coefs = self.coefs[start:stop:step]
-        return self.__class__(
-            energies=energies, coefs=coefs, orders=self.orders, **kwargs
-        )
+        return type(self)(energies=energies, coefs=coefs, orders=self.orders, **kwargs)
 
     def dataframe(self) -> "pd.DataFrame":
         """
@@ -402,7 +400,7 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         str
             A string representation of the object properties.
         """
-        header1: str = f"{self.__class__.__name__}" + (
+        header1: str = f"{type(self).__name__}" + (
             "" if self.name is None else f" '{self.name}'"
         )
         header2: str = (
@@ -652,9 +650,11 @@ class asp(asp_abstract, atomic_scattering):
         # Check energies are a subset
         en_min, en_max = cenergies.min(), cenergies.max()
         if not np.all([en >= en_min and en <= en_max for en in new_energies]):
-            raise ValueError("Existing energies must be a subset of the new energies.")
+            raise ValueError(
+                f"Existing energies ({cenergies.min()}-{cenergies.max()}) must be a subset of the new energies ({new_energies.min()}-{new_energies.max()})."
+            )
         # Get the class and creation kwargs
-        cls = self.__class__
+        cls = type(self)
         # props = self._properties_dict
         # update the properties with the kwargs
         # props.update(kwargs)
@@ -735,7 +735,7 @@ class asp(asp_abstract, atomic_scattering):
             raise ValueError("Domain values must be within the existing energies.")
 
         # Get the class
-        cls = self.__class__
+        cls = type(self)
         if domain[0] in self.energies and domain[1] in self.energies:
             # If the domain is already in the energies, just return a copy of the object
             obj = self.copy(**kwargs)
@@ -970,11 +970,114 @@ class asp(asp_abstract, atomic_scattering):
         # Update the common kwargs with provided values.
         common_kwargs.update(kwargs)
         # Create a new object
-        return self.__class__(
+        return type(self)(
             energies=self.energies.copy(),
             coefs=self.coefs.copy(),
             orders=self.orders.copy() if self.orders is not None else None,
             **common_kwargs,
+        )
+
+    def __add__(self, other: Self) -> Self:
+        """
+        Add two `asp` objects together.
+
+        The resulting `asp` object will have polynomial coefficients that
+        are the sum of the two input objects' coefficients, and will be defined
+        over the common energy range of the two objects, through truncation or extension
+        as necessary.
+
+        Parameters
+        ----------
+        other : asp
+            Another `asp` object to add to this one.
+
+        Returns
+        -------
+        asp
+            A new `asp` object that represents the sum of the two `asp` objects.
+
+        See Also
+        --------
+        kkcalc2.models.polynomials.asp.extend_energies : Method to extend the energy range of an `asp` object.
+        kkcalc2.models.polynomials.asp.truncate_energies : Method to truncate the energy range of an `asp` object.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot add {type(self)} and {type(other)}. Must be of the same type."
+            )
+
+        # Truncate to common energy range
+        if not np.array_equal(self.energies[[0, -1]], other.energies[[0, -1]]):
+            common_e_max = min(self.energies.max(), other.energies.max())
+            common_e_min = max(self.energies.min(), other.energies.min())
+            self_trunc = self.truncate_energies(domain=(common_e_min, common_e_max))
+            other_trunc = other.truncate_energies(domain=(common_e_min, common_e_max))
+        else:
+            self_trunc = self
+            other_trunc = other
+
+        # If the energies are still not equal, extend to match energies
+        if not np.array_equal(self_trunc.energies, other_trunc.energies):
+            self_trunc = self_trunc.extend_energies(other_trunc.energies)
+            other_trunc = other_trunc.extend_energies(self_trunc.energies)
+
+        new_coefs = self_trunc.coefs + other_trunc.coefs
+
+        # Return the new asp object, not Self, to avoid issues with subclassing.
+        return type(self)(
+            energies=self_trunc.energies,
+            coefs=new_coefs,
+            orders=self_trunc.orders,
+            **self._properties_dict,
+        )
+
+    def __sub__(self, other: Self) -> Self:
+        """
+        Subtract two `asp` objects.
+
+        The resulting `asp` object will have polynomial coefficients that
+        are the difference of the two input objects' coefficients, and will be defined
+        over the common energy range of the two objects, through truncation or extension
+        as necessary.
+
+        Parameters
+        ----------
+        other : asp
+            Another `asp` object to subtract from this one.
+
+        Returns
+        -------
+        asp
+            A new `asp` object that represents the difference of the two `asp` objects.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot subtract {type(self)} and {type(other)}. Must be of the same type."
+            )
+
+        # Truncate to common energy range
+        if not np.array_equal(self.energies[[0, -1]], other.energies[[0, -1]]):
+            common_e_max = min(self.energies.max(), other.energies.max())
+            common_e_min = max(self.energies.min(), other.energies.min())
+            self_trunc = self.truncate_energies(domain=(common_e_min, common_e_max))
+            other_trunc = other.truncate_energies(domain=(common_e_min, common_e_max))
+        else:
+            self_trunc = self
+            other_trunc = other
+
+        # If the energies are still not equal, extend to match energies
+        if not np.array_equal(self_trunc.energies, other_trunc.energies):
+            self_trunc = self.extend_energies(other.energies)
+            other_trunc = other.extend_energies(self.energies)
+
+        new_coefs = self_trunc.coefs - other_trunc.coefs
+
+        # Return the new asp object, not Self, to avoid issues with subclassing.
+        return type(self)(
+            energies=self.energies,
+            coefs=new_coefs,
+            orders=self.orders,
+            **self._properties_dict,
         )
 
 
@@ -2071,7 +2174,7 @@ class asp_complex(asp_abstract, atomic_scattering):
     @atomic_scattering.density.setter
     def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asp_complex, self.__class__).density.fset(self, density)
+        super(asp_complex, type(self)).density.fset(self, density)
         # Propogate to components
         self._re.density = density
         self._im.density = density
@@ -2081,7 +2184,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         self, number_density: float | None
     ) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asp_complex, self.__class__).number_density.fset(self, number_density)
+        super(asp_complex, type(self)).number_density.fset(self, number_density)
         # Propogate to components
         self._re.number_density = number_density
         self._im.number_density = number_density
@@ -2089,7 +2192,7 @@ class asp_complex(asp_abstract, atomic_scattering):
     @atomic_scattering.formula_mass.setter
     def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asp_complex, self.__class__).formula_mass.fset(self, formula_mass)
+        super(asp_complex, type(self)).formula_mass.fset(self, formula_mass)
         # Propogate to components
         self._re.formula_mass = formula_mass
         self._im.formula_mass = formula_mass
@@ -2099,7 +2202,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         self, stoich: kk_stoichiometry | str | None
     ) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction from atomic_scattering
-        super(asp_complex, self.__class__).stoichiometry.fset(self, stoich)
+        super(asp_complex, type(self)).stoichiometry.fset(self, stoich)
         # Propogate to components
         self._re.stoichiometry = stoich
         self._im.stoichiometry = stoich
@@ -2107,7 +2210,7 @@ class asp_complex(asp_abstract, atomic_scattering):
     @atomic_scattering.name.setter
     def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asp_complex, self.__class__).name.fset(self, name)
+        super(asp_complex, type(self)).name.fset(self, name)
         # Propogate to components
         self._re.name = name
         self._im.name = name
@@ -2566,7 +2669,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                 common_kwargs[key] = common_kwargs[key].copy()
         # Update kwargs
         common_kwargs.update(kwargs)
-        return self.__class__(re=self.re.copy(), im=self.im.copy(), **common_kwargs)
+        return type(self)(re=self.re.copy(), im=self.im.copy(), **common_kwargs)
 
     def extend_energies(
         self, energies: npt.NDArray, **kwargs: Unpack[PROPERTIES_DICT]
@@ -2591,7 +2694,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         re_extend = self.re.extend_energies(energies)
         common_kwargs = self._properties_dict
         common_kwargs.update(kwargs)
-        return self.__class__(re=re_extend, im=im_extend, **common_kwargs)
+        return type(self)(re=re_extend, im=im_extend, **common_kwargs)
 
     @overload
     def critical_angle(
@@ -2665,3 +2768,67 @@ class asp_complex(asp_abstract, atomic_scattering):
         """
         # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
         return self.im.attenuation_length(energies=energies)
+
+    def __add__(self: Self, other: Self) -> Self:
+        """
+        Add two `asp_complex` objects together.
+
+        Parameters
+        ----------
+        other : asp_complex
+            The other `asp_complex` object to add.
+
+        Returns
+        -------
+        asp_complex
+            A new `asp_complex` object with the sum of the polynomial coefficients and properties.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot add {type(self)} and {type(other)}. Both must be of type `asp_complex`."
+            )
+        # Add the real and imaginary parts separately
+        re_sum = self.re + other.re
+        im_sum = self.im + other.im
+        # Combine properties, prioritizing self's properties over other's
+        common_kwargs = self._properties_dict.copy()
+        for key, value in other._properties_dict.items():
+            if key not in common_kwargs or common_kwargs[key] is None:
+                common_kwargs[key] = value
+            elif common_kwargs[key] != value:
+                warnings.warn(
+                    f"Property {key} differs between the two objects. Using self's value: {common_kwargs[key]}."
+                )
+        return type(self)(re=re_sum, im=im_sum, **common_kwargs)
+
+    def __sub__(self: Self, other: Self) -> Self:
+        """
+        Subtract one `asp_complex` object from another.
+
+        Parameters
+        ----------
+        other : asp_complex
+            The other `asp_complex` object to subtract.
+
+        Returns
+        -------
+        asp_complex
+            A new `asp_complex` object with the difference of the polynomial coefficients and properties.
+        """
+        if type(other) is not type(self):
+            raise TypeError(
+                f"Cannot subtract {type(self)} and {type(other)}. Both must be of type `asp_complex`."
+            )
+        # Subtract the real and imaginary parts separately
+        re_diff = self.re - other.re
+        im_diff = self.im - other.im
+        # Combine properties, prioritizing self's properties over other's
+        common_kwargs = self._properties_dict.copy()
+        for key, value in other._properties_dict.items():
+            if key not in common_kwargs or common_kwargs[key] is None:
+                common_kwargs[key] = value
+            elif common_kwargs[key] != value:
+                warnings.warn(
+                    f"Property {key} differs between the two objects. Using self's value: {common_kwargs[key]}."
+                )
+        return type(self)(re=re_diff, im=im_diff, **common_kwargs)

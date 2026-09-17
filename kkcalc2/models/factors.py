@@ -795,7 +795,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         #         kwargs["max_rows"] = 6
         #     return self.dataframe().to_string(**kwargs)
         # else:
-        return f"<{self.__class__.__name__} ({len(self.energies)} points, {self.energies[0]:0.2f} eV to {self.energies[-1]:0.2f} eV)>"
+        return f"<{type(self).__name__} ({len(self.energies)} points, {self.energies[0]:0.2f} eV to {self.energies[-1]:0.2f} eV)>"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -817,7 +817,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         if not isinstance(key, (int, slice)):
             raise TypeError("Index must be an integer or slice.")
         common_kwargs = self._properties_dict
-        return self.__class__(
+        return type(self)(
             energies=self.energies[key], factors=self.factors[key], **common_kwargs
         )
 
@@ -942,7 +942,7 @@ class asf(asf_abstract, atomic_scattering):
             # If no original data is provided, assume the input data is the original data.
             self._origin_data = np.c_[energies, factors]  # already creates copies
 
-        if scale_to_database and self.__class__ == asf:
+        if scale_to_database and type(self) is asf:
             # Do not allow the base class to scale, as no complexity designation.
             warnings.warn(
                 f"Scaling to database is only available for real and imaginary components, not for {self}. Turning off scaling."
@@ -1123,7 +1123,7 @@ class asf(asf_abstract, atomic_scattering):
                 )
                 return
             raise ValueError(
-                f"Scaling to database is only available for real and imaginary components. {self} is {self.__class__}."
+                f"Scaling to database is only available for real and imaginary components. {self} is {type(self)}."
             )
         raise ValueError("Scaling to database requires a stoichiometry.")
 
@@ -1362,7 +1362,7 @@ class asf(asf_abstract, atomic_scattering):
         # Update with kwargs
         common_kwargs.update(kwargs)
         # Create a new object
-        return self.__class__(
+        return type(self)(
             energies=self.energies.copy(),
             factors=self.factors.copy(),
             origin_dtype=self.origin_dtype,
@@ -2496,7 +2496,7 @@ class asf_complex(asf_abstract, atomic_scattering):
     @atomic_scattering.density.setter
     def density(self, density: float | None) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asf_complex, self.__class__).density.fset(self, density)
+        super(asf_complex, type(self)).density.fset(self, density)
         # Propogate to components
         self._re.density = density
         self._im.density = density
@@ -2506,7 +2506,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         self, number_density: float | None
     ) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asf_complex, self.__class__).number_density.fset(self, number_density)
+        super(asf_complex, type(self)).number_density.fset(self, number_density)
         # Propogate to components
         self._re.number_density = number_density
         self._im.number_density = number_density
@@ -2514,7 +2514,7 @@ class asf_complex(asf_abstract, atomic_scattering):
     @atomic_scattering.formula_mass.setter
     def formula_mass(self, formula_mass: float | None) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asf_complex, self.__class__).formula_mass.fset(self, formula_mass)
+        super(asf_complex, type(self)).formula_mass.fset(self, formula_mass)
         # Propogate to components
         self._re.formula_mass = formula_mass
         self._im.formula_mass = formula_mass
@@ -2524,7 +2524,7 @@ class asf_complex(asf_abstract, atomic_scattering):
         self, stoich: kk_stoichiometry | str | None
     ) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction from atomic_scattering
-        super(asf_complex, self.__class__).stoichiometry.fset(self, stoich)
+        super(asf_complex, type(self)).stoichiometry.fset(self, stoich)
         # Propogate to components
         self._re.stoichiometry = stoich
         self._im.stoichiometry = stoich
@@ -2532,7 +2532,7 @@ class asf_complex(asf_abstract, atomic_scattering):
     @atomic_scattering.name.setter
     def name(self, name: str | None) -> None:  # numpydoc ignore=GL08
         # Repeat the same instruction
-        super(asf_complex, self.__class__).name.fset(self, name)
+        super(asf_complex, type(self)).name.fset(self, name)
         # Propogate to components
         self._re.name = name
         self._im.name = name
@@ -3244,4 +3244,4 @@ class asf_complex(asf_abstract, atomic_scattering):
         # Update with kwargs
         common_kwargs.update(kwargs)
         # Create a new object
-        return self.__class__(re=self.re.copy(), im=self.im.copy(), **common_kwargs)
+        return type(self)(re=self.re.copy(), im=self.im.copy(), **common_kwargs)
