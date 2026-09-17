@@ -255,11 +255,11 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     def __call__(
         self, target_energies: npt.NDArray | None
     ) -> npt.NDArray:  # numpydoc ignore=GL08
-        pass
+        ...
 
     @overload
     def __call__(self, target_energies: float) -> float:  # numpydoc ignore=GL08
-        pass
+        ...
 
     def __call__(
         self, target_energies: npt.NDArray | npt.ArrayLike | float | None = None
