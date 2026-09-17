@@ -81,13 +81,13 @@ Then switch the active backend at runtime with:
 .. code-block:: python
 
     >>> import kkcalc2.asf_database as asf_database
-    >>> asf_database.set_database_backend("periodictable")
-    >>> asf_database.get_database_backend()
+    >>> asf_database.set_db_backend("periodictable")
+    >>> asf_database.get_db_backend()
     'periodictable'
-    >>> asf_database.set_database_backend("kkcalc")  # switch back to the bundled database
+    >>> asf_database.set_db_backend("kkcalc")  # switch back to the bundled database
 
 See ``kkcalc2.asf_database.periodictable_loader`` for details of how the alternative database
-is generated, and `kkcalc2.asf_database.set_database_backend` for the runtime switch.
+is generated, and `kkcalc2.asf_database.set_db_backend` for the runtime switch.
 
 
 Verify Install

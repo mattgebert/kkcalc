@@ -34,12 +34,12 @@ _database_backend: Literal["kkcalc", "periodictable"] = "kkcalc"
 __all__ = [
     "ASF_DATABASE",
     "ASFElement",
-    "get_database_backend",
-    "set_database_backend",
+    "get_db_backend",
+    "set_db_backend",
 ]
 
 
-def set_database_backend(backend: Literal["kkcalc", "periodictable"], **kwargs) -> None:
+def set_db_backend(backend: Literal["kkcalc", "periodictable"], **kwargs) -> None:
     """
     Switch the backend used to populate `ASF_DATABASE`, at runtime.
 
@@ -66,7 +66,7 @@ def set_database_backend(backend: Literal["kkcalc", "periodictable"], **kwargs) 
 
     See Also
     --------
-    get_database_backend : Query the currently active database backend.
+    get_db_backend : Query the currently active database backend.
     kkcalc2.asf_database.periodictable_loader.load_asf_database_periodictable :
         The alternative, `periodictable`-based database loader.
     """
@@ -90,7 +90,7 @@ def set_database_backend(backend: Literal["kkcalc", "periodictable"], **kwargs) 
     _database_backend = backend
 
 
-def get_database_backend() -> Literal["kkcalc", "periodictable"]:
+def get_db_backend() -> Literal["kkcalc", "periodictable"]:
     """
     Query the currently active database backend used to populate `ASF_DATABASE`.
 
@@ -101,9 +101,33 @@ def get_database_backend() -> Literal["kkcalc", "periodictable"]:
 
     See Also
     --------
-    set_database_backend : Switch the active database backend at runtime.
+    set_db_backend : Switch the active database backend at runtime.
     """
     return _database_backend
+
+
+def db_backend(
+    backend: Literal["kkcalc", "periodictable"] | None = None,
+) -> None | Literal["kkcalc", "periodictable"]:
+    """
+    Get or set the database backend used to populate `ASF_DATABASE`.
+
+    Parameters
+    ----------
+    backend : Literal["kkcalc", "periodictable"] | None, optional
+        The database backend to set as active.
+        If `None`, the function will return the currently active backend instead.
+
+    Returns
+    -------
+    None | Literal["kkcalc", "periodictable"]
+        If `backend` is `None`, returns the currently active database backend.
+        Otherwise, returns `None` after setting the new backend.
+    """
+    if backend is not None:
+        set_db_backend(backend)
+    else:
+        return get_db_backend()
 
 
 # Example usage

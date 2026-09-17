@@ -7,7 +7,7 @@ used to build kkcalc2's own bundled database, but computes them on demand for an
 arbitrary energy grid rather than from a pre-packaged file.
 
 This module is entirely optional: `periodictable` is not a required dependency of kkcalc2.
-Use `kkcalc2.asf_database.set_database_backend("periodictable")` to switch the active
+Use `kkcalc2.asf_database.set_db_backend("periodictable")` to switch the active
 `kkcalc2.asf_database.ASF_DATABASE` to use this loader at runtime, or call
 `load_asf_database_periodictable` directly to build a standalone database dictionary.
 
@@ -77,7 +77,7 @@ def load_asf_database_periodictable(
     See Also
     --------
     kkcalc2.asf_database.db_loader.load_asf_database : The default, bundled-file based loader.
-    kkcalc2.asf_database.set_database_backend : Switch the active database backend at runtime.
+    kkcalc2.asf_database.set_db_backend : Switch the active database backend at runtime.
     """
     if not has_periodictable:
         raise ImportError(

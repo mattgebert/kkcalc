@@ -14,7 +14,7 @@ from kkcalc2.models import asp_db_im, asp_db_re
 def restore_default_backend():
     """Ensure the default 'kkcalc' database backend is restored after each test."""
     yield
-    db.set_database_backend("kkcalc")
+    db.set_db_backend("kkcalc")
 
 
 class TestLoadAsfDatabasePeriodictable:
@@ -66,35 +66,35 @@ class TestDatabaseBackendSwitching:
 
     def test_default_backend_is_kkcalc(self) -> None:
         """The default database backend is 'kkcalc'."""
-        assert db.get_database_backend() == "kkcalc"
+        assert db.get_db_backend() == "kkcalc"
 
     def test_switch_to_periodictable_and_back(self) -> None:
         """Switching backends mutates `ASF_DATABASE` in place and updates the reported backend."""
         original_database_id = id(db.ASF_DATABASE)
         original_carbon_E = db.ASF_DATABASE[6]["E"].copy()
 
-        db.set_database_backend("periodictable", elements=[1, 6, 26], num_points=100)
+        db.set_db_backend("periodictable", elements=[1, 6, 26], num_points=100)
 
-        assert db.get_database_backend() == "periodictable"
+        assert db.get_db_backend() == "periodictable"
         # The dict object itself is mutated in place, not replaced.
         assert id(db.ASF_DATABASE) == original_database_id
         assert set(db.ASF_DATABASE.keys()) == {1, 6, 26}
         # Data has actually changed (different energy grid/resolution).
         assert not np.array_equal(db.ASF_DATABASE[6]["E"], original_carbon_E)
 
-        db.set_database_backend("kkcalc")
-        assert db.get_database_backend() == "kkcalc"
+        db.set_db_backend("kkcalc")
+        assert db.get_db_backend() == "kkcalc"
         assert id(db.ASF_DATABASE) == original_database_id
         assert np.array_equal(db.ASF_DATABASE[6]["E"], original_carbon_E)
 
     def test_invalid_backend_raises_value_error(self) -> None:
         """An unrecognised backend name raises `ValueError`."""
         with pytest.raises(ValueError, match="Unknown database backend"):
-            db.set_database_backend("not_a_real_backend")
+            db.set_db_backend("not_a_real_backend")
 
     def test_periodictable_backend_usable_by_models(self) -> None:
         """`asp_db_im`/`asp_db_re` can build usable objects from the `periodictable` backend."""
-        db.set_database_backend(
+        db.set_db_backend(
             "periodictable",
             elements=[1, 6],
             energy_range=(100.0, 1000.0),
