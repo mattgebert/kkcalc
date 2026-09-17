@@ -189,3 +189,59 @@ class TestAspScalarArray:
 
         assert isinstance(result, np.ndarray)
         assert result.shape == (n_points,)
+
+
+class TestAspArithmatic:
+    """Tests that arithmetic operations on `asp` objects return the expected types."""
+
+    def test_addition_returns_asp(self, nexafs_asf: NexafsAsf) -> None:
+        """Adding two `asp` objects returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        poly2 = nexafs_asf.im.to_ASP()
+
+        result = poly1 + poly2
+
+        assert isinstance(result, asp_im)
+        assert np.allclose(result.coefs, poly1.coefs + poly2.coefs)
+
+    def test_subtraction_returns_asp(self, nexafs_asf: NexafsAsf) -> None:
+        """Subtracting two `asp` objects returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        poly2 = nexafs_asf.im.to_ASP()
+
+        result = poly1 - poly2
+
+        assert isinstance(result, asp_im)
+        assert np.allclose(result.coefs, poly1.coefs - poly2.coefs)
+
+    def test_invalid_addition_raises(self, nexafs_asf: NexafsAsf) -> None:
+        """Adding an `asp` object to a non-`asp` object raises a TypeError."""
+        poly = nexafs_asf.im.to_ASP()
+        non_poly = 5  # An integer, not an asp object
+
+        with pytest.raises(TypeError):
+            _ = poly + non_poly
+
+    def test_invalid_subtraction_raises(self, nexafs_asf: NexafsAsf) -> None:
+        """Subtracting a non-`asp` object from an `asp` object raises a TypeError."""
+        poly = nexafs_asf.im.to_ASP()
+        non_poly = 5  # An integer, not an asp object
+
+        with pytest.raises(TypeError):
+            _ = poly - non_poly
+
+    def test_im_re_invalid_addition_raises(self, nexafs_asf: NexafsAsf) -> None:
+        """Adding an `asp_im` object to an `asp_re` object raises a TypeError."""
+        im_poly = nexafs_asf.im.to_ASP()
+        re_poly = nexafs_asf.re.to_ASP()
+
+        with pytest.raises(TypeError):
+            _ = im_poly + re_poly
+
+    def test_im_re_invalid_subtraction_raises(self, nexafs_asf: NexafsAsf) -> None:
+        """Subtracting an `asp_re` object from an `asp_im` object raises a TypeError."""
+        im_poly = nexafs_asf.im.to_ASP()
+        re_poly = nexafs_asf.re.to_ASP()
+
+        with pytest.raises(TypeError):
+            _ = im_poly - re_poly
