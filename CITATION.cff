@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Gebert"
+  given-names: "Matthew"
+  orcid: "https://orcid.org/0000-0003-1363-9498"
+- family-names: "McNeill"
+  given-names: "Christopher"
+  orcid: "https://orcid.org/0000-0001-5221-878X"
+- family-names: "Watts"
+  given-names: "Benjamin"
+  orcid: "https://orcid.org/0000-0003-2330-2338"
+title: "KKCalc"
+version: 1.2.1
+doi: 10.5281/zenodo.19058528
+date-released: 2026-09-04
+url: "https://github.com/xraysoftmat/kkcalc"
