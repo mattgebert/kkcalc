@@ -188,6 +188,9 @@ prerelease = false
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
+version_variables = [
+    "CITATION.cff:version:nf" # Citation File
+]
 # build_command = "python -m build --sdist --wheel ."
 commit_parser = "conventional"
 build_command = "pip install uv && uv build --sdist --wheel . --out-dir dist"
