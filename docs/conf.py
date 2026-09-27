@@ -95,6 +95,7 @@ extensions = [
     # "autoapi.extension",
     "matplotlib.sphinxext.plot_directive",
     "sphinx.ext.coverage",
+    # "sphinx.ext.imgconverter",  # to covert badges to PDF-compatible formats
 ]
 
 

@@ -53,17 +53,19 @@ jobs:
         run: |
           sphinx-build -M dirhtml ./docs ./docs/_build
 
-      - name: Build | Sphinx latex documentation
-        run: |
-          sphinx-build -M latex ./docs ./docs/_build
+      # - name: Dependency | Install TeXLive Components for PDF Generation
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y texlive-full inkscape imagemagick libmagickwand-dev
 
-      # DISABLED: currently crashes as doesn't recognise '.svg' file extension despite texlive-full install.
+      # - name: Build | Sphinx latex documentation
+      #   run: |
+      #     sphinx-build -M latex ./docs ./docs/_build
+
+      # DISABLED: currently crashes as doesn't recognise '.svg' file extension despite texlive-full install and inkscape.
       # - name: Build | Install TeXLive & Build PDF
       #   # if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch'
       #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install inkscape
-      #     sudo apt-get install -y texlive-full
       #     make -C docs/_build/latex
 
       # Add commands to generate and process coverage reports using sphinx-reports or similar
