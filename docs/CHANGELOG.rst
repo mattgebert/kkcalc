@@ -12,12 +12,24 @@ CHANGELOG
 v1.2.1 (2026-09-04)
 ===================
 
+Bug Fixes
+---------
+
+* **pyproject.toml**: add pandas for gui opt-dependency (`52fb95a`_)
+
+.. _52fb95a: https://github.com/xraysoftmat/kkcalc/commit/52fb95a60db6e5b0fb416a673628717de3820a51
 
 .. _changelog-v1.2.0:
 
 v1.2.0 (2026-09-03)
 ===================
 
+Features
+--------
+
+* **asf_loader.py**: Add new dialog to display database factors (`5928cae`_)
+
+.. _5928cae: https://github.com/xraysoftmat/kkcalc/commit/5928cae80f141866d94ee5ec96b4f48b4981e4b8
 
 .. _changelog-v1.1.0:
 
