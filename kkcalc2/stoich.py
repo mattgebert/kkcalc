@@ -91,6 +91,15 @@ def relativistic_correction_eq(composition: list[tuple[int, float]]) -> float:
     -------
     float
         The relativistic corection to the Kramers-Kronig transform.
+
+    Notes
+    -----
+    Henke[1]_ calculates this in the "high-photon-energy" limit from tabulated Kissel and Pratt[2]_ data.
+
+    References
+    ----------
+    .. [1] B. L. Henke, E. M. Gullikson, and J. C. Davis, "X-ray interactions: Photoabsorption, scattering, transmission, and reflection at e = 50-30,000 ev, z = 1-92," At. Data Nucl. Data Tables 54, 181-342 (1993). http://dx.doi.org/10.1006/adnd.1993.1013
+    .. [2] L. Kissel and R. H. Pratt, "Corrections to tabulated anomalous-scattering factors",  Acta Crystallogr. Sec. A 46, 170 (1990). https://doi.org/10.1107/S0108767389010718
     """
     return sum([(z - (z / 82.5) ** 2.37) * n for z, n in composition])
 
