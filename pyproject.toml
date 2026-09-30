@@ -141,7 +141,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 # ------------------- NUMPYDOC -------------------
-[tool.numpydoc_validation]
+[tool.numpydoc_validation] # Note, these checks are also duplicated in sphinx conf.py.
 checks = [
     "all",   # report on all checks, except the below
     "EX01",

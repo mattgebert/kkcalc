@@ -116,7 +116,42 @@ autosummary_ignore_module_all = True
 numpydoc_xref_param_type = True
 numpydoc_xref_ignore = {"optional", "type_without_description", "BadException"}
 # Run docstring validation as part of build process
-numpydoc_validation_checks = {"all", "GL01", "SA04", "RT03"}
+numpydoc_validation_checks = {
+    "all",  # report on all checks, except the below
+    "EX01",
+    "SA01",
+    "ES01",
+    "GL08",  # TODO: ignore docstring check until numpydoc 1.9.0 is released (where constructors are supported).
+    "PR02",  # TODO: ignore parameter check until numpydoc 1.9.0 is released (where properties setter methods are supported).
+    # "all", "GL01", "SA04", "RT03"
+}
+numpydoc_validation_exclude = {  # don't report on objects that match any of these regex
+    "\.undocumented_method$",
+    "\.__repr__$",
+    # Ignore gui modules... not part of the API yet.
+    "^.*(dialogs).*$",
+    "^.*(contrast_viewer).*$",  # Ignore all gui modules
+    "^.*(asf_viewer).*$",
+    "^.*(asf_modifier).*$",
+    "^.*(asf_loader).*$",
+    # Add the .py modules here. Packages don't seem to work...
+    "^.*(test).*$",
+    "^.*(docs).*$",
+    # 'test_stoich',
+    # 'test_transforms',
+    # 'test_models',
+}
+
+numpydoc_validation_overrides = {  # override SS05 to allow docstrings starting with these words
+    "SS05": [
+        "^Process ",
+        "^Assess ",
+        "^Access ",
+        "^Alias",
+    ]
+}
+
+
 numpydoc_show_class_members = True
 
 # List of patterns, relative to source directory, that match files and
