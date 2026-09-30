@@ -19,7 +19,6 @@ kkcalc2.asf_database.db_loader.load_asf_database : The default, bundled-file bas
 from collections.abc import Sequence
 
 import numpy as np
-import numpy.typing as npt
 
 from kkcalc2 import conversions
 from kkcalc2.asf_database.db_loader import ASFElement
@@ -34,7 +33,7 @@ except ImportError:
 #: Default photon energy range (eV) used to sample the `periodictable` Henke tables.
 DEFAULT_ENERGY_RANGE: tuple[float, float] = (10.0, 30000.0)
 #: Default number of energy points used to sample the `periodictable` Henke tables.
-DEFAULT_NUM_POINTS: int = 500
+DEFAULT_NUM_POINTS: int = 2000
 #: Atomic numbers covered by the `periodictable`/Henke x-ray scattering factor tables (H to U).
 DEFAULT_ELEMENTS: tuple[int, ...] = tuple(range(1, 93))
 
@@ -89,10 +88,10 @@ def load_asf_database_periodictable(
         elements = DEFAULT_ELEMENTS
 
     # `periodictable` expects energies in keV, not eV.
-    energies_eV: npt.NDArray[np.floating] = np.logspace(
-        np.log10(energy_range[0]), np.log10(energy_range[1]), num_points
-    )
-    energies_keV = energies_eV / 1000.0
+    # energies_eV: npt.NDArray[np.floating] = np.logspace(
+    #     np.log10(energy_range[0]), np.log10(energy_range[1]), num_points
+    # )
+    # energies_keV = energies_eV / 1000.0
 
     database: dict[int, ASFElement] = {}
     for z in elements:
@@ -101,7 +100,12 @@ def load_asf_database_periodictable(
         except (KeyError, IndexError):
             continue
 
-        f1, f2 = element.xray.scattering_factors(energy=energies_keV)
+        # f1, f2 = element.xray.scattering_factors(energy=energies_keV)
+        table = element.xray._gettable()
+        assert table is not None, (
+            f"No scattering factor table found for element {element.name} (Z={z})"
+        )
+        energies_keV, f1, f2 = table
         f1 = np.asarray(f1, dtype=float)
         f2 = np.asarray(f2, dtype=float)
 
@@ -112,13 +116,49 @@ def load_asf_database_periodictable(
             continue
         valid_indices = np.flatnonzero(valid)
         lo, hi = valid_indices[0], valid_indices[-1] + 1
+        if lo >= hi:
+            raise ValueError(
+                f"No valid scattering factor data found for element {element.name} (Z={z})"
+            )
+        energies_eV = energies_keV * 1000.0
         e_valid = energies_eV[lo:hi]
         f1_valid = f1[lo:hi]
         f2_valid = f2[lo:hi]
 
+        # TODO: Remove when periodictable>1.2 is released, which fixes the ordering of the Henke tables.
+        # Temporarily sort the energies and corresponding f1/f2 values to ensure they are strictly increasing.
+        sort_indices = np.argsort(e_valid)
+        e_valid = e_valid[sort_indices]
+        f1_valid = f1_valid[sort_indices]
+        f2_valid = f2_valid[sort_indices]
+
+        diffs = np.diff(e_valid)
+        monotonic = np.all(diffs > 0)
+        if not monotonic:
+            # Check if the duplicate energies
+            if not np.all(diffs >= 0):
+                raise ValueError(
+                    f"Energies must be ordered and unique for element {element.name} (Z={z})."
+                    + f" Negative differences: {np.where(diffs < 0)}."
+                )
+
+            # Average duplicate energies and corresponding f1/f2 values
+            duplicate_indices = np.where(diffs == 0)[0]
+            for idx in duplicate_indices[
+                ::-1
+            ]:  # Reverse order to avoid index shifting when deleting
+                en = e_valid[idx]
+                en_mask = e_valid == en
+                f1_valid[idx] = np.mean(f1_valid[en_mask])
+                f2_valid[idx] = np.mean(f2_valid[en_mask])
+                # Remove the duplicate entries (keep the first occurrence)
+                e_valid = np.delete(e_valid, np.where(en_mask)[0][1:])
+                f1_valid = np.delete(f1_valid, np.where(en_mask)[0][1:])
+                f2_valid = np.delete(f2_valid, np.where(en_mask)[0][1:])
+
         # `Im` stores piecewise-linear polynomial coefficients (matching the bundled database),
         # `Re` stores raw point values aligned with `E[:-1]` (matching the bundled database).
-        im_coefs = conversions.ASF_to_ASP(e_valid, f2_valid)
+        im_coefs = conversions.ASF_to_ASP(energies=e_valid, factors=f2_valid)
 
         database[z] = ASFElement(
             E=e_valid,
