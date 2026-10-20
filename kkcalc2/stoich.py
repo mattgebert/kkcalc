@@ -358,7 +358,7 @@ class stoichiometry:
         """
         return self.__add__(other)
 
-    def __iadd__(self, other: Self | str) -> None:
+    def __iadd__(self, other: Self | str) -> Self:
         """
         Add another stoichiometry to the current stoichiometry.
 
@@ -375,6 +375,8 @@ class stoichiometry:
         initial_comp = self.composition
         if isinstance(other, str):
             other_comp = stoichiometry(other).composition
+        else:
+            other_comp = other.composition
         # Check validity of composition, collect duplicate elements
         final_comp: list[tuple[int, int | float]] = []
         for elem, n in initial_comp + other_comp:
@@ -388,6 +390,7 @@ class stoichiometry:
             if not exists:
                 final_comp.append((elem, n))
         self._composition = final_comp
+        return self
 
     def __mul__(self, other: float) -> Self:
         """
