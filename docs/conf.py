@@ -126,8 +126,8 @@ numpydoc_validation_checks = {
     # "all", "GL01", "SA04", "RT03"
 }
 numpydoc_validation_exclude = {  # don't report on objects that match any of these regex
-    "\.undocumented_method$",
-    "\.__repr__$",
+    r"\.undocumented_method$",
+    r"\.__repr__$",
     # Ignore gui modules... not part of the API yet.
     "^.*(dialogs).*$",
     "^.*(contrast_viewer).*$",  # Ignore all gui modules
