@@ -334,3 +334,34 @@ class TestAsfArithmetic:
             _ = (
                 nexafs_asf.im - nexafs_asf.re
             )  # Subtracting an `asf` object from a non-`asf` object should raise a TypeError.
+
+    def test_complex_factors_setter_accepts_complex_arrays(
+        self, nexafs_asf: NexafsAsf
+    ) -> None:
+        """Assigning complex samples updates both real and imaginary components."""
+        result = nexafs_asf.complex.copy()
+        new_factors = np.full(result.energies.shape, 1.0 + 2.0j)
+
+        result.factors = new_factors
+
+        np.testing.assert_array_equal(result.re.factors, new_factors.real)
+        np.testing.assert_array_equal(result.im.factors, new_factors.imag)
+        np.testing.assert_array_equal(result.factors, new_factors)
+
+    def test_complex_factors_setter_rejects_mismatched_component_lengths(
+        self, nexafs_asf: NexafsAsf
+    ) -> None:
+        """Component setters retain the shared energy/factor length invariant."""
+        result = nexafs_asf.complex.copy()
+
+        with pytest.raises(ValueError, match="Length of factors"):
+            result.factors = np.array([1.0 + 2.0j])
+
+    def test_complex_addition_preserves_component_and_values(
+        self, nexafs_asf: NexafsAsf
+    ) -> None:
+        """Complex ASF addition adds real and imaginary samples independently."""
+        result = nexafs_asf.complex + nexafs_asf.complex
+
+        assert isinstance(result, asf_complex)
+        np.testing.assert_allclose(result.factors, 2 * nexafs_asf.complex.factors)
