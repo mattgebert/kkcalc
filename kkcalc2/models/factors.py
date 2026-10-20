@@ -14,7 +14,7 @@ from typing import Literal, Self, TypedDict, Unpack, overload, override
 import numpy as np
 import numpy.typing as npt
 
-from kkcalc2 import conversions
+from kkcalc2 import conversions, transforms
 
 ## ..
 from kkcalc2.models.common import (
@@ -701,7 +701,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         npt.NDArray
             An array of `N-1` Atomic scattering polynomial coefficients.
         """
-        return conversions.ASF_to_ASP(energies, factors)
+        return conversions.ASF_to_ASP(energies, factors, N)
 
     @property
     def atomic_scattering_polynomial(self) -> npt.NDArray:
@@ -728,7 +728,7 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     asp = atomic_scattering_polynomial  # Alias for atomic scattering polynomial coefficients.
 
     @abc.abstractmethod
-    def to_atomic_scattering_polynomial(self) -> asp_abstract:
+    def to_atomic_scattering_polynomial(self, **kwargs) -> asp_abstract:
         """
         Convert factor representation to polynomial representation.
 
@@ -736,6 +736,11 @@ class asf_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         to create an atomic scattering polynomial object of coefficients with length (N-1).
 
         For an array of polynomial coefficients, use the `atomic_scattering_polynomial` property.
+
+        Parameters
+        ----------
+        **kwargs
+            Additional keyword arguments for the `atomic_scattering` object.
 
         Returns
         -------
@@ -1136,6 +1141,8 @@ class asf(asf_abstract, atomic_scattering):
         Uses the `energies` and `factors` attributes (with length `N`) of the object
         to create an atomic scattering polynomial object of coefficients with length (N-1).
 
+        The resulting polynomial object will have the default orders [1, 0, -1, -2, -3].
+
         For an array of polynomial coefficients, use the `atomic_scattering_polynomial` property.
 
         Parameters
@@ -1158,8 +1165,9 @@ class asf(asf_abstract, atomic_scattering):
         common_kwargs.update(kwargs)
         # Return asp object
         return asp_type(
-            energies=self.energies[:-1],
+            energies=self.energies,
             coefs=self.atomic_scattering_polynomial,
+            orders=transforms.DEF_ORDERS,
             **common_kwargs,
         )
 
@@ -1556,6 +1564,8 @@ class asf_re(asf):
         Uses the `energies` and `factors` attributes (with length `N`) of the object
         to create an atomic scattering polynomial object of coefficients with length (N-1).
 
+        The resulting polynomial object will have the default orders [1, 0, -1, -2, -3].
+
         For an array of polynomial coefficients, use the `atomic_scattering_polynomial` property.
 
         Parameters
@@ -1580,6 +1590,7 @@ class asf_re(asf):
         return asp_re(
             energies=self.energies,
             coefs=self.atomic_scattering_polynomial,
+            orders=transforms.DEF_ORDERS,
             **common_kwargs,
         )
 
@@ -2041,6 +2052,8 @@ class asf_im(asf):
         Uses the `energies` and `factors` attributes (with length `N`) of the object
         to create an atomic scattering polynomial object of coefficients with length (N-1).
 
+        By default the resulting polynomial has orders [1, 0, -1, -2, -3].
+
         Parameters
         ----------
         **kwargs : Unpack[PROPERTIES_DICT]
@@ -2058,6 +2071,7 @@ class asf_im(asf):
         return asp_im(
             energies=self.energies,
             coefs=self.atomic_scattering_polynomial,
+            orders=transforms.DEF_ORDERS,
             **common_kwargs,
         )
 

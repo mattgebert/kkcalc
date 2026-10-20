@@ -222,7 +222,7 @@ class TestAspArithmatic:
         result = poly1 + num
         assert isinstance(result, asp_im)
         modified_coefs = poly1.coefs.copy()
-        modified_coefs[1] += num  # Add the number to the constant term
+        modified_coefs[:, 1] += num  # Add the number to the constant term
         assert np.allclose(result.coefs, modified_coefs)
 
     def test_subtraction_returns_asp_with_num(self, nexafs_asf: NexafsAsf) -> None:
@@ -235,7 +235,7 @@ class TestAspArithmatic:
         assert isinstance(result, asp_im)
 
         modified_coefs = poly1.coefs.copy()
-        modified_coefs[1] -= num  # Subtract the number from the constant term
+        modified_coefs[:, 1] -= num  # Subtract the number from the constant term
         assert np.allclose(result.coefs, modified_coefs)
 
     def test_invalid_addition_raises(self, nexafs_asf: NexafsAsf) -> None:

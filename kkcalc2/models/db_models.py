@@ -20,8 +20,45 @@ from kkcalc2.models.common import PROPERTIES_DICT, PROPERTIES_DICT_NO_STOICH
 from kkcalc2.models.factors import asf, asf_complex, asf_im, asf_re
 
 # Import from submodules of models, as models.py will also call these classes.
-from kkcalc2.models.polynomials import asp, asp_complex, asp_im, asp_re
+from kkcalc2.models.polynomials import (
+    _match_orders,
+    _orders_equal,
+    asp,
+    asp_complex,
+    asp_im,
+    asp_re,
+)
 from kkcalc2.stoich import stoichiometry as kk_stoichiometry
+
+
+def _coefs_on_orders(
+    energies: npt.NDArray,
+    coefs: npt.NDArray,
+    from_orders: npt.ArrayLike | None,
+    to_orders: npt.ArrayLike | None,
+) -> npt.NDArray:
+    """
+    Re-order polynomial coefficients from one set of orders to another.
+
+    Parameters
+    ----------
+    energies : npt.NDArray
+        The N+1 segment boundary energies.
+    coefs : npt.NDArray
+        The (N, M) coefficients defined on `from_orders`.
+    from_orders : npt.ArrayLike | None
+        The orders of `coefs`, where None means `transforms.DEF_ORDERS`.
+    to_orders : npt.ArrayLike | None
+        The target orders, where None means `transforms.DEF_ORDERS`.
+
+    Returns
+    -------
+    npt.NDArray
+        The coefficients on `to_orders`.
+    """
+    if _orders_equal(from_orders, to_orders):
+        return coefs
+    return _match_orders(asp(energies, coefs, from_orders), to_orders).coefs
 
 
 class asp_db_abstract(asp, metaclass=abc.ABCMeta):
@@ -41,8 +78,11 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         An N+1 length array listing the starting photon energies of the segments that the spectrum is broken up into.
     coefs : numpy.ndarray | None, optional
         Keyword argument to enable copy method, by default None.
-        A 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
+        A 2D numpy array with dimensions (N, M) in which each row lists the polynomial coefficients describing the
         coefficients for the atomic scattering factors.
+    orders : numpy.typing.ArrayLike | None, optional
+        The polynomial orders (length M) of the coefficients. If None, `transforms.DEF_ORDERS`
+        ([1, 0, -1, -2, -3]) is assumed.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `atomic_scattering` base class.
     """
@@ -54,6 +94,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         *,
         energies: npt.NDArray[np.float64] | None = None,
         coefs: npt.NDArray[np.float64] | None = None,
+        orders: npt.ArrayLike | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         pass
@@ -111,7 +152,10 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
             raise ValueError("Stoichiometry must be defined to copy the object")
         # Copy the object
         return type(self)(
-            energies=self.energies.copy(), coefs=self.coefs.copy(), **props
+            energies=self.energies.copy(),
+            coefs=self.coefs.copy(),
+            orders=None if self.orders is None else self.orders.copy(),
+            **props,
         )
 
     @classmethod
@@ -194,6 +238,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         assert len(db_e.shape) == 1, "Database energies must be 1D"
         db_coefs: npt.NDArray = db_poly.coefs
         assert len(db_coefs.shape) == 2, "Database coefs must be 2D"
+        db_orders = db_poly.orders
 
         # Check if merge points are defined:
         if merge_domain is None:
@@ -248,7 +293,10 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
         # Calculate the corresponding y values using the polynomial coefs
         db_asp_merge_range = tuple(
             asp.eval_asf_on_coefs(
-                target_energies=merge_domain, energies=db_e, coefs=db_coefs
+                target_energies=merge_domain,
+                energies=db_e,
+                coefs=db_coefs,
+                orders=db_orders,
             ).tolist()
         )
 
@@ -276,6 +324,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                         target_energies=energies,
                         energies=db_e,
                         coefs=db_coefs,
+                        orders=db_orders,
                     )  # Find equivalent values of the db_asp energies to the data energies
                     guess_grad = (
                         -(data_merge_range[1] - data_merge_range[0])
@@ -325,6 +374,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                         target_energies=pre_x,
                         energies=db_e,
                         coefs=db_coefs,
+                        orders=db_orders,
                     )
                     (pre_m, _) = np.polyfit(
                         pre_x, pre_y - pre_db_y, 1
@@ -348,6 +398,7 @@ class asp_db_abstract(asp, metaclass=abc.ABCMeta):
                         target_energies=post_x,
                         energies=db_e,
                         coefs=db_coefs,
+                        orders=db_orders,
                     )
                     (post_m, _) = np.polyfit(
                         post_x, post_y - post_db_y, 1
@@ -409,6 +460,8 @@ class asp_db_re(asp_db_abstract, asp_re):
         Keyword argument to enable copy method, by default None.
         An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
         shape of the imaginary spectrum in that segment.
+    orders : numpy.typing.ArrayLike | None, optional
+        The polynomial orders (length M) of the coefficients. If None, `transforms.DEF_ORDERS` ([1, 0, -1, -2, -3]) is assumed.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `asp_re` and `atomic_scattering` parent classes.
 
@@ -430,11 +483,12 @@ class asp_db_re(asp_db_abstract, asp_re):
         *,
         energies: npt.NDArray[np.float64] | None = None,
         coefs: npt.NDArray[np.float64] | None = None,
+        orders: npt.ArrayLike | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Run init
         asp_db_abstract.__init__(
-            self, stoichiometry, energies=energies, coefs=coefs, **kwargs
+            self, stoichiometry, energies=energies, coefs=coefs, orders=orders, **kwargs
         )
 
         # Get composition
@@ -450,7 +504,9 @@ class asp_db_re(asp_db_abstract, asp_re):
             if len(energies) - 1 == len(coefs):
                 # Ensure the stoichiometry is set in the kwargs
                 kwargs["stoichiometry"] = stoichiometry
-                asp_re.__init__(self, energies=energies, coefs=coefs, **kwargs)
+                asp_re.__init__(
+                    self, energies=energies, coefs=coefs, orders=orders, **kwargs
+                )
             else:
                 raise ValueError(
                     f"Number of energies ({len(energies)}) and coefs ({len(coefs)}) must match."
@@ -497,11 +553,14 @@ class asp_db_re(asp_db_abstract, asp_re):
 
             # Convert factors to a polynomial
             coefs = conversions.ASF_to_ASP(energies, re_factors)
+            coefs = _coefs_on_orders(energies, coefs, None, orders)
 
             # Setup properties
             kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
             kwargs["is_extended"] = True  # We have extended the data
-            asp_re.__init__(self, energies=energies, coefs=coefs, **kwargs)
+            asp_re.__init__(
+                self, energies=energies, coefs=coefs, orders=orders, **kwargs
+            )
 
 
 class asp_db_im(asp_db_abstract, asp_im):
@@ -522,6 +581,8 @@ class asp_db_im(asp_db_abstract, asp_im):
         Keyword argument to enable copy method, by default None.
         An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
         shape of the imaginary spectrum in that segment.
+    orders : numpy.typing.ArrayLike | None, optional
+        The polynomial orders (length M) of the coefficients. If None, `transforms.DEF_ORDERS` ([1, 0, -1, -2, -3]) is assumed.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments to pass to `asp_im` and `atomic_scattering` parent classes.
 
@@ -545,11 +606,12 @@ class asp_db_im(asp_db_abstract, asp_im):
         *,
         energies: npt.NDArray[np.float64] | None = None,
         coefs: npt.NDArray[np.float64] | None = None,
+        orders: npt.ArrayLike | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Run init
         asp_db_abstract.__init__(
-            self, stoichiometry, energies=energies, coefs=coefs, **kwargs
+            self, stoichiometry, energies=energies, coefs=coefs, orders=orders, **kwargs
         )
 
         # Get composition
@@ -561,7 +623,9 @@ class asp_db_im(asp_db_abstract, asp_im):
             if len(energies) - 1 == len(coefs):
                 # Ensure stoichiometry is set in the kwargs
                 kwargs["stoichiometry"] = stoichiometry
-                asp_im.__init__(self, energies=energies, coefs=coefs, **kwargs)
+                asp_im.__init__(
+                    self, energies=energies, coefs=coefs, orders=orders, **kwargs
+                )
             else:
                 raise ValueError(
                     f"Number of energies ({len(energies)}) and coefs ({len(coefs)}) must match."
@@ -600,7 +664,10 @@ class asp_db_im(asp_db_abstract, asp_im):
             # Setup properties
             kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
             kwargs["is_extended"] = True  # We have extended the data
-            asp_im.__init__(self, energies=energies, coefs=im_coefs, **kwargs)
+            im_coefs = _coefs_on_orders(energies, im_coefs, None, orders)
+            asp_im.__init__(
+                self, energies=energies, coefs=im_coefs, orders=orders, **kwargs
+            )
 
 
 class asp_db_complex(asp_complex):
@@ -621,6 +688,8 @@ class asp_db_complex(asp_complex):
         Keyword argument to enable copy method, by default None.
         An 2D numpy array with dimensions (N, 5) in which each row lists the polynomial coefficients describing the
         shape of the imaginary spectrum in that segment.
+    orders : numpy.typing.ArrayLike | None, optional
+        The polynomial orders (length M) of the coefficients. If None, `transforms.DEF_ORDERS` ([1, 0, -1, -2, -3]) is assumed.
     **kwargs : Unpack[PROPERTIES_DICT]
         Additional keyword arguments for the `atomic_scattering` base class.
 
@@ -644,6 +713,7 @@ class asp_db_complex(asp_complex):
         *,
         energies: npt.NDArray[np.float64] | None = None,
         coefs: npt.NDArray[np.complex128] | None = None,
+        orders: npt.ArrayLike | None = None,
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
         # Get composition
@@ -653,10 +723,18 @@ class asp_db_complex(asp_complex):
         if energies is not None and coefs is not None:
             if len(energies) - 1 == len(coefs):
                 re_db = asp_db_re(
-                    stoichiometry, energies=energies, coefs=coefs.real, **kwargs
+                    stoichiometry,
+                    energies=energies,
+                    coefs=coefs.real,
+                    orders=orders,
+                    **kwargs,
                 )
                 im_db = asp_db_im(
-                    stoichiometry, energies=energies, coefs=coefs.imag, **kwargs
+                    stoichiometry,
+                    energies=energies,
+                    coefs=coefs.imag,
+                    orders=orders,
+                    **kwargs,
                 )
                 asp_complex.__init__(self, re_db, im_db, **kwargs)
             else:
@@ -666,8 +744,8 @@ class asp_db_complex(asp_complex):
         else:
             # Use asp_re and asp_im to generate the complex component
             kwargs["stoichiometry"] = stoichiometry  # Also store the stoichiometry
-            re_db = asp_db_re(**kwargs)
-            im_db = asp_db_im(**kwargs)
+            re_db = asp_db_re(orders=orders, **kwargs)
+            im_db = asp_db_im(orders=orders, **kwargs)
 
             # Setup properties
             kwargs["is_extended"] = True  # We have extended the data
@@ -675,10 +753,16 @@ class asp_db_complex(asp_complex):
 
             # Restore the components as asp_db_re and asp_db_im to ensure the correct types are used
             self._re = asp_db_re(
-                energies=self._re.energies, coefs=self._re.coefs, **kwargs
+                energies=self._re.energies,
+                coefs=self._re.coefs,
+                orders=self._re.orders,
+                **kwargs,
             )
             self._im = asp_db_im(
-                energies=self._im.energies, coefs=self._im.coefs, **kwargs
+                energies=self._im.energies,
+                coefs=self._im.coefs,
+                orders=self._im.orders,
+                **kwargs,
             )
 
     @override
@@ -706,7 +790,12 @@ class asp_db_complex(asp_complex):
         for key, value in kwargs.items():
             if value is not None:
                 prop_args[key] = value.copy() if hasattr(value, "copy") else value  # type: ignore
-        return type(self)(energies=energies, coefs=coefs, **prop_args)  # type: ignore
+        return type(self)(
+            energies=energies,
+            coefs=coefs,
+            orders=None if self.orders is None else self.orders.copy(),
+            **prop_args,  # type: ignore
+        )
 
     @classmethod
     def scale_data(
@@ -1084,6 +1173,7 @@ class asp_db_extended(asp):
                 data_y=data_y,
                 db_e=merge_e,
                 db_coefs=merge_coefs,
+                db_orders=database.orders,
                 merge_domain=d_merge,
                 fix_distortions=fd,
                 fix_distortions_method=fdm,
@@ -1116,7 +1206,9 @@ class asp_db_extended(asp):
         kwargs["is_extended"] = True  # We have extended the data
 
         # Initialize the asp_im object
-        super().__init__(energies=merge_e, coefs=merge_coefs, **kwargs)
+        super().__init__(
+            energies=merge_e, coefs=merge_coefs, orders=database.orders, **kwargs
+        )
 
         # Store the data_asf object for reference
         self.dataset_asf: asf | Sequence[asf] = (
@@ -1140,6 +1232,7 @@ class asp_db_extended(asp):
         db_e: npt.NDArray,
         db_coefs: npt.NDArray,
         *,
+        db_orders: npt.ArrayLike | None = None,
         merge_domain: tuple[float, float] | None = None,
         fix_distortions: bool = False,
         fix_distortions_method: Literal["grad_min", "prepost_fit"] = "grad_min",
@@ -1159,6 +1252,9 @@ class asp_db_extended(asp):
             The energy values of the database data.
         db_coefs : npt.NDArray
             The atomic scattering factor polynomial coefficients of the database data.
+        db_orders : npt.ArrayLike | None, optional
+            The polynomial orders of `db_coefs`, by default None meaning `transforms.DEF_ORDERS`.
+            The merged coefficients are returned on the same orders.
         merge_domain : tuple[float, float] | None, optional
             The intersection energies (inclusive bounds) of `data_e` and database data.
             If None, the full range of the user data will be used to scale.
@@ -1248,7 +1344,10 @@ class asp_db_extended(asp):
         # Calculate the corresponding y values using the polynomial coefs
         db_asp_merge_range = tuple(
             asp.eval_asf_on_coefs(
-                target_energies=merge_domain, energies=db_e, coefs=db_coefs
+                target_energies=merge_domain,
+                energies=db_e,
+                coefs=db_coefs,
+                orders=db_orders,
             ).tolist()
         )
 
@@ -1276,6 +1375,7 @@ class asp_db_extended(asp):
                         target_energies=energies,
                         energies=db_e,
                         coefs=db_coefs,
+                        orders=db_orders,
                     )  # Find equivalent values of the db_asp energies to the data energies
                     guess_grad = (
                         -(data_merge_range[1] - data_merge_range[0])
@@ -1325,6 +1425,7 @@ class asp_db_extended(asp):
                         target_energies=pre_x,
                         energies=db_e,
                         coefs=db_coefs,
+                        orders=db_orders,
                     )
                     (pre_m, _) = np.polyfit(
                         pre_x, pre_y - pre_db_y, 1
@@ -1348,6 +1449,7 @@ class asp_db_extended(asp):
                         target_energies=post_x,
                         energies=db_e,
                         coefs=db_coefs,
+                        orders=db_orders,
                     )
                     (post_m, _) = np.polyfit(
                         post_x, post_y - post_db_y, 1
@@ -1406,6 +1508,9 @@ class asp_db_extended(asp):
         # Convert factors to coefficients
         merge_data_coefs = conversions.ASF_to_ASP(
             energies=merge_data_e, factors=merge_data_y
+        )
+        merge_data_coefs = _coefs_on_orders(
+            merge_data_e, merge_data_coefs, None, db_orders
         )
 
         # Add the db sections to the merge data

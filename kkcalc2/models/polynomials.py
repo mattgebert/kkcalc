@@ -41,6 +41,86 @@ except ImportError:
     has_pandas = False
 
 
+def _resolve_orders(orders: npt.ArrayLike | None) -> npt.NDArray:
+    """
+    Resolve polynomial orders, substituting `transforms.DEF_ORDERS` if `orders` is None.
+
+    Parameters
+    ----------
+    orders : npt.ArrayLike | None
+        The polynomial orders, or None for the default orders.
+
+    Returns
+    -------
+    npt.NDArray
+        The explicit polynomial orders.
+    """
+    return transforms.DEF_ORDERS if orders is None else np.asarray(orders)
+
+
+def _orders_equal(a: npt.ArrayLike | None, b: npt.ArrayLike | None) -> bool:
+    """
+    Check whether two (possibly None) sets of polynomial orders are equivalent.
+
+    Parameters
+    ----------
+    a : npt.ArrayLike | None
+        The first polynomial orders, where None means `transforms.DEF_ORDERS`.
+    b : npt.ArrayLike | None
+        The second polynomial orders, where None means `transforms.DEF_ORDERS`.
+
+    Returns
+    -------
+    bool
+        True if the orders are the same.
+    """
+    return np.array_equal(_resolve_orders(a), _resolve_orders(b))
+
+
+def _match_orders(poly: "asp", orders: npt.ArrayLike | None) -> "asp":
+    """
+    Re-order the coefficients of `poly` on the polynomial `orders`.
+
+    Parameters
+    ----------
+    poly : asp
+        The polynomial to re-express.
+    orders : npt.ArrayLike | None
+        The target polynomial orders, where None means `transforms.DEF_ORDERS`.
+
+    Returns
+    -------
+    asp
+        `poly` if the orders already match, otherwise a new object with coefficients on `orders`.
+    orders
+        The target polynomial orders.
+
+    Raises
+    ------
+    ValueError
+        If a non-zero coefficient of `poly` has an order that is not in `orders`.
+    """
+    if _orders_equal(poly.orders, orders):
+        return poly
+    from_orders = _resolve_orders(poly.orders)
+    to_orders = _resolve_orders(orders)
+    new_coefs = np.zeros((poly.coefs.shape[0], len(to_orders)), dtype=poly.coefs.dtype)
+    for col, order in enumerate(from_orders):
+        target = np.where(to_orders == order)[0]
+        if len(target) > 0:
+            new_coefs[:, target[0]] = poly.coefs[:, col]
+        elif np.any(poly.coefs[:, col] != 0):
+            raise ValueError(
+                f"Cannot express order {order} coefficients on orders {to_orders}."
+            )
+    return type(poly)(
+        energies=poly.energies,
+        coefs=new_coefs,
+        orders=to_orders,
+        **poly._properties_dict,
+    )
+
+
 class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
     """
     Abstract class for a piecewise polynomial representation of atomic scattering factors.
@@ -803,6 +883,14 @@ class asp(asp_abstract, atomic_scattering):
             raise ValueError(
                 f"Number of coefficients ({len(coefs)}) must match the number of energy intervals ({len(self.energies) - 1})."
             )
+        if (
+            self.orders is not None
+            and np.ndim(coefs) == 2
+            and np.shape(coefs)[1] != len(self.orders)
+        ):
+            raise ValueError(
+                f"Number of coefficients per segment ({np.shape(coefs)[1]}) must match the number of orders ({len(self.orders)})."
+            )
         self._coefs = coefs
 
     @asp_abstract.orders.getter
@@ -972,7 +1060,7 @@ class asp(asp_abstract, atomic_scattering):
             **common_kwargs,
         )
 
-    def __add__(self, other: Self | int | float) -> Self:
+    def __add__(self, other: Self | float) -> Self:
         """
         Add two `asp` objects together.
 
@@ -997,18 +1085,13 @@ class asp(asp_abstract, atomic_scattering):
         kkcalc2.models.polynomials.asp.truncate_energies : Method to truncate the energy range of an `asp` object.
         """
         if isinstance(other, (int, float)):
-            if self.orders is None:
-                coef_zero_idx = [
-                    1
-                ]  # Default orders are [1, 0, -1, -2, -3], so index 1 corresponds to order 0.
-            else:
-                coef_zero_idx = np.where(self.orders == 0)[0]
+            coef_zero_idx = np.where(_resolve_orders(self.orders) == 0)[0]
             if len(coef_zero_idx) == 0:
                 raise ValueError(
                     "Cannot add a scalar to an asp object without a zero-order coefficient."
                 )
             new_coefs = self.coefs.copy()
-            new_coefs[coef_zero_idx] += other
+            new_coefs[:, coef_zero_idx] += other
             return type(self)(
                 energies=self.energies,
                 coefs=new_coefs,
@@ -1019,19 +1102,13 @@ class asp(asp_abstract, atomic_scattering):
             raise TypeError(
                 f"Cannot add other `{type(other)}` to `{type(self)}`. Other must be a subclass of {type(self)}."
             )
-        self_orders = self.orders if self.orders is not None else transforms.DEF_ORDERS
-        other_orders = (
-            other.orders if other.orders is not None else transforms.DEF_ORDERS
-        )
-
-        assert (
-            self_orders is not None
-            and other_orders is not None
-            and np.array_equal(self_orders, other_orders)
-        ), (
-            "Cannot add two asp objects with different polynomial orders. "
-            f"Orders of self: {self_orders}, Orders of other: {other_orders}"
-        )
+        other = _match_orders(other, self.orders)
+        if not _orders_equal(self.orders, other.orders):
+            raise ValueError(
+                "Cannot add two asp objects with different polynomial orders. "
+                f"Orders of self: {_resolve_orders(self.orders)}, "
+                f"Orders of other: {_resolve_orders(other.orders)}"
+            )
 
         # Truncate to common energy range
         if not np.array_equal(self.energies[[0, -1]], other.energies[[0, -1]]):
@@ -1080,18 +1157,13 @@ class asp(asp_abstract, atomic_scattering):
             A new `asp` object that represents the difference of the two `asp` objects.
         """
         if isinstance(other, (int, float)):
-            if self.orders is None:
-                coef_zero_idx = [
-                    1
-                ]  # Default orders are [1, 0, -1, -2, -3], so index 1 corresponds to order 0.
-            else:
-                coef_zero_idx = np.where(self.orders == 0)[0]
+            coef_zero_idx = np.where(_resolve_orders(self.orders) == 0)[0]
             if len(coef_zero_idx) == 0:
                 raise ValueError(
                     "Cannot subtract a scalar from an asp object without a zero-order coefficient."
                 )
             new_coefs = self.coefs.copy()
-            new_coefs[coef_zero_idx] -= other
+            new_coefs[:, coef_zero_idx] -= other
             return type(self)(
                 energies=self.energies,
                 coefs=new_coefs,
@@ -1103,19 +1175,13 @@ class asp(asp_abstract, atomic_scattering):
             raise TypeError(
                 f"Cannot subtract {type(other)} from {type(self)}. Must be of the same type."
             )
-
-        self_orders = self.orders if self.orders is not None else transforms.DEF_ORDERS
-        other_orders = (
-            other.orders if other.orders is not None else transforms.DEF_ORDERS
-        )
-        assert (
-            self_orders is not None
-            and other_orders is not None
-            and np.array_equal(self_orders, other_orders)
-        ), (
-            "Cannot subtract two asp objects with different polynomial orders. "
-            f"Orders of self: {self_orders}, Orders of other: {other_orders}"
-        )
+        other = _match_orders(other, self.orders)
+        if not _orders_equal(self.orders, other.orders):
+            raise ValueError(
+                "Cannot subtract two asp objects with different polynomial orders. "
+                f"Orders of self: {_resolve_orders(self.orders)}, "
+                f"Orders of other: {_resolve_orders(other.orders)}"
+            )
 
         # Truncate to common energy range
         if not np.array_equal(self.energies[[0, -1]], other.energies[[0, -1]]):
@@ -1331,14 +1397,23 @@ class asp_im(asp):
         # At this point, relativistic_correction must be defined.
         assert relativistic_correction is not None
 
-        real_factors = transforms.KK_PP(
-            target_energies=(
-                target_energies if target_energies is not None else energies
-            ),
-            energies=energies,
-            imag_coefs=coefs,
-            relativistic_correction=relativistic_correction,
-        )
+        orders = self.orders
+        kk_targets = target_energies if target_energies is not None else energies
+        if orders is None or np.array_equal(orders, transforms.DEF_ORDERS):
+            real_factors = transforms.KK_PP(
+                target_energies=kk_targets,
+                energies=energies,
+                imag_coefs=coefs,
+                relativistic_correction=relativistic_correction,
+            )
+        else:
+            real_factors = transforms.KK_General_PP(
+                target_energies=kk_targets,
+                energies=energies,
+                imag_coefs=coefs,
+                relativistic_correction=relativistic_correction,
+                orders=orders,
+            )
 
         # Collate data
         imp_energies = target_energies if target_energies is not None else energies
@@ -1353,6 +1428,7 @@ class asp_im(asp):
                 relativistic_correction=relativistic_correction,
                 tolerance=tolerance,
                 max_iter=max_iter,
+                orders=orders,
             )
 
         # Import asf_re and create object
@@ -1708,7 +1784,9 @@ class asp_re(asp):
         """
         common_kwargs = asp._properties_dict
         common_kwargs.update(kwargs)
-        return asp_re(energies=asp.energies, coefs=asp.coefs, **common_kwargs)
+        return asp_re(
+            energies=asp.energies, coefs=asp.coefs, orders=asp.orders, **common_kwargs
+        )
 
     def to_atomic_scattering_factors(
         self,
@@ -1834,14 +1912,23 @@ class asp_re(asp):
             assert relativistic_correction is not None
 
         # Calculate the imaginary part of the atomic scattering factors
-        imag_factors = transforms.KK_PP_inv(
-            target_energies=(
-                target_energies if target_energies is not None else self.energies
-            ),
-            energies=self.energies,
-            real_coefs=self.coefs,
-            relativistic_correction=relativistic_correction,
-        )
+        orders = self.orders
+        inv_targets = target_energies if target_energies is not None else self.energies
+        if orders is None or np.array_equal(orders, transforms.DEF_ORDERS):
+            imag_factors = transforms.KK_PP_inv(
+                target_energies=inv_targets,
+                energies=self.energies,
+                real_coefs=self.coefs,
+                relativistic_correction=relativistic_correction,
+            )
+        else:
+            imag_factors = transforms.KK_General_PP_inv(
+                target_energies=inv_targets,
+                energies=self.energies,
+                real_coefs=self.coefs,
+                relativistic_correction=relativistic_correction,
+                orders=orders,
+            )
 
         # Collate "improved" data
         imp_energies = target_energies if target_energies is not None else self.energies
@@ -1857,6 +1944,7 @@ class asp_re(asp):
                 relativistic_correction=relativistic_correction,
                 tolerance=tolerance,
                 max_iter=max_iter,
+                orders=orders,
             )
 
         # Import asf_im and create object
@@ -1933,6 +2021,7 @@ class asp_re(asp):
         )
         # Extend the energies
         re = self.extend_energies(im.energies)
+        # Express the (default order) imaginary polynomial on the same orders as the real part.
         return asp_complex(re=re, im=im.to_ASP(), **common_kwargs)
 
     def calculate_complex_factors(
@@ -2196,12 +2285,12 @@ class asp_complex(asp_abstract, atomic_scattering):
         if not isinstance(re, asp) or not isinstance(im, asp):
             raise TypeError(f"Real and imaginary parts must be of type {asp}.")
 
-        if (
-            re.orders is not None
-            and im.orders is not None
-            and not np.all(re.orders == im.orders)
-        ):
-            warnings.warn("Real and imaginary parts have different polynomial orders.")
+        if not _orders_equal(re.orders, im.orders):
+            raise ValueError(
+                "Real and imaginary parts must have the same polynomial orders. "
+                f"Real orders: {_resolve_orders(re.orders)}, "
+                f"Imaginary orders: {_resolve_orders(im.orders)}"
+            )
 
         # Use the real then imaginary part properties to update None values
         common_kwargs = re._properties_dict
@@ -2322,16 +2411,11 @@ class asp_complex(asp_abstract, atomic_scattering):
         """
         re_orders = self._re.orders
         im_orders = self._im.orders
-        if re_orders is None and im_orders is None:
-            return None
-        elif re_orders is None:
-            return im_orders
-        elif im_orders is None or re_orders == im_orders:
-            return re_orders
-        else:
+        if not _orders_equal(re_orders, im_orders):
             raise ValueError(
                 "Real and imaginary parts have different polynomial orders, orders cannot be determined."
             )
+        return re_orders if re_orders is not None else im_orders
 
     @property
     def re(self) -> asp_re:
@@ -2834,7 +2918,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
         return self.im.attenuation_length(energies=energies)
 
-    def __add__(self: Self, other: Self | float | int) -> Self:
+    def __add__(self: Self, other: Self | float) -> Self:
         """
         Add two `asp_complex` objects together.
 
@@ -2849,43 +2933,28 @@ class asp_complex(asp_abstract, atomic_scattering):
             A new `asp_complex` object with the sum of the polynomial coefficients and properties.
         """
         if isinstance(other, (float, int, complex)):
-            # If other is a scalar, add it to the real part
-            zero_order_idx = np.where(self.orders == 0)[0]
-            if zero_order_idx.size > 0:
-                if isinstance(other, int, float):
-                    # If there is a zero-order term, add the scalar to it
-                    re_sum = self.re.coefs.copy()
-                    re_sum[zero_order_idx[0]] += other
-                    return type(self)(
-                        re=asp_re(
-                            coefs=re_sum, orders=self.orders, energies=self.energies
-                        ),
-                        im=self.im,
-                        **self._properties_dict,
-                    )
-                elif isinstance(other, complex):
-                    # If the scalar is complex, add the real part to the real component and the imaginary part to the imaginary component
-                    re_sum = self.re.coefs.copy()
-                    im_sum = self.im.coefs.copy()
-                    re_sum[zero_order_idx[0]] += other.real
-                    im_sum[zero_order_idx[0]] += other.imag
-                    return type(self)(
-                        re=asp_re(
-                            coefs=re_sum, orders=self.orders, energies=self.energies
-                        ),
-                        im=asp_im(
-                            coefs=im_sum, orders=self.orders, energies=self.energies
-                        ),
-                        **self._properties_dict,
-                    )
-            else:
-                raise ValueError(
-                    "Cannot add a scalar to an `asp_complex` object without a zero-order term."
-                )
+            # Real scalars apply to the real part only; complex scalars apply to both parts.
+            # `asp.__add__` checks for a zero-order term using the (default) orders.
+            return type(self)(
+                re=self.re + other.real,
+                im=self.im + other.imag if isinstance(other, complex) else self.im,
+                **self._properties_dict,
+            )
 
         if type(other) is not type(self):
             raise TypeError(
                 f"Cannot add {type(self)} and {type(other)}. Both must be of type `asp_complex`."
+            )
+
+        other_re = _match_orders(other.re, self.orders)
+        other_im = _match_orders(other.im, self.orders)
+        other = type(other)(re=other_re, im=other_im, **other._properties_dict)
+
+        if not _orders_equal(self.orders, other.orders):
+            raise ValueError(
+                "Cannot add two asp_complex objects with different polynomial orders. "
+                f"Orders of self: {_resolve_orders(self.orders)}, "
+                f"Orders of other: {_resolve_orders(other.orders)}"
             )
         # Add the real and imaginary parts separately
         re_sum = self.re + other.re
@@ -2901,7 +2970,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                 )
         return type(self)(re=re_sum, im=im_sum, **common_kwargs)
 
-    def __sub__(self: Self, other: Self | float | complex) -> Self:
+    def __sub__(self: Self, other: Self | complex) -> Self:
         """
         Subtract one `asp_complex` object from another.
 
@@ -2921,40 +2990,22 @@ class asp_complex(asp_abstract, atomic_scattering):
             If `other` is not the same type as `self`.
         """
         if isinstance(other, (int, float, complex)):
-            # If other is a scalar, subtract it from the real part
-            zero_order_idx = np.where(self.orders == 0)[0]
-            if zero_order_idx.size > 0:
-                if isinstance(other, (int, float)):
-                    re_diff = self.re.coefs.copy()
-                    re_diff[zero_order_idx[0]] -= other
-                    return type(self)(
-                        re=asp_re(
-                            coefs=re_diff, orders=self.orders, energies=self.energies
-                        ),
-                        im=self.im,
-                        **self._properties_dict,
-                    )
-                elif isinstance(other, complex):
-                    re_diff = self.re.coefs.copy()
-                    im_diff = self.im.coefs.copy()
-                    re_diff[zero_order_idx[0]] -= other.real
-                    im_diff[zero_order_idx[0]] -= other.imag
-                    return type(self)(
-                        re=asp_re(
-                            coefs=re_diff, orders=self.orders, energies=self.energies
-                        ),
-                        im=asp_im(
-                            coefs=im_diff, orders=self.orders, energies=self.energies
-                        ),
-                        **self._properties_dict,
-                    )
-            else:
-                raise ValueError(
-                    "Cannot subtract a scalar from an `asp_complex` object without a zero-order term."
-                )
+            # Real scalars apply to the real part only; complex scalars apply to both parts.
+            # `asp.__sub__` checks for a zero-order term using the (default) orders.
+            return type(self)(
+                re=self.re - other.real,
+                im=self.im - other.imag if isinstance(other, complex) else self.im,
+                **self._properties_dict,
+            )
         if not issubclass(type(other), asp_complex):
             raise TypeError(
                 f"Cannot subtract {type(other)} from {type(self)}. Both must be of type `asp_complex`."
+            )
+        if not _orders_equal(self.orders, other.orders):
+            raise ValueError(
+                "Cannot subtract two asp_complex objects with different polynomial orders. "
+                f"Orders of self: {_resolve_orders(self.orders)}, "
+                f"Orders of other: {_resolve_orders(other.orders)}"
             )
         # Subtract the real and imaginary parts separately
         re_diff = self.re - other.re

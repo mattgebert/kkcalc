@@ -671,7 +671,7 @@ def improve_accuracy_inv(
         # )
 
         # Calculate new midpoint real values
-        if orders is None or np.all(orders == DEF_ORDERS):
+        if orders is None or np.array_equal(orders, DEF_ORDERS):
             im_mid = KK_PP_inv(
                 target_energies=en_mid,
                 energies=energies,

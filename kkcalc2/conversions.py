@@ -776,16 +776,20 @@ def ASP_to_ASF(
         )
 
     # Create an array of energy powers for each coefficient.
-    if orders is not None:
-        if orders.ndim == 1 and orders.shape[0] == coefs.shape[1]:
-            powers = np.c_[*[energies**i for i in orders]]
-        else:
-            raise ValueError(
-                f"Number of orders ({orders.shape[0]}) "
-                + f"does not match the number of coefficients ({coefs.shape[1]})."
-            )
+    if orders is None:
+        from kkcalc2.transforms import (
+            DEF_ORDERS,  # Lazy: transforms imports conversions.
+        )
+
+        orders = DEF_ORDERS
+    orders = np.asarray(orders)
+    if orders.ndim == 1 and orders.shape[0] == coefs.shape[1]:
+        powers = np.c_[*[energies**i for i in orders]]
     else:
-        powers = np.c_[*[energies ** (1 - i) for i in range(5)]]
+        raise ValueError(
+            f"Number of orders ({orders.shape[0]}) "
+            + f"does not match the number of coefficients ({coefs.shape[1]})."
+        )
     # Do energies match the number of coefficient sets?
     if energies.shape[0] == coefs.shape[0] + 1:
         # Duplicate the final polynomial to define the final boundary.
