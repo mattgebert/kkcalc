@@ -684,9 +684,9 @@ def ASF_to_ASP(
             )
         # Calculate the coefficients: setup array.
         coefs = np.zeros((len(energies) - 1, N))
-        # Calculate coefficient #0
+        # Calculate coefficient #0 - polynomial_order_1
         coefs[:, 0] = (factors[1:] - factors[:-1]) / (energies[1:] - energies[:-1])
-        # Calculate coefficient #1
+        # Calculate coefficient #1 - polynomial_order_0
         coefs[:, 1] = factors[:-1] - coefs[:, 0] * energies[:-1]
     return coefs
 

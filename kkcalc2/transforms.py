@@ -14,6 +14,8 @@ DEF_ITER: int = 10
 """The default number of iterations to use in improving the accuracy of the Kramers-Kronig transform."""
 DEF_TOL: float = 1e-2
 """The default tolerance to use in improving the accuracy of the Kramers-Kronig transform."""
+DEF_ORDERS = np.array([1, 0, -1, -2, -3], dtype=int)
+"""The default polynomial orders to use in the Kramers-Kronig transform when not specified."""
 
 
 def KK_General_PP(
@@ -61,7 +63,8 @@ def KK_General_PP(
     energies = np.asarray(energies)
     imag_coefs = np.asarray(imag_coefs)
     if orders is None:
-        orders = np.linspace(1, 2 - imag_coefs.shape[1], imag_coefs.shape[1], dtype=int)
+        # orders = np.linspace(1, 2 - imag_coefs.shape[1], imag_coefs.shape[1], dtype=int)
+        orders = DEF_ORDERS
     else:
         orders = np.asarray(orders)
 
@@ -253,6 +256,8 @@ def KK_PP(
     .. math::
         f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
 
+    Optimized only for orders = [1, 0, -1, -2, -3] (5 coefficients) for the imaginary part of the scattering factors.
+
     Parameters
     ----------
     target_energies : array_like
@@ -367,6 +372,8 @@ def KK_PP_inv(
 
     .. math::
         f_2 (E) = \frac{2}{\pi} P \int_{0}^{\infty}\frac{x f_1(x)}{x^2 - E^2} dx + \mathcal{Z}^\star
+
+    Optimized only for orders = [1, 0, -1, -2, -3] (5 coefficients) for the imaginary part of the scattering factors.
 
     Parameters
     ----------
@@ -501,12 +508,21 @@ def improve_accuracy(
         )
 
         # Calculate new midpoint real values
-        re_mid = KK_PP(
-            target_energies=en_mid,
-            energies=energies,
-            imag_coefs=imag_coefs,
-            relativistic_correction=relativistic_correction,
-        )
+        if orders is None or np.array_equal(orders, DEF_ORDERS):
+            re_mid = KK_PP(
+                target_energies=en_mid,
+                energies=energies,
+                imag_coefs=imag_coefs,
+                relativistic_correction=relativistic_correction,
+            )
+        else:
+            re_mid = KK_General_PP(
+                target_energies=en_mid,
+                energies=energies,
+                imag_coefs=imag_coefs,
+                orders=orders,
+                relativistic_correction=relativistic_correction,
+            )
 
         # Evaluate new (polynomial) values to the average of the old (linear) values. If coefs are linear, this will be zero.
         # Difference from linear is the error, bigger is better for finding new corrections.
@@ -655,12 +671,21 @@ def improve_accuracy_inv(
         # )
 
         # Calculate new midpoint real values
-        im_mid = KK_PP_inv(
-            target_energies=en_mid,
-            energies=energies,
-            real_coefs=real_coefs,
-            relativistic_correction=relativistic_correction,
-        )
+        if orders is None or np.all(orders == DEF_ORDERS):
+            im_mid = KK_PP_inv(
+                target_energies=en_mid,
+                energies=energies,
+                real_coefs=real_coefs,
+                relativistic_correction=relativistic_correction,
+            )
+        else:
+            im_mid = KK_General_PP_inv(
+                target_energies=en_mid,
+                energies=energies,
+                real_coefs=real_coefs,
+                orders=orders,
+                relativistic_correction=relativistic_correction,
+            )
 
         # Evaluate new (polynomial) values to the average of the old (linear) values. If coefs are linear, this will be zero.
         # Difference from linear is the error, bigger is better for finding new corrections.

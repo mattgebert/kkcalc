@@ -972,7 +972,7 @@ class asp(asp_abstract, atomic_scattering):
             **common_kwargs,
         )
 
-    def __add__(self, other: Self) -> Self:
+    def __add__(self, other: Self | int | float) -> Self:
         """
         Add two `asp` objects together.
 
@@ -983,7 +983,7 @@ class asp(asp_abstract, atomic_scattering):
 
         Parameters
         ----------
-        other : asp
+        other : asp | int | float
             Another `asp` object to add to this one.
 
         Returns
@@ -996,17 +996,41 @@ class asp(asp_abstract, atomic_scattering):
         kkcalc2.models.polynomials.asp.extend_energies : Method to extend the energy range of an `asp` object.
         kkcalc2.models.polynomials.asp.truncate_energies : Method to truncate the energy range of an `asp` object.
         """
+        if isinstance(other, (int, float)):
+            if self.orders is None:
+                coef_zero_idx = [
+                    1
+                ]  # Default orders are [1, 0, -1, -2, -3], so index 1 corresponds to order 0.
+            else:
+                coef_zero_idx = np.where(self.orders == 0)[0]
+            if len(coef_zero_idx) == 0:
+                raise ValueError(
+                    "Cannot add a scalar to an asp object without a zero-order coefficient."
+                )
+            new_coefs = self.coefs.copy()
+            new_coefs[coef_zero_idx] += other
+            return type(self)(
+                energies=self.energies,
+                coefs=new_coefs,
+                orders=self.orders,
+                **self._properties_dict,
+            )
         if not issubclass(type(other), type(self)):
             raise TypeError(
                 f"Cannot add other `{type(other)}` to `{type(self)}`. Other must be a subclass of {type(self)}."
             )
+        self_orders = self.orders if self.orders is not None else transforms.DEF_ORDERS
+        other_orders = (
+            other.orders if other.orders is not None else transforms.DEF_ORDERS
+        )
+
         assert (
-            self.orders is not None
-            and other.orders is not None
-            and np.array_equal(self.orders, other.orders)
+            self_orders is not None
+            and other_orders is not None
+            and np.array_equal(self_orders, other_orders)
         ), (
             "Cannot add two asp objects with different polynomial orders. "
-            f"Orders of self: {self.orders}, Orders of other: {other.orders}"
+            f"Orders of self: {self_orders}, Orders of other: {other_orders}"
         )
 
         # Truncate to common energy range
@@ -1056,7 +1080,12 @@ class asp(asp_abstract, atomic_scattering):
             A new `asp` object that represents the difference of the two `asp` objects.
         """
         if isinstance(other, (int, float)):
-            coef_zero_idx = np.where(self.orders == 0)[0]
+            if self.orders is None:
+                coef_zero_idx = [
+                    1
+                ]  # Default orders are [1, 0, -1, -2, -3], so index 1 corresponds to order 0.
+            else:
+                coef_zero_idx = np.where(self.orders == 0)[0]
             if len(coef_zero_idx) == 0:
                 raise ValueError(
                     "Cannot subtract a scalar from an asp object without a zero-order coefficient."
@@ -1075,13 +1104,17 @@ class asp(asp_abstract, atomic_scattering):
                 f"Cannot subtract {type(other)} from {type(self)}. Must be of the same type."
             )
 
+        self_orders = self.orders if self.orders is not None else transforms.DEF_ORDERS
+        other_orders = (
+            other.orders if other.orders is not None else transforms.DEF_ORDERS
+        )
         assert (
-            self.orders is not None
-            and other.orders is not None
-            and np.array_equal(self.orders, other.orders)
+            self_orders is not None
+            and other_orders is not None
+            and np.array_equal(self_orders, other_orders)
         ), (
             "Cannot subtract two asp objects with different polynomial orders. "
-            f"Orders of self: {self.orders}, Orders of other: {other.orders}"
+            f"Orders of self: {self_orders}, Orders of other: {other_orders}"
         )
 
         # Truncate to common energy range
@@ -2413,13 +2446,13 @@ class asp_complex(asp_abstract, atomic_scattering):
 
     @overload
     def eval_refractive_index(  # numpydoc ignore=GL08
-        self, target_energies: npt.NDArray | None
-    ) -> npt.NDArray[np.complexfloating]: ...
+        self, target_energies: float
+    ) -> complex: ...
 
     @overload
     def eval_refractive_index(  # numpydoc ignore=GL08
-        self, target_energies: float
-    ) -> complex: ...
+        self, target_energies: npt.NDArray | None
+    ) -> npt.NDArray[np.complexfloating]: ...
 
     def eval_refractive_index(
         self, target_energies: npt.NDArray | float | None = None
