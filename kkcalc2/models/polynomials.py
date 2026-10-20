@@ -306,20 +306,17 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
         indices = np.asarray(
             np.searchsorted(energies, target_energies) - 1
         )  # subtract to transfer from spans (N+1) to coefficients (N).
-        if np.any(indices < 0) or np.any(indices == len(energies) - 1):
-            # Check if all searchsorted invalid indexes are defined.
-            invalid = np.where((indices < 0) | (indices == len(energies) - 1))
-            inval_energies = target_energies[invalid]
-            for inv_e in inval_energies:
-                if inv_e == target_energies[0]:
-                    indices[invalid] = 0  # First defined polynomial.
-                elif inv_e == target_energies[-1]:
-                    indices[invalid] = len(energies) - 2  # Last defined polynomial.
-                else:
-                    raise ValueError(
-                        f"Some energies {target_energies[invalid]} "
-                        + f"are outside the defined energy range ({energies.min()}, {energies.max()})."
-                    )
+        outside_domain = (target_energies < energies[0]) | (
+            target_energies > energies[-1]
+        )
+        if np.any(outside_domain):
+            raise ValueError(
+                f"Some energies {target_energies[outside_domain]} "
+                + f"are outside the defined energy range ({energies.min()}, {energies.max()})."
+            )
+        # The first boundary has no preceding segment and the last boundary is
+        # beyond the final segment index; both use the nearest defined segment.
+        indices = np.clip(indices, 0, len(energies) - 2)
 
         # Collate coefficients corresponding to the energies.
         target_coefs = coefs[indices]
@@ -859,6 +856,14 @@ class asp(asp_abstract, atomic_scattering):
                 obj._energies = energies
                 obj._coefs = coefs
                 return obj
+            common_kwargs = self._properties_dict
+            common_kwargs.update(kwargs)
+            return cls(
+                energies=energies,
+                coefs=coefs,
+                orders=self.orders,
+                **common_kwargs,
+            )
 
     @asp_abstract.coefs.getter
     def coefs(self) -> npt.NDArray | None:  # numpydoc ignore=PR02
@@ -3001,6 +3006,9 @@ class asp_complex(asp_abstract, atomic_scattering):
             raise TypeError(
                 f"Cannot subtract {type(other)} from {type(self)}. Both must be of type `asp_complex`."
             )
+        other_re = _match_orders(other.re, self.orders)
+        other_im = _match_orders(other.im, self.orders)
+        other = type(other)(re=other_re, im=other_im, **other._properties_dict)
         if not _orders_equal(self.orders, other.orders):
             raise ValueError(
                 "Cannot subtract two asp_complex objects with different polynomial orders. "

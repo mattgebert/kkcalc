@@ -6,7 +6,7 @@
 repos:
 # Pre-commit hooks for basic Python processing
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
     -   id: check-added-large-files
         args: ['--maxkb=1500']  # 1.5MB limit for added files
@@ -25,7 +25,7 @@ repos:
 # Ruff - for code linting and style checking
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.14.5
+  rev: v0.17.1
   hooks:
     # Run the linter.
     - id: ruff-check
@@ -35,13 +35,13 @@ repos:
 
 # NumPyDoc - for docstring validation
 -   repo: https://github.com/numpy/numpydoc
-    rev: v1.8.0
+    rev: v1.11.0
     hooks:
       - id: numpydoc-validation
 
 # Python Semantic Release & commitizen - for automatic versioning
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.1.0
+    rev: v4.19.2
     hooks:
       - id: commitizen
         stages: [commit-msg]
