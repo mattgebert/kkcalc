@@ -2695,7 +2695,9 @@ class asf_complex(asf_abstract, atomic_scattering):
             self._im.factors = factors[1]
         else:
             factors = np.asarray(factors)
-            if isinstance(factors, np.ndarray) and factors.dtype == np.complexfloating:
+            if isinstance(factors, np.ndarray) and np.issubdtype(
+                factors.dtype, np.complexfloating
+            ):
                 self._re.factors = factors.real
                 self._im.factors = factors.imag
             elif isinstance(factors, np.ndarray) and factors.ndim == 2:
