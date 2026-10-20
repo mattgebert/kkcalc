@@ -207,3 +207,44 @@ class TestStoichometryOperations:
         polymer = kk_stoich(compound)
         # Test length
         assert len(polymer) == length
+
+    def test_in_place_addition_accepts_objects_and_returns_same_instance(self) -> None:
+        """`+=` combines compositions and preserves the mutated stoichiometry object."""
+        polymer = kk_stoich("CH")
+        original_id = id(polymer)
+
+        polymer += kk_stoich("O2")
+
+        assert id(polymer) == original_id
+        assert polymer == "CHO2"
+
+    def test_in_place_addition_accepts_formula_strings(self) -> None:
+        """`+=` can append another formula string as well as a stoichiometry object."""
+        polymer = kk_stoich("CH")
+
+        polymer += "O2"
+
+        assert polymer == "CHO2"
+
+    @pytest.mark.parametrize(
+        "composition",
+        [
+            {"Xx": 1},
+            {"C": -1},
+            [(93, 1)],
+            [(6, -1)],
+            42,
+        ],
+    )
+    def test_invalid_compositions_raise_value_error(self, composition) -> None:
+        """Unknown elements, negative counts, out-of-range atomic numbers, and non-iterables fail."""
+        with pytest.raises(ValueError):
+            kk_stoich(composition)
+
+    def test_group_and_fractional_formula_multipliers(self) -> None:
+        """Group multipliers and fractional element counts are parsed into elemental counts."""
+        polymer = kk_stoich.from_chemical_formula("(CH2)2O", use_peroidictable=False)
+        fractional = kk_stoich.from_chemical_formula("C0.5H", use_peroidictable=False)
+
+        assert polymer.composition == [(6, 2.0), (1, 4.0), (8, 1.0)]
+        assert fractional.composition == [(6, 0.5), (1, 1.0)]
