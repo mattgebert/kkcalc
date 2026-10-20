@@ -651,7 +651,7 @@ class asp(asp_abstract, atomic_scattering):
         en_min, en_max = cenergies.min(), cenergies.max()
         if not np.all([en >= en_min and en <= en_max for en in new_energies]):
             raise ValueError(
-                f"Existing energies ({cenergies.min()}-{cenergies.max()}) must be a subset of the new energies ({new_energies.min()}-{new_energies.max()})."
+                f"New energies ({new_energies.min()}-{new_energies.max()}) must be a subset of the existing energies ({en_min}-{en_max})."
             )
         # Get the class and creation kwargs
         cls = type(self)
@@ -761,7 +761,8 @@ class asp(asp_abstract, atomic_scattering):
             sort_indices = np.argsort(
                 np.r_[self.energies[:-1], nocoef_energies]
             )  # Sort the combination of old (except the last bound) and new energies
-            energies = np.r_[self.energies, nocoef_energies][sort_indices]
+            energies = np.r_[self.energies[:-1], nocoef_energies][sort_indices]
+            energies = np.r_[energies, self.energies[-1]]  # Add the final energy bound
             coefs = np.r_[self.coefs, new_coefs][sort_indices]
             # Truncate the energies and coefficients to the domain
             index = (energies >= domain[0]) & (energies <= domain[1])
@@ -778,12 +779,6 @@ class asp(asp_abstract, atomic_scattering):
                 obj._energies = energies
                 obj._coefs = coefs
                 return obj
-            else:
-                common_kwargs = self._properties_dict
-                common_kwargs.update(kwargs)
-                return cls(
-                    energies=energies, coefs=coefs, orders=self.orders, **common_kwargs
-                )
 
     @asp_abstract.coefs.getter
     def coefs(self) -> npt.NDArray | None:  # numpydoc ignore=PR02
@@ -1001,10 +996,18 @@ class asp(asp_abstract, atomic_scattering):
         kkcalc2.models.polynomials.asp.extend_energies : Method to extend the energy range of an `asp` object.
         kkcalc2.models.polynomials.asp.truncate_energies : Method to truncate the energy range of an `asp` object.
         """
-        if type(other) is not type(self):
+        if not issubclass(type(other), type(self)):
             raise TypeError(
-                f"Cannot add {type(self)} and {type(other)}. Must be of the same type."
+                f"Cannot add other `{type(other)}` to `{type(self)}`. Other must be a subclass of {type(self)}."
             )
+        assert (
+            self.orders is not None
+            and other.orders is not None
+            and np.array_equal(self.orders, other.orders)
+        ), (
+            "Cannot add two asp objects with different polynomial orders. "
+            f"Orders of self: {self.orders}, Orders of other: {other.orders}"
+        )
 
         # Truncate to common energy range
         if not np.array_equal(self.energies[[0, -1]], other.energies[[0, -1]]):
@@ -1018,8 +1021,10 @@ class asp(asp_abstract, atomic_scattering):
 
         # If the energies are still not equal, extend to match energies
         if not np.array_equal(self_trunc.energies, other_trunc.energies):
-            self_trunc = self_trunc.extend_energies(other_trunc.energies)
-            other_trunc = other_trunc.extend_energies(self_trunc.energies)
+            e1, e2 = self_trunc.energies, other_trunc.energies
+            common_e = np.union1d(e1, e2)
+            self_trunc = self_trunc.extend_energies(common_e)
+            other_trunc = other_trunc.extend_energies(common_e)
 
         new_coefs = self_trunc.coefs + other_trunc.coefs
 
@@ -1031,7 +1036,7 @@ class asp(asp_abstract, atomic_scattering):
             **self._properties_dict,
         )
 
-    def __sub__(self, other: Self) -> Self:
+    def __sub__(self, other: Self | float) -> Self:
         """
         Subtract two `asp` objects.
 
@@ -1042,18 +1047,42 @@ class asp(asp_abstract, atomic_scattering):
 
         Parameters
         ----------
-        other : asp
-            Another `asp` object to subtract from this one.
+        other : asp or float
+            Another `asp` object or a scalar value to subtract from this one.
 
         Returns
         -------
         asp
             A new `asp` object that represents the difference of the two `asp` objects.
         """
-        if type(other) is not type(self):
-            raise TypeError(
-                f"Cannot subtract {type(self)} and {type(other)}. Must be of the same type."
+        if isinstance(other, (int, float)):
+            coef_zero_idx = np.where(self.orders == 0)[0]
+            if len(coef_zero_idx) == 0:
+                raise ValueError(
+                    "Cannot subtract a scalar from an asp object without a zero-order coefficient."
+                )
+            new_coefs = self.coefs.copy()
+            new_coefs[coef_zero_idx] -= other
+            return type(self)(
+                energies=self.energies,
+                coefs=new_coefs,
+                orders=self.orders,
+                **self._properties_dict,
             )
+
+        if not issubclass(type(other), type(self)):
+            raise TypeError(
+                f"Cannot subtract {type(other)} from {type(self)}. Must be of the same type."
+            )
+
+        assert (
+            self.orders is not None
+            and other.orders is not None
+            and np.array_equal(self.orders, other.orders)
+        ), (
+            "Cannot subtract two asp objects with different polynomial orders. "
+            f"Orders of self: {self.orders}, Orders of other: {other.orders}"
+        )
 
         # Truncate to common energy range
         if not np.array_equal(self.energies[[0, -1]], other.energies[[0, -1]]):
@@ -1067,17 +1096,20 @@ class asp(asp_abstract, atomic_scattering):
 
         # If the energies are still not equal, extend to match energies
         if not np.array_equal(self_trunc.energies, other_trunc.energies):
-            self_trunc = self.extend_energies(other.energies)
-            other_trunc = other.extend_energies(self.energies)
+            # Check which has the larger energy range and extend the other to match
+            e1, e2 = self_trunc.energies, other_trunc.energies
+            common_e = np.union1d(e1, e2)
+            self_trunc = self_trunc.extend_energies(common_e)
+            other_trunc = other_trunc.extend_energies(common_e)
 
         new_coefs = self_trunc.coefs - other_trunc.coefs
 
         # Return the new asp object, not Self, to avoid issues with subclassing.
         return type(self)(
-            energies=self.energies,
+            energies=self_trunc.energies,
             coefs=new_coefs,
-            orders=self.orders,
-            **self._properties_dict,
+            orders=self_trunc.orders,
+            **self_trunc._properties_dict,
         )
 
 
@@ -2769,7 +2801,7 @@ class asp_complex(asp_abstract, atomic_scattering):
         # TODO: Use np.integer instead of np.int_ for type hinting, when numpydoc supports it.
         return self.im.attenuation_length(energies=energies)
 
-    def __add__(self: Self, other: Self) -> Self:
+    def __add__(self: Self, other: Self | float | int) -> Self:
         """
         Add two `asp_complex` objects together.
 
@@ -2783,6 +2815,41 @@ class asp_complex(asp_abstract, atomic_scattering):
         asp_complex
             A new `asp_complex` object with the sum of the polynomial coefficients and properties.
         """
+        if isinstance(other, (float, int, complex)):
+            # If other is a scalar, add it to the real part
+            zero_order_idx = np.where(self.orders == 0)[0]
+            if zero_order_idx.size > 0:
+                if isinstance(other, int, float):
+                    # If there is a zero-order term, add the scalar to it
+                    re_sum = self.re.coefs.copy()
+                    re_sum[zero_order_idx[0]] += other
+                    return type(self)(
+                        re=asp_re(
+                            coefs=re_sum, orders=self.orders, energies=self.energies
+                        ),
+                        im=self.im,
+                        **self._properties_dict,
+                    )
+                elif isinstance(other, complex):
+                    # If the scalar is complex, add the real part to the real component and the imaginary part to the imaginary component
+                    re_sum = self.re.coefs.copy()
+                    im_sum = self.im.coefs.copy()
+                    re_sum[zero_order_idx[0]] += other.real
+                    im_sum[zero_order_idx[0]] += other.imag
+                    return type(self)(
+                        re=asp_re(
+                            coefs=re_sum, orders=self.orders, energies=self.energies
+                        ),
+                        im=asp_im(
+                            coefs=im_sum, orders=self.orders, energies=self.energies
+                        ),
+                        **self._properties_dict,
+                    )
+            else:
+                raise ValueError(
+                    "Cannot add a scalar to an `asp_complex` object without a zero-order term."
+                )
+
         if type(other) is not type(self):
             raise TypeError(
                 f"Cannot add {type(self)} and {type(other)}. Both must be of type `asp_complex`."
@@ -2801,23 +2868,60 @@ class asp_complex(asp_abstract, atomic_scattering):
                 )
         return type(self)(re=re_sum, im=im_sum, **common_kwargs)
 
-    def __sub__(self: Self, other: Self) -> Self:
+    def __sub__(self: Self, other: Self | float | complex) -> Self:
         """
         Subtract one `asp_complex` object from another.
 
         Parameters
         ----------
-        other : asp_complex
+        other : asp_complex | int | float | complex
             The other `asp_complex` object to subtract.
 
         Returns
         -------
         asp_complex
             A new `asp_complex` object with the difference of the polynomial coefficients and properties.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not the same type as `self`.
         """
-        if type(other) is not type(self):
+        if isinstance(other, (int, float, complex)):
+            # If other is a scalar, subtract it from the real part
+            zero_order_idx = np.where(self.orders == 0)[0]
+            if zero_order_idx.size > 0:
+                if isinstance(other, (int, float)):
+                    re_diff = self.re.coefs.copy()
+                    re_diff[zero_order_idx[0]] -= other
+                    return type(self)(
+                        re=asp_re(
+                            coefs=re_diff, orders=self.orders, energies=self.energies
+                        ),
+                        im=self.im,
+                        **self._properties_dict,
+                    )
+                elif isinstance(other, complex):
+                    re_diff = self.re.coefs.copy()
+                    im_diff = self.im.coefs.copy()
+                    re_diff[zero_order_idx[0]] -= other.real
+                    im_diff[zero_order_idx[0]] -= other.imag
+                    return type(self)(
+                        re=asp_re(
+                            coefs=re_diff, orders=self.orders, energies=self.energies
+                        ),
+                        im=asp_im(
+                            coefs=im_diff, orders=self.orders, energies=self.energies
+                        ),
+                        **self._properties_dict,
+                    )
+            else:
+                raise ValueError(
+                    "Cannot subtract a scalar from an `asp_complex` object without a zero-order term."
+                )
+        if not issubclass(type(other), asp_complex):
             raise TypeError(
-                f"Cannot subtract {type(self)} and {type(other)}. Both must be of type `asp_complex`."
+                f"Cannot subtract {type(other)} from {type(self)}. Both must be of type `asp_complex`."
             )
         # Subtract the real and imaginary parts separately
         re_diff = self.re - other.re
