@@ -7,6 +7,7 @@ https://en.wikipedia.org/wiki/Hilbert_transform#Table_of_selected_Hilbert_transf
 """
 
 import numpy as np
+import pytest
 
 import kkcalc2 as kkc
 
@@ -100,6 +101,78 @@ class TestKKTransforms:
             "Residual error grows linearly with energy, indicating the relativistic "
             "correction is leaking into the inverse transform again."
         )
+
+    def test_general_transform_matches_optimized_default_orders(self) -> None:
+        """The general and optimized forward transforms agree for the default five orders."""
+        energies = np.linspace(1.0, 20.0, 20)
+        target_energies = np.linspace(1.123, 19.877, 37)
+        coefs = np.zeros((len(energies) - 1, 5))
+        coefs[:, 0] = 0.2
+        coefs[:, 1] = 1.0
+
+        optimized = kkc.transforms.KK_PP(
+            target_energies, energies, coefs, relativistic_correction=2.0
+        )
+        general = kkc.transforms.KK_General_PP(
+            target_energies,
+            energies,
+            coefs,
+            orders=kkc.transforms.DEF_ORDERS,
+            relativistic_correction=2.0,
+        )
+
+        np.testing.assert_allclose(general, optimized, rtol=1e-12, atol=1e-12)
+
+    def test_general_transform_applies_relativistic_correction_as_offset(self) -> None:
+        """Changing relativistic correction changes each transformed value by that offset."""
+        energies = np.array([1.0, 2.0, 4.0])
+        targets = np.array([1.3, 2.7, 3.6])
+        coefs = np.array([[3.0], [5.0]])
+
+        without_correction = kkc.transforms.KK_General_PP(
+            targets, energies, coefs, orders=np.array([0]), relativistic_correction=0.0
+        )
+        with_correction = kkc.transforms.KK_General_PP(
+            targets, energies, coefs, orders=np.array([0]), relativistic_correction=4.5
+        )
+
+        np.testing.assert_allclose(with_correction - without_correction, 4.5)
+
+    @pytest.mark.parametrize(
+        "coefs,orders,message",
+        [
+            (np.ones((1, 2)), np.array([1, 0]), "First axis"),
+            (np.ones((2, 2)), np.array([1]), "Second axis"),
+        ],
+    )
+    def test_general_transform_rejects_incompatible_coefficient_shapes(
+        self, coefs, orders, message
+    ) -> None:
+        """General transforms require one coefficient row per interval and order per column."""
+        with pytest.raises(ValueError, match=message):
+            kkc.transforms.KK_General_PP(
+                np.array([1.3]),
+                np.array([1.0, 2.0, 3.0]),
+                coefs,
+                orders=orders,
+            )
+
+    def test_accuracy_improvement_with_zero_iterations_preserves_inputs(self) -> None:
+        """A zero iteration limit returns the original energy and real-factor arrays unchanged."""
+        energies = np.array([1.0, 2.0, 3.0])
+        real_factors = np.array([4.0, 5.0, 6.0])
+        coefs = np.zeros((2, 5))
+
+        result_energies, result_factors = kkc.transforms.improve_accuracy(
+            energies,
+            real_factors,
+            coefs,
+            relativistic_correction=0.0,
+            max_iter=0,
+        )
+
+        np.testing.assert_array_equal(result_energies, energies)
+        np.testing.assert_array_equal(result_factors, real_factors)
 
     # def test_kk_transform_sq_reciporical(self):
     #     """
