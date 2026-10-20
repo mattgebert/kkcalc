@@ -214,10 +214,34 @@ class TestAspArithmatic:
         assert isinstance(result, asp_im)
         assert np.allclose(result.coefs, poly1.coefs - poly2.coefs)
 
+    def test_addition_returns_asp_with_num(self, nexafs_asf: NexafsAsf) -> None:
+        """Adding a number to an `asp` objects returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        num = 1.0  # A float number to add to the polynomial
+
+        result = poly1 + num
+        assert isinstance(result, asp_im)
+        modified_coefs = poly1.coefs.copy()
+        modified_coefs[1] += num  # Add the number to the constant term
+        assert np.allclose(result.coefs, modified_coefs)
+
+    def test_subtraction_returns_asp_with_num(self, nexafs_asf: NexafsAsf) -> None:
+        """Subtracting a number from an `asp` objects returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        num = 1.0  # A float number to subtract from the polynomial
+
+        result = poly1 - num
+
+        assert isinstance(result, asp_im)
+
+        modified_coefs = poly1.coefs.copy()
+        modified_coefs[1] -= num  # Subtract the number from the constant term
+        assert np.allclose(result.coefs, modified_coefs)
+
     def test_invalid_addition_raises(self, nexafs_asf: NexafsAsf) -> None:
         """Adding an `asp` object to a non-`asp` object raises a TypeError."""
         poly = nexafs_asf.im.to_ASP()
-        non_poly = 5  # An integer, not an asp object
+        non_poly = "not an asp object"  # A string, not an asp object
 
         with pytest.raises(TypeError):
             _ = poly + non_poly
@@ -225,7 +249,7 @@ class TestAspArithmatic:
     def test_invalid_subtraction_raises(self, nexafs_asf: NexafsAsf) -> None:
         """Subtracting a non-`asp` object from an `asp` object raises a TypeError."""
         poly = nexafs_asf.im.to_ASP()
-        non_poly = 5  # An integer, not an asp object
+        non_poly = "not an asp object"  # An integer, not an asp object
 
         with pytest.raises(TypeError):
             _ = poly - non_poly
