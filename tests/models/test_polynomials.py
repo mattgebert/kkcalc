@@ -269,3 +269,308 @@ class TestAspArithmatic:
 
         with pytest.raises(TypeError):
             _ = im_poly - re_poly
+
+
+class TestAspPolynomialOrders:
+    """Tests order defaults, coefficient remapping, and order-related errors."""
+
+    @staticmethod
+    def make_poly(
+        orders: list[int] | None = None,
+        coefs: list[list[float]] | None = None,
+    ) -> asp_im:
+        """Build a small, deterministic polynomial for order-handling tests."""
+        if coefs is None:
+            coefs = [[2.0, 3.0], [4.0, 5.0]]
+        return asp_im(
+            energies=[1.0, 2.0, 3.0],
+            coefs=coefs,
+            orders=orders,
+        )
+
+    def test_default_orders_are_used_for_scalar_arithmetic(self) -> None:
+        """Unspecified orders use the default constant column for scalar operations."""
+        poly = self.make_poly()
+
+        result = poly + 7.0
+
+        assert poly.orders is None
+        assert result.orders is None
+        np.testing.assert_allclose(result.coefs, [[2.0, 10.0], [4.0, 12.0]])
+        np.testing.assert_allclose(poly.coefs, [[2.0, 3.0], [4.0, 5.0]])
+
+    def test_arithmetic_matches_equivalent_orders_by_power(self) -> None:
+        """Addition aligns coefficients when the same powers appear in a different order."""
+        left = self.make_poly(orders=[1, 0], coefs=[[2.0, 3.0], [4.0, 5.0]])
+        right = self.make_poly(orders=[0, 1], coefs=[[7.0, 11.0], [13.0, 17.0]])
+
+        result = left + right
+
+        assert result.orders.tolist() == [1, 0]
+        np.testing.assert_allclose(result.coefs, [[13.0, 10.0], [21.0, 18.0]])
+
+    def test_arithmetic_rejects_nonzero_unrepresentable_order(self) -> None:
+        """An operand with a nonzero power absent from the target cannot be re-expressed."""
+        target = self.make_poly(orders=[1, 0])
+        incompatible = self.make_poly(orders=[2, 0])
+
+        with pytest.raises(ValueError, match="Cannot express order 2"):
+            _ = target + incompatible
+
+    @pytest.mark.parametrize("operation", ["add", "subtract"])
+    def test_scalar_arithmetic_requires_a_constant_term(self, operation: str) -> None:
+        """Scalar arithmetic fails clearly when the polynomial has no zero-power term."""
+        poly = self.make_poly(orders=[1, -1])
+
+        with pytest.raises(ValueError, match="zero-order coefficient"):
+            if operation == "add":
+                _ = poly + 1.0
+            else:
+                _ = poly - 1.0
+
+    def test_coefficient_setter_checks_order_count(self) -> None:
+        """Replacing coefficients cannot silently change the number of polynomial orders."""
+        poly = self.make_poly(orders=[1, 0])
+
+        with pytest.raises(ValueError, match="number of orders"):
+            poly.coefs = np.ones((2, 3))
+
+    def test_constructor_rejects_invalid_energy_and_order_shapes(self) -> None:
+        """Energy, coefficient, and order arrays must have compatible dimensions."""
+        with pytest.raises(ValueError, match="Energies must be a 1D array"):
+            asp_im(energies=[[1.0, 2.0]], coefs=[[1.0]])
+        with pytest.raises(ValueError, match="Coefficients must be a 2D array"):
+            asp_im(energies=[1.0, 2.0], coefs=[1.0])
+        with pytest.raises(ValueError, match="Orders must be a 1D array"):
+            asp_im(energies=[1.0, 2.0], coefs=[[1.0]], orders=[[0]])
+        with pytest.raises(ValueError, match="Number of orders"):
+            asp_im(energies=[1.0, 2.0], coefs=[[1.0]], orders=[1, 0])
+
+
+class TestAspEnergyDomains:
+    """Tests energy-domain operations using simple known interval coefficients."""
+
+    @staticmethod
+    def make_poly() -> asp_im:
+        """Create three constant-valued intervals over the domain [1, 4]."""
+        return asp_im(
+            energies=[1.0, 2.0, 3.0, 4.0],
+            coefs=[[10.0], [20.0], [30.0]],
+            orders=[0],
+        )
+
+    def test_extend_energies_splits_intervals_without_changing_values(self) -> None:
+        """Adding an interior boundary copies the coefficient for its source interval."""
+        poly = self.make_poly()
+
+        extended = poly.extend_energies(np.array([1.0, 1.5, 2.0, 3.0, 4.0]))
+
+        np.testing.assert_allclose(extended.energies, [1.0, 1.5, 2.0, 3.0, 4.0])
+        np.testing.assert_allclose(extended.coefs[:, 0], [10.0, 10.0, 20.0, 30.0])
+        assert extended.orders.tolist() == [0]
+        assert extended is not poly
+
+    def test_extend_energies_rejects_points_outside_domain(self) -> None:
+        """Extension only adds boundaries within the polynomial's existing domain."""
+        poly = self.make_poly()
+
+        with pytest.raises(ValueError, match="subset of the existing energies"):
+            poly.extend_energies(np.array([0.0, 1.0, 2.0, 3.0, 4.0]))
+
+    def test_truncate_energies_keeps_coefficients_on_requested_domain(self) -> None:
+        """Truncation inserts interior boundaries and retains their source interval values."""
+        poly = self.make_poly()
+
+        truncated = poly.truncate_energies((1.5, 3.5))
+
+        np.testing.assert_allclose(truncated.energies, [1.5, 2.0, 3.0, 3.5])
+        np.testing.assert_allclose(truncated.coefs[:, 0], [10.0, 20.0, 30.0])
+        assert truncated.orders.tolist() == [0]
+
+    def test_truncate_energies_rejects_domain_outside_source(self) -> None:
+        """Truncation cannot request energies beyond the existing energy bounds."""
+        poly = self.make_poly()
+
+        with pytest.raises(ValueError, match="within the existing energies"):
+            poly.truncate_energies((0.5, 2.0))
+
+    def test_slice_and_iteration_preserve_segment_boundaries(self) -> None:
+        """Indexing selects a segment and iteration yields each interval with its coefficients."""
+        poly = self.make_poly()
+
+        second_segment = poly[1]
+        selected_segments = poly[1:3]
+        iterated_segments = list(poly)
+
+        np.testing.assert_allclose(second_segment.energies, [2.0, 3.0])
+        np.testing.assert_allclose(second_segment.coefs[:, 0], [20.0])
+        np.testing.assert_allclose(selected_segments.energies, [2.0, 3.0, 4.0])
+        np.testing.assert_allclose(selected_segments.coefs[:, 0], [20.0, 30.0])
+        assert [interval for interval, _ in iterated_segments] == [
+            (1.0, 2.0),
+            (2.0, 3.0),
+            (3.0, 4.0),
+        ]
+        for (_, actual_coefs), expected_coefs in zip(
+            iterated_segments, ([10.0], [20.0], [30.0]), strict=True
+        ):
+            np.testing.assert_allclose(actual_coefs, expected_coefs)
+
+    def test_evaluation_includes_domain_endpoints_and_rejects_outside_values(
+        self,
+    ) -> None:
+        """Polynomial evaluation handles both endpoints and rejects out-of-domain energies."""
+        poly = self.make_poly()
+
+        np.testing.assert_allclose(poly([1.0, 2.5, 4.0]), [10.0, 20.0, 30.0])
+
+        with pytest.raises(ValueError, match="outside the defined energy range"):
+            poly(4.1)
+
+    def test_addition_aligns_different_interval_boundaries(self) -> None:
+        """Addition splits intervals as needed before summing their coefficients."""
+        left = asp_im(
+            energies=[1.0, 2.0, 4.0],
+            coefs=[[10.0], [20.0]],
+            orders=[0],
+        )
+        right = asp_im(
+            energies=[1.0, 3.0, 4.0],
+            coefs=[[1.0], [2.0]],
+            orders=[0],
+        )
+
+        result = left + right
+
+        np.testing.assert_allclose(result.energies, [1.0, 2.0, 3.0, 4.0])
+        np.testing.assert_allclose(result.coefs[:, 0], [11.0, 21.0, 22.0])
+
+    def test_polynomial_to_factor_conversion_uses_requested_energies(self) -> None:
+        """Conversion to scattering factors evaluates the polynomial on target energies."""
+        poly = self.make_poly()
+        target_energies = np.array([1.5, 2.5, 3.5])
+
+        factors = poly.to_atomic_scattering_factors(target_energies=target_energies)
+
+        np.testing.assert_allclose(factors.energies, target_energies)
+        np.testing.assert_allclose(factors.factors, [10.0, 20.0, 30.0])
+
+    def test_changing_energy_count_clears_incompatible_coefficients(self) -> None:
+        """Changing the number of intervals warns and clears coefficients of the wrong length."""
+        poly = self.make_poly()
+
+        with pytest.warns(UserWarning, match="Coefficients set to `None`"):
+            poly.energies = np.array([1.0, 2.0])
+
+        assert poly.coefs is None
+
+    def test_dataframe_labels_columns_with_polynomial_orders(self) -> None:
+        """The dataframe view names coefficient columns using the explicit orders."""
+        pytest.importorskip("pandas")
+        poly = asp_im(
+            energies=[1.0, 2.0, 3.0],
+            coefs=[[10.0, 1.0], [20.0, 2.0]],
+            orders=[1, 0],
+        )
+
+        frame = poly.dataframe()
+
+        assert list(frame.columns) == ["Energy LB", "Energy UB", "A1", "A0"]
+        assert frame.shape == (2, 4)
+        np.testing.assert_allclose(frame[["A1", "A0"]].to_numpy(), poly.coefs)
+        assert poly.to_pandas().equals(frame)
+
+
+class TestAspComplexArithmetic:
+    """Tests real/imaginary order checks and complex scalar arithmetic."""
+
+    @staticmethod
+    def make_complex(orders: list[int] | None = None) -> asp_complex:
+        """Build matching real and imaginary polynomials with two coefficients per interval."""
+        energies = [1.0, 2.0, 3.0]
+        re = asp_re(energies=energies, coefs=[[2.0, 3.0], [4.0, 5.0]], orders=orders)
+        im = asp_im(energies=energies, coefs=[[7.0, 11.0], [13.0, 17.0]], orders=orders)
+        return asp_complex(re=re, im=im)
+
+    def test_complex_constructor_rejects_mismatched_part_orders(self) -> None:
+        """Real and imaginary components must describe the same powers."""
+        re = asp_re(energies=[1.0, 2.0], coefs=[[1.0, 2.0]], orders=[1, 0])
+        im = asp_im(energies=[1.0, 2.0], coefs=[[1.0, 2.0]], orders=[0, 1])
+
+        with pytest.raises(ValueError, match="same polynomial orders"):
+            asp_complex(re=re, im=im)
+
+    def test_real_scalar_changes_only_real_component(self) -> None:
+        """A real scalar changes the constant term of the real polynomial only."""
+        poly = self.make_complex(orders=[1, 0])
+
+        result = poly + 5.0
+
+        np.testing.assert_allclose(result.re.coefs, [[2.0, 8.0], [4.0, 10.0]])
+        np.testing.assert_allclose(result.im.coefs, poly.im.coefs)
+
+    def test_complex_scalar_changes_both_components(self) -> None:
+        """A complex scalar changes real and imaginary constant terms independently."""
+        poly = self.make_complex(orders=[1, 0])
+
+        result = poly - (3.0 + 2.0j)
+
+        np.testing.assert_allclose(result.re.coefs, [[2.0, 0.0], [4.0, 2.0]])
+        np.testing.assert_allclose(result.im.coefs, [[7.0, 9.0], [13.0, 15.0]])
+
+    def test_complex_subtraction_rejects_mismatched_orders(self) -> None:
+        """Complex subtraction rejects operands that use different polynomial orders."""
+        left = self.make_complex(orders=[1, 0])
+        right = self.make_complex(orders=[2, 0])
+
+        with pytest.raises(ValueError, match="Cannot express order 2"):
+            _ = left - right
+
+    def test_complex_subtraction_aligns_equivalent_orders(self) -> None:
+        """Subtraction remaps coefficients when both operands contain the same powers."""
+        left = self.make_complex(orders=[1, 0])
+        right_re = asp_re(
+            energies=[1.0, 2.0, 3.0],
+            coefs=[[3.0, 2.0], [5.0, 4.0]],
+            orders=[0, 1],
+        )
+        right_im = asp_im(
+            energies=[1.0, 2.0, 3.0],
+            coefs=[[11.0, 7.0], [17.0, 13.0]],
+            orders=[0, 1],
+        )
+        right = asp_complex(re=right_re, im=right_im)
+
+        result = left - right
+
+        np.testing.assert_allclose(result.re.coefs, [[0.0, 0.0], [0.0, 0.0]])
+        np.testing.assert_allclose(result.im.coefs, [[0.0, 0.0], [0.0, 0.0]])
+
+    def test_complex_addition_sums_each_component(self) -> None:
+        """Adding complex polynomials independently sums matching real and imaginary coefficients."""
+        left = self.make_complex(orders=[1, 0])
+        right = self.make_complex(orders=[1, 0])
+
+        result = left + right
+
+        np.testing.assert_allclose(result.re.coefs, [[4.0, 6.0], [8.0, 10.0]])
+        np.testing.assert_allclose(result.im.coefs, [[14.0, 22.0], [26.0, 34.0]])
+
+    def test_complex_subtraction_subtracts_each_component(self) -> None:
+        """Subtracting complex polynomials independently subtracts both components."""
+        left = self.make_complex(orders=[1, 0])
+        right = self.make_complex(orders=[1, 0])
+
+        result = left - right
+
+        np.testing.assert_allclose(result.re.coefs, np.zeros((2, 2)))
+        np.testing.assert_allclose(result.im.coefs, np.zeros((2, 2)))
+
+    def test_complex_arithmetic_rejects_non_complex_operands(self) -> None:
+        """Complex polynomial arithmetic rejects unrelated object types with TypeError."""
+        poly = self.make_complex(orders=[1, 0])
+
+        with pytest.raises(TypeError, match="must be of type `asp_complex`"):
+            _ = poly + "not a polynomial"
+        with pytest.raises(TypeError, match="must be of type `asp_complex`"):
+            _ = poly - "not a polynomial"
