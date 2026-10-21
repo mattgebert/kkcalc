@@ -2197,12 +2197,28 @@ class asp_complex(asp_abstract, atomic_scattering):
     The default behaviour is to truncate the energies to the common domain, as the
     real and imaginary databases often have different energy domains.
 
+    Initialisation requires either the real and imaginary parts, or the energies and
+    complex coefficients for the complex polynomial.
+
     Parameters
     ----------
-    re : asp_re | asp
+    re : asp_re | asp, optional
         The real part of the atomic scattering factor.
-    im : asp_im | asp
+        If provided, then `im` must also be provided.
+    im : asp_im | asp, optional
         The imaginary part of the atomic scattering factor.
+        If provided, then `re` must also be provided.
+    energies : npt.NDArray[np.float64], optional
+        The energy values of length `N+1` defining the `N` intervals for the polynomial coefficients.
+        If provided, then `coefs` must also be provided.
+    coefs : npt.NDArray[np.complex128], optional
+        The polynomial coefficients of shape `(N, M)` for the scattering factors,
+        defined on the intervals of `energies` where `M` is the number of coefficients.
+        If provided, then `energies` must also be provided.
+    orders : npt.ArrayLike | None, optional
+        The polynomial orders for the scattering factors. If None, then kkcalc2 internally
+        assumes the polynomial orders are by default [1, 0, -1, -2, -3]. By default None.
+        Only used if `energies` and `coefs` are provided.
     truncate : bool, optional
         If True, then the energies will be truncated to the common domain
         between the real and imaginary parts. Default is True.
@@ -2218,84 +2234,141 @@ class asp_complex(asp_abstract, atomic_scattering):
         If `truncate` is False and the real and imaginary parts do not have the same energy domains.
     """
 
+    @overload
     def __init__(
         self,
         re: asp_re | asp,
         im: asp_im | asp,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    @overload
+    def __init__(
+        self,
+        *,
+        energies: npt.NDArray[np.float64],
+        coefs: npt.NDArray[np.complex128],
+        orders: npt.ArrayLike | None = None,
+        truncate: bool = True,
+        **kwargs: Unpack[PROPERTIES_DICT],
+    ) -> None: ...  # numpydoc ignore=GL08
+
+    def __init__(
+        self,
+        re: asp_re | asp | None = None,
+        im: asp_im | asp | None = None,
+        *,
+        energies: npt.NDArray[np.float64] | None = None,
+        coefs: npt.NDArray[np.complex128] | None = None,
+        orders: npt.ArrayLike | None = None,
         truncate: bool = True,
         **kwargs: Unpack[PROPERTIES_DICT],
     ):  # numpydoc ignore=GL08
-        if np.any(re.energies.shape != im.energies.shape) or np.any(
-            re.energies != im.energies
+        # Require either re & im or energies & coefs, but only one set.
+        if (re is not None and im is not None) and (
+            energies is not None or coefs is not None
         ):
-            if not truncate:
-                raise ValueError(
-                    "Real and imaginary parts must have the same energy domains."
-                )
-            # While this condition isn't essential, better to have the same energy intervals.
-            re_min, re_max, im_min, im_max = (
-                re.energies.min(),
-                re.energies.max(),
-                im.energies.min(),
-                im.energies.max(),
-            )
-
-            # Truncate to the common interval
-            min_energy: float = max(re_min, im_min)
-            max_energy: float = min(re_max, im_max)
-            all_energies = set(re.energies.tolist() + im.energies.tolist())
-            all_energies = [
-                en for en in all_energies if en >= min_energy and en <= max_energy
-            ]
-
-            # Check if re is a subset of im
-            if all(
-                (en in im.energies and en >= im_min and en <= im_max)
-                for en in re.energies
-            ):
-                im = im.extend_energies(re.energies)  # Fill in any additional energies
-                im = im.truncate_energies(
-                    (min_energy, max_energy)
-                )  # Truncate to the common interval
-                re = re.extend_energies(im.energies)  # Fill in any additional energies
-
-            # Check if im is a subset of re
-            elif all(
-                (en in re.energies and en >= re_min and en <= re_max)
-                for en in im.energies
-            ):
-                re = re.extend_energies(im.energies)  # Fill in any additional energies
-                re = re.truncate_energies(
-                    (min_energy, max_energy)
-                )  # Truncate to the common interval
-                im = im.extend_energies(re.energies)  # Fill in any additional energies
-
-            else:  # if they are not subsets, then truncate to the common interval
-                re = re.truncate_energies(
-                    (min_energy, max_energy)
-                )  # Truncate to the common interval
-                im = im.truncate_energies(
-                    (min_energy, max_energy)
-                )  # Truncate to the common interval
-                re = re.extend_energies(im.energies)  # Fill in any additional energies
-                im = im.extend_energies(re.energies)  # Fill in any additional energies
-
-        assert re.energies.shape == im.energies.shape and np.all(
-            re.energies == im.energies
-        ), (
-            "Real and imaginary parts must have the same energy domains after truncation and extension.\n"
-            f"Set difference: {set(re.energies.tolist()) ^ set(im.energies.tolist())}"
-        )
-
-        if not isinstance(re, asp) or not isinstance(im, asp):
-            raise TypeError(f"Real and imaginary parts must be of type {asp}.")
-
-        if not _orders_equal(re.orders, im.orders):
             raise ValueError(
-                "Real and imaginary parts must have the same polynomial orders. "
-                f"Real orders: {_resolve_orders(re.orders)}, "
-                f"Imaginary orders: {_resolve_orders(im.orders)}"
+                "Must provide either re & im or energies & coefs, but not both."
             )
+        elif (re is None or im is None) and (energies is None or coefs is None):
+            raise ValueError(
+                "Must provide either re & im or energies & coefs, but not neither."
+            )
+
+        # Process the re & im objects if provided
+        if energies is not None and coefs is not None:
+            # Create a complex asp object from energies and coefs, energies are garanteed to match.
+            if orders is None:
+                orders = transforms.DEF_ORDERS
+            re_coefs = np.real(coefs)
+            im_coefs = np.imag(coefs)
+            re = asp_re(energies=energies, coefs=re_coefs, orders=orders, **kwargs)
+            im = asp_im(energies=energies, coefs=im_coefs, orders=orders, **kwargs)
+        else:
+            if np.any(re.energies.shape != im.energies.shape) or np.any(
+                re.energies != im.energies
+            ):
+                if not truncate:
+                    raise ValueError(
+                        "Real and imaginary parts must have the same energy domains."
+                    )
+                # While this condition isn't essential, better to have the same energy intervals.
+                re_min, re_max, im_min, im_max = (
+                    re.energies.min(),
+                    re.energies.max(),
+                    im.energies.min(),
+                    im.energies.max(),
+                )
+
+                # Truncate to the common interval
+                min_energy: float = max(re_min, im_min)
+                max_energy: float = min(re_max, im_max)
+                all_energies = set(re.energies.tolist() + im.energies.tolist())
+                all_energies = [
+                    en for en in all_energies if en >= min_energy and en <= max_energy
+                ]
+
+                # Check if re is a subset of im
+                if all(
+                    (en in im.energies and en >= im_min and en <= im_max)
+                    for en in re.energies
+                ):
+                    im = im.extend_energies(
+                        re.energies
+                    )  # Fill in any additional energies
+                    im = im.truncate_energies(
+                        (min_energy, max_energy)
+                    )  # Truncate to the common interval
+                    re = re.extend_energies(
+                        im.energies
+                    )  # Fill in any additional energies
+
+                # Check if im is a subset of re
+                elif all(
+                    (en in re.energies and en >= re_min and en <= re_max)
+                    for en in im.energies
+                ):
+                    re = re.extend_energies(
+                        im.energies
+                    )  # Fill in any additional energies
+                    re = re.truncate_energies(
+                        (min_energy, max_energy)
+                    )  # Truncate to the common interval
+                    im = im.extend_energies(
+                        re.energies
+                    )  # Fill in any additional energies
+
+                else:  # if they are not subsets, then truncate to the common interval
+                    re = re.truncate_energies(
+                        (min_energy, max_energy)
+                    )  # Truncate to the common interval
+                    im = im.truncate_energies(
+                        (min_energy, max_energy)
+                    )  # Truncate to the common interval
+                    re = re.extend_energies(
+                        im.energies
+                    )  # Fill in any additional energies
+                    im = im.extend_energies(
+                        re.energies
+                    )  # Fill in any additional energies
+
+            assert re.energies.shape == im.energies.shape and np.all(
+                re.energies == im.energies
+            ), (
+                "Real and imaginary parts must have the same energy domains after truncation and extension.\n"
+                f"Set difference: {set(re.energies.tolist()) ^ set(im.energies.tolist())}"
+            )
+
+            if not isinstance(re, asp) or not isinstance(im, asp):
+                raise TypeError(f"Real and imaginary parts must be of type {asp}.")
+
+            if not _orders_equal(re.orders, im.orders):
+                raise ValueError(
+                    "Real and imaginary parts must have the same polynomial orders. "
+                    f"Real orders: {_resolve_orders(re.orders)}, "
+                    f"Imaginary orders: {_resolve_orders(im.orders)}"
+                )
 
         # Use the real then imaginary part properties to update None values
         common_kwargs = re._properties_dict
@@ -2316,11 +2389,11 @@ class asp_complex(asp_abstract, atomic_scattering):
         # Update properties with kwargs
         common_kwargs.update(kwargs)
 
-        # Convert to appropriate instance objects
+        # Convert to appropriate instance objects calculated above.
         if isinstance(re, asp):
-            re = asp_re.from_asp(re)
+            re = asp_re.from_asp(re, **common_kwargs)
         if isinstance(im, asp):
-            im = asp_im.from_asp(im)
+            im = asp_im.from_asp(im, **common_kwargs)
 
         # Store attributes
         self._re: asp_re = re
@@ -3008,7 +3081,7 @@ class asp_complex(asp_abstract, atomic_scattering):
             )
         other_re = _match_orders(other.re, self.orders)
         other_im = _match_orders(other.im, self.orders)
-        other = type(other)(re=other_re, im=other_im, **other._properties_dict)
+        other = asp_complex(re=other_re, im=other_im, **other._properties_dict)
         if not _orders_equal(self.orders, other.orders):
             raise ValueError(
                 "Cannot subtract two asp_complex objects with different polynomial orders. "
