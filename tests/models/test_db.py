@@ -86,6 +86,40 @@ class TestDatabasePolynomials:
         poly = model(stoich, density=density)
         assert poly.stoichiometry == stoich
 
+    @pytest.mark.parametrize("model", [asp_db_im, asp_db_re, asp_db_complex])
+    def test_explicit_coefficients_preserve_custom_orders(self, model):
+        """DB-backed polynomial constructors and their copies retain custom coefficient orders."""
+        energies = np.array([100.0, 200.0, 300.0])
+        orders = np.array([1, 0, -1])
+        coefs = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        if model is asp_db_complex:
+            coefs = coefs.astype(complex) + 1j * (coefs + 1)
+
+        poly = model(
+            "CH",
+            energies=energies,
+            coefs=coefs,
+            orders=orders,
+            density=1.0,
+        )
+        clone = poly.copy()
+
+        np.testing.assert_array_equal(poly.orders, orders)
+        np.testing.assert_array_equal(clone.orders, orders)
+        np.testing.assert_array_equal(clone.energies, energies)
+        np.testing.assert_array_equal(clone.coefs, coefs)
+
+    @pytest.mark.parametrize("model", [asp_db_im, asp_db_re])
+    def test_explicit_coefficients_require_one_row_per_energy_segment(self, model):
+        """A DB-backed polynomial rejects coefficient arrays with the wrong segment count."""
+        with pytest.raises(ValueError, match="energies .* coefs"):
+            model(
+                "CH",
+                energies=np.array([100.0, 200.0, 300.0]),
+                coefs=np.array([[1.0, 2.0, 3.0]]),
+                orders=np.array([1, 0, -1]),
+            )
+
 
 class TestDbScaling:
     """Tests that ensure the consistency of scaling functions"""
