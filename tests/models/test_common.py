@@ -1,5 +1,5 @@
 """
-Model tests for polynomial and factor representations.
+Model tests for the common base information of atomic scattering.
 """
 
 import pytest
@@ -90,6 +90,53 @@ class TestCommon:
             "Density did not update correctly after formula mass change."
         )
 
+    def test_density_and_number_density_are_derived_from_material_properties(
+        self,
+    ) -> None:
+        """Density, formula mass, and stoichiometry consistently determine number density."""
+        sample = models.atomic_scattering(density=1.0, stoichiometry="H2O")
+        expected_number_density = 1.0 * 6.02214076e23 / sample.formula_mass
 
-class TestPolynomial:
-    """Tests the functionality for the polynomial models."""
+        assert sample.number_density == pytest.approx(expected_number_density)
+        assert sample.formula_mass == pytest.approx(18.01528, rel=1e-4)
+
+    def test_density_is_derived_from_number_density_and_stoichiometry(self) -> None:
+        """An explicit number density and stoichiometry determine the mass density."""
+        sample = models.atomic_scattering(number_density=2.0e22, stoichiometry="C")
+
+        assert sample.density == pytest.approx(
+            2.0e22 * sample.formula_mass / 6.02214076e23
+        )
+
+    def test_name_defaults_to_formula_when_only_stoichiometry_is_known(self) -> None:
+        """A stoichiometric formula supplies the display name when no name is given."""
+        sample = models.atomic_scattering(stoichiometry="CH")
+
+        assert sample.name == "CH"
+        sample.name = "Film"
+        assert sample.name == "Film"
+
+    def test_extended_material_rejects_stoichiometry_changes(self) -> None:
+        """An extended sample keeps its original stoichiometry immutable."""
+        sample = models.atomic_scattering(stoichiometry="CH", is_extended=True)
+
+        with pytest.raises(ValueError, match="immutable"):
+            sample.stoichiometry = "H2O"
+        with pytest.raises(ValueError, match="immutable"):
+            del sample.stoichiometry
+
+    def test_copy_preserves_properties_without_sharing_mutable_formula_state(
+        self,
+    ) -> None:
+        """Copying keeps material properties while giving the copy its own stoichiometry."""
+        sample = models.atomic_scattering(
+            name="Sample", density=1.2, stoichiometry="CH"
+        )
+
+        clone = sample.copy()
+        clone.stoichiometry = "H2O"
+
+        assert clone is not sample
+        assert sample.stoichiometry == "CH"
+        assert clone.stoichiometry == "H2O"
+        assert clone.name == sample.name
