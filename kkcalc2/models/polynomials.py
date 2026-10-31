@@ -2786,24 +2786,10 @@ class asp_complex(asp_abstract, atomic_scattering):
             ):
                 # All energies are the same, no need to check. Perform a direct calculation.
                 energies = energies_self
-                betas_self = conversions.ASF_to_refractive(
-                    energies=energies,
-                    factors=conversions.ASP_to_ASF(energies, self.coefs, self.orders),
-                    number_density=self.number_density,
-                    density=self.density,
-                    formula_mass=self.formula_mass,
-                    stoichiometry=self.stoichiometry,
-                )
-                betas_other = conversions.ASF_to_refractive(
-                    energies=energies,
-                    factors=conversions.ASP_to_ASF(energies, other.coefs, other.orders),
-                    number_density=other.number_density,
-                    density=other.density,
-                    formula_mass=other.formula_mass,
-                    stoichiometry=other.stoichiometry,
-                )
-                contrast_real = (betas_self.real - betas_other.real) ** 2
-                contrast_imag = (betas_self.imag - betas_other.imag) ** 2
+                refractive_self = self.refractive  # delta + i*beta
+                refractive_other = other.refractive
+                contrast_real = (refractive_self.real - refractive_other.real) ** 2
+                contrast_imag = (refractive_self.imag - refractive_other.imag) ** 2
                 contrast = contrast_real + contrast_imag
                 common_energies = energies
             else:
@@ -2838,7 +2824,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                     # Get values
                     energy = common_energies[i]
                     # Collect the beta values
-                    betas_self = conversions.ASF_to_refractive(
+                    refractive_self = conversions.ASF_to_refractive(
                         energies=energy,
                         factors=conversions.ASP_to_ASF(
                             energy, self.coefs[self_idx], orders=self.orders
@@ -2848,7 +2834,7 @@ class asp_complex(asp_abstract, atomic_scattering):
                         formula_mass=self.formula_mass,
                         stoichiometry=self.stoichiometry,
                     )
-                    betas_other = conversions.ASF_to_refractive(
+                    refractive_other = conversions.ASF_to_refractive(
                         energies=energy,
                         factors=conversions.ASP_to_ASF(
                             energy, other.coefs[other_idx], orders=other.orders
@@ -2859,8 +2845,8 @@ class asp_complex(asp_abstract, atomic_scattering):
                         stoichiometry=other.stoichiometry,
                     )
                     # Calculate the contrast
-                    contrast_real = (betas_self.real - betas_other.real) ** 2
-                    contrast_imag = (betas_self.imag - betas_other.imag) ** 2
+                    contrast_real = (refractive_self.real - refractive_other.real) ** 2
+                    contrast_imag = (refractive_self.imag - refractive_other.imag) ** 2
                     contrast[i] = contrast_real + contrast_imag
 
                     # Update the indices, if next energy is reached
