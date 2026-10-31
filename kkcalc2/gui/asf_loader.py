@@ -547,10 +547,7 @@ class kk_object_list(QtWidgets.QWidget):
         # Delete the row and the object from the mapping
         row = self.table.selectedItems()[0].row()
         self._objs.pop(row)
-        was_visible: bool = False
-        if row in self._visible_rows:
-            self._visible_rows.remove(row)
-            was_visible = True
+        self._visible_rows.discard(row)
 
         # Update the table
         self.table.removeRow(row)
@@ -578,9 +575,8 @@ class kk_object_list(QtWidgets.QWidget):
         else:
             self.table.clearSelection()
 
-        # Signal a change
-        if was_visible:
-            self.viewSelectionChanged.emit()
+        # Signal a change (hidden objects are still available for x-snapping)
+        self.viewSelectionChanged.emit()
 
     def calc_contrast(self):
         """Calculates the contrast between multiple selected objects if they are complex."""

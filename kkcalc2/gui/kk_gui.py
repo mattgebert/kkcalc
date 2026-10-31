@@ -222,6 +222,7 @@ class kk_gui(QtWidgets.QWidget):
             # TODO: Create a temporary asf object to pass to the viewer using the handle
             pass
         # Update the viewer
+        self.viewer.snap_objects = self.obj_list.all_objects
         self.viewer.scattering_objects = objs
 
     def on_object_select(self):
