@@ -142,6 +142,7 @@ class asf_viewer(QtWidgets.QWidget):
 
         # Setup the scattering object list
         self._scattering_objects: list[type[asp_abstract | asf_abstract]] = []
+        self._snap_objects: list[type[asp_abstract | asf_abstract]] | None = None
 
         # Connect the graph type change to the switch_graph_style function
         def graph_fn(_):
@@ -188,32 +189,7 @@ class asf_viewer(QtWidgets.QWidget):
             if not isinstance(obj, (asf_abstract, asp_abstract)):
                 raise TypeError(f"Invalid scattering object of type {type(obj)}")
         self._scattering_objects = objs
-
-        # Update the snap x combo box with the new objects
-        prev_idx, prev_text = (
-            self.snap_x_combo.currentIndex(),
-            self.snap_x_combo.currentText(),
-        )
-        self.snap_x_combo.blockSignals(True)
-        self.snap_x_combo.clear()
-        self.snap_x_combo.addItem(
-            ""
-        )  # always add a blank option, used to reset to full x-axis.
-        self.snap_x_combo.addItems(
-            [f"<{type(obj).__name__}>: {obj.name}" for obj in self.scattering_objects]
-        )
-        # Restore index if previous text matches an item
-        if prev_text == self.snap_x_combo.itemText(prev_idx):
-            self.snap_x_combo.setCurrentIndex(prev_idx)
-        else:
-            # Check if the previous text is in the list
-            snapx_labels = [
-                self.snap_x_combo.itemText(i) for i in range(self.snap_x_combo.count())
-            ]
-            if prev_text in snapx_labels:
-                self.snap_x_combo.setCurrentIndex(snapx_labels.index(prev_text))
-            # Otherwise reset is back to null selection.
-        self.snap_x_combo.blockSignals(False)
+        self._refresh_snap_combo()
 
         # # Update the norm y combo box with the new objects
         prev_idx, prev_text = (
@@ -241,6 +217,38 @@ class asf_viewer(QtWidgets.QWidget):
         self.norm_y_combo.blockSignals(False)
         # Reset the graph
         self.reset_graph()
+
+    @property
+    def snap_objects(self) -> list[type[asp_abstract] | type[asf_abstract]]:
+        """
+        Objects available in the `Snap X` combobox (including objects not graphed).
+        Defaults to `scattering_objects` if never set.
+        """
+        if self._snap_objects is None:
+            return self._scattering_objects
+        return self._snap_objects
+
+    @snap_objects.setter
+    def snap_objects(self, objs: list | None):
+        if objs is not None:
+            for obj in objs:
+                if not isinstance(obj, (asf_abstract, asp_abstract)):
+                    raise TypeError(f"Invalid scattering object of type {type(obj)}")
+        self._snap_objects = objs
+        self._refresh_snap_combo()
+
+    def _refresh_snap_combo(self):
+        """Repopulate the snap x combobox from `snap_objects`, preserving the selection."""
+        prev_text = self.snap_x_combo.currentText()
+        self.snap_x_combo.blockSignals(True)
+        self.snap_x_combo.clear()
+        self.snap_x_combo.addItem("")  # blank option resets to the full x-axis.
+        self.snap_x_combo.addItems(
+            [f"<{type(obj).__name__}>: {obj.name}" for obj in self.snap_objects]
+        )
+        idx = self.snap_x_combo.findText(prev_text) if prev_text else 0
+        self.snap_x_combo.setCurrentIndex(max(idx, 0))
+        self.snap_x_combo.blockSignals(False)
 
     @property
     def graph_type(self) -> GraphType:
@@ -371,12 +379,13 @@ class asf_viewer(QtWidgets.QWidget):
         tuple[float, float] | None
             The x-domain (min, max) to snap to.
         """
-        if index <= 0 or len(self.scattering_objects) == 0:
+        snap_objs = self.snap_objects
+        if index <= 0 or index > len(snap_objs):
             return None
         else:
             index -= 1  # Subtract 1 to account for the blank option
             # Get the energies and maximum/minimum of the dataset
-            energies: npt.NDArray = self.scattering_objects[index].energies
+            energies: npt.NDArray = snap_objs[index].energies
             mn, mx = energies.min(), energies.max()
             return (mn, mx)
 

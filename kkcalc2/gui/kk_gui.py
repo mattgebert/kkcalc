@@ -6,6 +6,7 @@ or imaginary components, and perform a Kramers-Kronig transform on it.
 The interface is built using the PyQt6 library.
 """
 
+import importlib.util
 import io
 import os
 import pkgutil
@@ -15,6 +16,8 @@ import numpy as np
 from matplotlib.widgets import SpanSelector
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from kkcalc2 import asf_database
+from kkcalc2.gui import session
 from kkcalc2.gui.asf_loader import kk_object_list
 from kkcalc2.gui.asf_modifier import kk_object_modifier
 from kkcalc2.gui.asf_viewer import GraphType, asf_viewer
@@ -132,6 +135,177 @@ class kk_gui(QtWidgets.QWidget):
         # Setup the viewer
         self.on_view_change()
 
+        self._setup_menu()
+
+    def _setup_menu(self) -> None:
+        """Create the File and Database menus."""
+        self.menu_bar = QtWidgets.QMenuBar(self)
+        self._layout.setMenuBar(self.menu_bar)
+
+        file_menu = self.menu_bar.addMenu("&File")
+        self.open_action = file_menu.addAction("&Open...")
+        self.open_action.setShortcut(QtGui.QKeySequence.StandardKey.Open)
+        self.open_action.triggered.connect(self.open_files)
+        file_menu.addSeparator()
+        self.save_session_action = file_menu.addAction("&Save Session...")
+        self.save_session_action.setShortcut(QtGui.QKeySequence.StandardKey.Save)
+        self.save_session_action.triggered.connect(self.save_session)
+        self.open_session_action = file_menu.addAction("Open &Previous Session...")
+        self.open_session_action.triggered.connect(self.open_session)
+        file_menu.addSeparator()
+        self.export_csv_action = file_menu.addAction("Save Data to &CSV...")
+        self.export_csv_action.triggered.connect(self.export_csv)
+        file_menu.addSeparator()
+        self.exit_action = file_menu.addAction("E&xit")
+        self.exit_action.setShortcut(QtGui.QKeySequence.StandardKey.Quit)
+        self.exit_action.triggered.connect(self.close)
+
+        db_menu = self.menu_bar.addMenu("&Database")
+        self.db_group = QtGui.QActionGroup(self)
+        self.db_group.setExclusive(True)
+        self.db_henke_action = db_menu.addAction("&Henke (default)")
+        self.db_periodictable_action = db_menu.addAction("&periodictable")
+        for action, backend in (
+            (self.db_henke_action, "kkcalc"),
+            (self.db_periodictable_action, "periodictable"),
+        ):
+            action.setCheckable(True)
+            action.setData(backend)
+            self.db_group.addAction(action)
+        if importlib.util.find_spec("periodictable") is None:
+            self.db_periodictable_action.setEnabled(False)
+            self.db_periodictable_action.setToolTip(
+                "The optional 'periodictable' package is not installed."
+            )
+        current = asf_database.get_db_backend()
+        self.db_henke_action.setChecked(current == "kkcalc")
+        self.db_periodictable_action.setChecked(current == "periodictable")
+        self.db_group.triggered.connect(self.on_database_choice)
+        db_menu.addSeparator()
+        self.add_db_action = db_menu.addAction("&Add Database Object...")
+        self.add_db_action.triggered.connect(self.obj_list.add_database)
+
+    def open_files(self) -> None:
+        """Select one or more data files and import them."""
+        paths, _ = QtWidgets.QFileDialog.getOpenFileNames(
+            self, "Open Data Files", "", "All Files (*)"
+        )
+        if paths:
+            self.obj_list.import_data_files(paths)
+
+    def save_session(self, path: str | None = None) -> bool:
+        """
+        Save all loaded objects to a session file.
+
+        Parameters
+        ----------
+        path : str | None, optional
+            The file to write. If not given (or when triggered by a menu action), the user is prompted.
+
+        Returns
+        -------
+        bool
+            Whether a session was saved.
+        """
+        if not isinstance(path, str):
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Save Session", "session.json", "Session Files (*.json)"
+            )
+        if not path:
+            return False
+        try:
+            session.save_session(self.obj_list.all_objects, path)
+        except (OSError, TypeError, ValueError) as e:
+            QtWidgets.QMessageBox.critical(self, "Save Session Failed", str(e))
+            return False
+        return True
+
+    def open_session(self, path: str | None = None) -> bool:
+        """
+        Load objects from a session file, replacing any currently loaded objects.
+
+        Parameters
+        ----------
+        path : str | None, optional
+            The file to read. If not given (or when triggered by a menu action), the user is prompted.
+
+        Returns
+        -------
+        bool
+            Whether a session was loaded.
+        """
+        if not isinstance(path, str):
+            path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, "Open Session", "", "Session Files (*.json)"
+            )
+        if not path:
+            return False
+        try:
+            objs = session.load_session(path)
+        except (OSError, KeyError, TypeError, ValueError) as e:
+            QtWidgets.QMessageBox.critical(self, "Open Session Failed", str(e))
+            return False
+        if self.obj_list.all_objects:
+            response = QtWidgets.QMessageBox.question(
+                self,
+                "Replace Current Objects?",
+                "Opening a session replaces the currently loaded objects. Continue?",
+                QtWidgets.QMessageBox.StandardButton.Yes
+                | QtWidgets.QMessageBox.StandardButton.No,
+                QtWidgets.QMessageBox.StandardButton.No,
+            )
+            if response != QtWidgets.QMessageBox.StandardButton.Yes:
+                return False
+        self.obj_list.clear_objects()
+        self.obj_list.add_kk_objs(objs)
+        return True
+
+    def export_csv(self, directory: str | None = None) -> list[str]:
+        """
+        Export each loaded object to its own CSV file.
+
+        Parameters
+        ----------
+        directory : str | None, optional
+            The output directory. If not given (or when triggered by a menu action), the user is prompted.
+
+        Returns
+        -------
+        list[str]
+            The paths written (empty if cancelled or there is nothing to export).
+        """
+        if not isinstance(directory, str):
+            directory = QtWidgets.QFileDialog.getExistingDirectory(
+                self, "Select CSV Output Folder"
+            )
+        if not directory or not self.obj_list.all_objects:
+            return []
+        try:
+            return session.export_objects_to_csv(self.obj_list.all_objects, directory)
+        except OSError as e:
+            QtWidgets.QMessageBox.critical(self, "Export Failed", str(e))
+            return []
+
+    def on_database_choice(self, action: QtGui.QAction) -> None:
+        """
+        Switch the active atomic scattering database backend.
+
+        Parameters
+        ----------
+        action : QtGui.QAction
+            The chosen database action, whose data holds the backend name.
+        """
+        backend = action.data()
+        if backend == asf_database.get_db_backend():
+            return
+        try:
+            asf_database.set_db_backend(backend)
+        except (ImportError, ValueError) as e:
+            QtWidgets.QMessageBox.warning(self, "Database Unavailable", str(e))
+            current = asf_database.get_db_backend()
+            self.db_henke_action.setChecked(current == "kkcalc")
+            self.db_periodictable_action.setChecked(current == "periodictable")
+
     def on_has_handle(self, has_handle: bool):
         """
         Catch the signal from the modifier, for when an extended domain is to be created.
@@ -222,6 +396,7 @@ class kk_gui(QtWidgets.QWidget):
             # TODO: Create a temporary asf object to pass to the viewer using the handle
             pass
         # Update the viewer
+        self.viewer.snap_objects = self.obj_list.all_objects
         self.viewer.scattering_objects = objs
 
     def on_object_select(self):
