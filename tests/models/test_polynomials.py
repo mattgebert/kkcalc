@@ -214,6 +214,32 @@ class TestAspArithmatic:
         assert isinstance(result, asp_im)
         assert np.allclose(result.coefs, poly1.coefs - poly2.coefs)
 
+    @pytest.mark.parametrize("scalar", [2, 3.5, -1.0])
+    def test_multiplication_returns_asp(
+        self, nexafs_asf: NexafsAsf, scalar: float
+    ) -> None:
+        """Multiplying an `asp` objects with a scalar returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        result = poly1 * scalar
+        assert isinstance(result, asp_im)
+        assert np.allclose(result.coefs, poly1.coefs * scalar)
+
+    @pytest.mark.parametrize("scalar", [2, 3.5, -1.0])
+    def test_rmul_returns_asp(self, nexafs_asf: NexafsAsf, scalar: float) -> None:
+        """Right-multiplying an `asp` objects with a scalar returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        result = scalar * poly1
+        assert isinstance(result, asp_im)
+        assert np.allclose(result.coefs, scalar * poly1.coefs)
+
+    @pytest.mark.parametrize("scalar", [2, 3.5, -1.0])
+    def test_division_returns_asp(self, nexafs_asf: NexafsAsf, scalar: float) -> None:
+        """Dividing an `asp` objects by a scalar returns a new `asp` object."""
+        poly1 = nexafs_asf.im.to_ASP()
+        result = poly1 / scalar
+        assert isinstance(result, asp_im)
+        assert np.allclose(result.coefs, poly1.coefs / scalar)
+
     def test_addition_returns_asp_with_num(self, nexafs_asf: NexafsAsf) -> None:
         """Adding a number to an `asp` objects returns a new `asp` object."""
         poly1 = nexafs_asf.im.to_ASP()
@@ -574,3 +600,23 @@ class TestAspComplexArithmetic:
             _ = poly + "not a polynomial"
         with pytest.raises(TypeError, match="must be of type `asp_complex`"):
             _ = poly - "not a polynomial"
+
+    def test_complex_multiplication_with_scalar(self) -> None:
+        """Multiplying a complex polynomial by a scalar scales both components."""
+        poly = self.make_complex(orders=[1, 0])
+        scalar = 2.0
+
+        result = poly * scalar
+
+        np.testing.assert_allclose(result.re.coefs, poly.re.coefs * scalar)
+        np.testing.assert_allclose(result.im.coefs, poly.im.coefs * scalar)
+
+    def test_complex_division_with_scalar(self) -> None:
+        """Dividing a complex polynomial by a scalar scales both components."""
+        poly = self.make_complex(orders=[1, 0])
+        scalar = 2.0
+
+        result = poly / scalar
+
+        np.testing.assert_allclose(result.re.coefs, poly.re.coefs / scalar)
+        np.testing.assert_allclose(result.im.coefs, poly.im.coefs / scalar)

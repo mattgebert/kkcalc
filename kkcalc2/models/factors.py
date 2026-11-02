@@ -1460,6 +1460,91 @@ class asf(asf_abstract, atomic_scattering):
             **self._properties_dict,
         )
 
+    def __mul__(self, other: float) -> Self:
+        """
+        Multiply the `asf` object by a scalar.
+
+        Parameters
+        ----------
+        other : float
+            A scalar value to multiply the factors by.
+
+        Returns
+        -------
+        asf
+            A new `asf` object with the factors multiplied by the scalar.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+        """
+        if not isinstance(other, (float, int)):
+            raise TypeError(
+                f"Cannot multiply {type(self)} by {type(other)}, must be a float or int"
+            )
+        # Create a new asf object with the factors multiplied by the scalar
+        return type(self)(
+            energies=self.energies.copy(),
+            factors=self.factors * other,
+            **self._properties_dict,
+        )
+
+    def __rmul__(self, other: float) -> Self:
+        """
+        Multiply the `asf` object by a scalar (right multiplication).
+
+        Parameters
+        ----------
+        other : float
+            A scalar value to multiply the factors by.
+
+        Returns
+        -------
+        asf
+            A new `asf` object with the factors multiplied by the scalar.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+        """
+        return self.__mul__(other)
+
+    def __truediv__(self, other: float) -> Self:
+        """
+        Divide the `asf` object by a scalar.
+
+        Parameters
+        ----------
+        other : float
+            A scalar value to divide the factors by.
+
+        Returns
+        -------
+        asf
+            A new `asf` object with the factors divided by the scalar.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+        ZeroDivisionError
+            If `other` is zero.
+        """
+        if not isinstance(other, (float, int)):
+            raise TypeError(
+                f"Cannot divide {type(self)} by {type(other)}, must be a float or int"
+            )
+        if other == 0:
+            raise ZeroDivisionError("Cannot divide by zero")
+        # Create a new asf object with the factors divided by the scalar
+        return type(self)(
+            energies=self.energies.copy(),
+            factors=self.factors / other,
+            **self._properties_dict,
+        )
+
 
 class asf_re(asf):
     """
@@ -3412,4 +3497,95 @@ class asf_complex(asf_abstract, atomic_scattering):
             )
         new_re = self.re - other.re
         new_im = self.im - other.im
+        return type(self)(re=new_re, im=new_im, **self._properties_dict)
+
+    def __mul__(self: Self, other: float) -> Self:
+        """
+        Multiply an `asf_complex` object by a scalar.
+
+        Parameters
+        ----------
+        other : float | int
+            The scalar value to multiply the `asf_complex` object by.
+
+        Returns
+        -------
+        asf_complex
+            A new `asf_complex` object representing the scaled atomic scattering factors.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+
+        See Also
+        --------
+        kkcalc2.models.common.atomic_scattering : The base class for material attributes.
+        """
+        if not isinstance(other, (float, int)):
+            raise TypeError(
+                f"Cannot multiply {type(self)} by {type(other)}. Must be a float or int."
+            )
+        new_re = self.re * other
+        new_im = self.im * other
+        return type(self)(re=new_re, im=new_im, **self._properties_dict)
+
+    def __rmul__(self: Self, other: float) -> Self:
+        """
+        Multiply an `asf_complex` object by a scalar (right multiplication).
+
+        Parameters
+        ----------
+        other : float | int
+            The scalar value to multiply the `asf_complex` object by.
+
+        Returns
+        -------
+        asf_complex
+            A new `asf_complex` object representing the scaled atomic scattering factors.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+
+        See Also
+        --------
+        kkcalc2.models.common.atomic_scattering : The base class for material attributes.
+        """
+        return self.__mul__(other)
+
+    def __truediv__(self: Self, other: float) -> Self:
+        """
+        Divide an `asf_complex` object by a scalar.
+
+        Parameters
+        ----------
+        other : float | int
+            The scalar value to divide the `asf_complex` object by.
+
+        Returns
+        -------
+        asf_complex
+            A new `asf_complex` object representing the scaled atomic scattering factors.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+        ZeroDivisionError
+            If `other` is zero.
+
+        See Also
+        --------
+        kkcalc2.models.common.atomic_scattering : The base class for material attributes.
+        """
+        if not isinstance(other, (float, int)):
+            raise TypeError(
+                f"Cannot divide {type(self)} by {type(other)}. Must be a float or int."
+            )
+        if other == 0:
+            raise ZeroDivisionError("Cannot divide by zero.")
+        new_re = self.re / other
+        new_im = self.im / other
         return type(self)(re=new_re, im=new_im, **self._properties_dict)

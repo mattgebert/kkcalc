@@ -335,6 +335,27 @@ class TestAsfArithmetic:
                 nexafs_asf.im - nexafs_asf.re
             )  # Subtracting an `asf` object from a non-`asf` object should raise a TypeError.
 
+    def test_multiplication(self, nexafs_asf: NexafsAsf) -> None:
+        """Multiplying an `asf` object by a scalar returns a new `asf` object with the factors scaled."""
+        result = nexafs_asf.im * 2.0
+
+        assert isinstance(result, asf_im)
+        assert np.allclose(result.factors, nexafs_asf.im.factors * 2.0)
+
+    def test_right_multiplication(self, nexafs_asf: NexafsAsf) -> None:
+        """Multiplying a scalar by an `asf` object returns a new `asf` object with the factors scaled."""
+        result = 2.0 * nexafs_asf.im
+
+        assert isinstance(result, asf_im)
+        assert np.allclose(result.factors, 2.0 * nexafs_asf.im.factors)
+
+    def test_division(self, nexafs_asf: NexafsAsf) -> None:
+        """Dividing an `asf` object by a scalar returns a new `asf` object with the factors scaled."""
+        result = nexafs_asf.im / 2.0
+
+        assert isinstance(result, asf_im)
+        assert np.allclose(result.factors, nexafs_asf.im.factors / 2.0)
+
     def test_complex_factors_setter_accepts_complex_arrays(
         self, nexafs_asf: NexafsAsf
     ) -> None:

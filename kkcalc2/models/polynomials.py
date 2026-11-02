@@ -1216,6 +1216,74 @@ class asp(asp_abstract, atomic_scattering):
             **self_trunc._properties_dict,
         )
 
+    def __mul__(self, other: float) -> Self:
+        """
+        Multiply the polynomial coefficients of the `asp` object by a scalar.
+
+        Parameters
+        ----------
+        other : float
+            A scalar value to multiply the polynomial coefficients by.
+
+        Returns
+        -------
+        asp
+            A new `asp` object with the polynomial coefficients multiplied by the scalar.
+        """
+        if not isinstance(other, (int, float)):
+            raise TypeError(
+                f"Cannot multiply asp object by {type(other)}. Must be a scalar."
+            )
+        new_coefs = self.coefs * other
+        return type(self)(
+            energies=self.energies,
+            coefs=new_coefs,
+            orders=self.orders,
+            **self._properties_dict,
+        )
+
+    def __rmul__(self, other: float) -> Self:
+        """
+        Multiply the polynomial coefficients of the `asp` object by a scalar.
+
+        Parameters
+        ----------
+        other : float
+            A scalar value to multiply the polynomial coefficients by.
+
+        Returns
+        -------
+        asp
+            A new `asp` object with the polynomial coefficients multiplied by the scalar.
+        """
+        return self.__mul__(other)
+
+    def __truediv__(self, other: float) -> Self:
+        """
+        Divide the polynomial coefficients of the `asp` object by a scalar.
+
+        Parameters
+        ----------
+        other : float
+            A scalar value to divide the polynomial coefficients by.
+
+        Returns
+        -------
+        asp
+            A new `asp` object with the polynomial coefficients divided by the scalar.
+        """
+        if not isinstance(other, (int, float)):
+            raise TypeError(
+                f"Cannot divide asp object by {type(other)}. Must be a scalar."
+            )
+        new_coefs = self.coefs / other
+        return type(self)(
+            energies=self.energies,
+            coefs=new_coefs,
+            orders=self.orders,
+            **self._properties_dict,
+        )
+
 
 class asp_im(asp):
     """
@@ -3087,3 +3155,88 @@ class asp_complex(asp_abstract, atomic_scattering):
                     f"Property {key} differs between the two objects. Using self's value: {common_kwargs[key]}."
                 )
         return type(self)(re=re_diff, im=im_diff, **common_kwargs)
+
+    def __mul__(self: Self, other: float) -> Self:
+        """
+        Multiply an `asp_complex` object by a scalar.
+
+        Parameters
+        ----------
+        other : float | int
+            The scalar value to multiply the `asp_complex` object by.
+
+        Returns
+        -------
+        asp_complex
+            A new `asp_complex` object with the polynomial coefficients and properties scaled by `other`.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+        """
+        if not isinstance(other, (float, int)):
+            raise TypeError(
+                f"Cannot multiply {type(self)} by {type(other)}. Must be a float or int."
+            )
+        # Multiply the real and imaginary parts separately
+        re_scaled = self.re * other
+        im_scaled = self.im * other
+        # Combine properties, keeping self's properties unchanged
+        common_kwargs = self._properties_dict.copy()
+        return type(self)(re=re_scaled, im=im_scaled, **common_kwargs)
+
+    def __rmul__(self: Self, other: float) -> Self:
+        """
+        Multiply a scalar by an `asp_complex` object (right multiplication).
+
+        Parameters
+        ----------
+        other : float | int
+            The scalar value to multiply the `asp_complex` object by.
+
+        Returns
+        -------
+        asp_complex
+            A new `asp_complex` object with the polynomial coefficients and properties scaled by `other`.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or int.
+        """
+        return self.__mul__(other)
+
+    def __truediv__(self: Self, other: float) -> Self:
+        """
+        Divide an `asp_complex` object by a scalar.
+
+        Parameters
+        ----------
+        other : float | complex
+            The scalar value to divide the `asp_complex` object by.
+
+        Returns
+        -------
+        asp_complex
+            A new `asp_complex` object with the polynomial coefficients and properties scaled by `1/other`.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a float or complex number.
+        ZeroDivisionError
+            If `other` is zero.
+        """
+        if not isinstance(other, (float, int)):
+            raise TypeError(
+                f"Cannot divide {type(self)} by {type(other)}. Must be a float or int."
+            )
+        if other == 0:
+            raise ZeroDivisionError("Cannot divide by zero.")
+        # Divide the real and imaginary parts separately
+        re_scaled = self.re / other
+        im_scaled = self.im / other
+        # Combine properties, keeping self's properties unchanged
+        common_kwargs = self._properties_dict.copy()
+        return type(self)(re=re_scaled, im=im_scaled, **common_kwargs)
