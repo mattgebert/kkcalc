@@ -386,3 +386,34 @@ class TestAsfArithmetic:
 
         assert isinstance(result, asf_complex)
         np.testing.assert_allclose(result.factors, 2 * nexafs_asf.complex.factors)
+
+
+class TestAsfFormsEquivalence:
+    """
+    Tests that the various atomic scattering factor representations are consistent in their values and equivalence operations from different classes.
+    """
+
+    def test_dashdash_is_f2(self, nexafs_asf: NexafsAsf) -> None:
+        """The `f''` property is equivalent to the `f2` property."""
+        assert np.allclose(nexafs_asf.im.f2, nexafs_asf.im.fdashdash)
+        assert np.allclose(nexafs_asf.complex.f2, nexafs_asf.complex.fdashdash)
+
+    def test_dash_is_f1(self, nexafs_asf: NexafsAsf) -> None:
+        """The `f'` property is equivalent to the `f1` property."""
+        stoich = nexafs_asf.complex.stoichiometry
+        f0 = stoich.relativistic_correction
+        assert np.allclose(nexafs_asf.re.f1 - f0, nexafs_asf.re.fdash)
+        assert np.allclose(nexafs_asf.complex.f1 - f0, nexafs_asf.complex.fdash)
+
+    def test_f0_is_stoich(self, nexafs_asf: NexafsAsf) -> None:
+        """The `f0` property is equivalent to the stoichiometry's `f0`."""
+        assert np.allclose(
+            nexafs_asf.im.f0, nexafs_asf.im.stoichiometry.relativistic_correction
+        )
+        assert np.allclose(
+            nexafs_asf.re.f0, nexafs_asf.re.stoichiometry.relativistic_correction
+        )
+        assert np.allclose(
+            nexafs_asf.complex.f0,
+            nexafs_asf.complex.stoichiometry.relativistic_correction,
+        )

@@ -620,3 +620,71 @@ class TestAspComplexArithmetic:
 
         np.testing.assert_allclose(result.re.coefs, poly.re.coefs / scalar)
         np.testing.assert_allclose(result.im.coefs, poly.im.coefs / scalar)
+
+
+class TestAsfFormsEquivalence:
+    """
+    Tests that the various atomic scattering factor representations are consistent in their values and equivalence operations from different classes.
+    """
+
+    def test_fdashdash_is_f2(self, nexafs_asf: NexafsAsf) -> None:
+        """The `f''` property is equivalent to the `f2` property."""
+        asp_im = nexafs_asf.im.to_ASP()
+        asp_complex = nexafs_asf.complex.to_ASP()
+
+        assert np.allclose(asp_im.f2, asp_im.fdashdash)
+        assert np.allclose(asp_complex.f2, asp_complex.fdashdash)
+
+    def test_fdash_is_f1(self, nexafs_asf: NexafsAsf) -> None:
+        """The `f'` property is equivalent to the `f1` property."""
+        asp_re = nexafs_asf.re.to_ASP()
+        asp_complex = nexafs_asf.complex.to_ASP()
+
+        stoich = nexafs_asf.complex.stoichiometry
+        f0 = stoich.relativistic_correction
+
+        assert np.allclose(asp_re.f1 - f0, asp_re.fdash)
+        assert np.allclose(asp_complex.f1 - f0, asp_complex.fdash)
+
+    def test_f0_is_stoich(self, nexafs_asf: NexafsAsf) -> None:
+        """The `f0` property is equivalent to the stoichiometry's `f0`."""
+        asp_im = nexafs_asf.im.to_ASP()
+        asp_re = nexafs_asf.re.to_ASP()
+        asp_complex = nexafs_asf.complex.to_ASP()
+
+        assert np.allclose(
+            asp_im.f0, nexafs_asf.im.stoichiometry.relativistic_correction
+        )
+        assert np.allclose(
+            asp_re.f0, nexafs_asf.re.stoichiometry.relativistic_correction
+        )
+        assert np.allclose(
+            asp_complex.f0, nexafs_asf.complex.stoichiometry.relativistic_correction
+        )
+
+    def test_eval_fdashdash_is_f2(self, nexafs_asf: NexafsAsf) -> None:
+        """The `eval_fdashdash` method is equivalent to the `eval_f2` method."""
+        asp_im = nexafs_asf.im.to_ASP()
+        asp_complex = nexafs_asf.complex.to_ASP()
+
+        energies = np.linspace(asp_im.energies[0], asp_im.energies[-1], 10)
+
+        assert np.allclose(asp_im.eval_fdashdash(energies), asp_im.eval_f2(energies))
+        assert np.allclose(
+            asp_complex.eval_fdashdash(energies), asp_complex.eval_f2(energies)
+        )
+
+    def test_eval_fdash_is_f1(self, nexafs_asf: NexafsAsf) -> None:
+        """The `eval_fdash` method is equivalent to the `eval_f1` method."""
+        asp_re = nexafs_asf.re.to_ASP()
+        asp_complex = nexafs_asf.complex.to_ASP()
+
+        energies = np.linspace(asp_re.energies[0], asp_re.energies[-1], 10)
+
+        assert np.allclose(
+            asp_re.eval_fdash(energies) - asp_re.f0, asp_re.eval_f1(energies)
+        )
+        assert np.allclose(
+            asp_complex.eval_fdash(energies) - asp_complex.f0,
+            asp_complex.eval_f1(energies),
+        )
