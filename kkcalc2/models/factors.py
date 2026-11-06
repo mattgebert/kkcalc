@@ -1347,6 +1347,32 @@ class asf(asf_abstract, atomic_scattering):
                 as the conversion is ambiguous between $\delta$ & $\beta$ values."
         )
 
+    @property
+    def f0(self) -> float:
+        r"""
+        The stoichiometry determined energy-independent real atomic scattering factor.
+
+        f(E) = f0 + f'(E) + i*f''(E)
+        f(E) = f1(E) + i*f2(E)
+
+        Uses `stoich.relativistic_correction_eq`. Each element contributes (z - (z/82.5)**2.37) * n to the correction,
+        where z is the atomic number and n is the relative stoichiometry.
+
+        .. math::
+            \mathcal{Z}^\star = \sum_i (Z_i - (Z_i/82.5)^{2.37}) \cdot n_i
+
+        Returns
+        -------
+        float
+            The stoichiometry determined energy-independent real atomic scattering factor.
+        """
+        stoich = self.stoichiometry
+        if stoich is None:
+            raise ValueError(
+                "Stoichiometry is required to calculate the independent atomic scattering factor (f0)."
+            )
+        return stoich.relativistic_correction
+
     def copy(self, **kwargs: Unpack[PROPERTIES_DICT]) -> Self:
         """
         Generate a copy of the `asp` object.
@@ -1700,6 +1726,36 @@ class asf_re(asf):
             The real part of the refractive index.
         """
         return self.refractive
+
+    @property
+    def f1(self) -> npt.NDArray[np.floating]:
+        r"""
+        The real atomic scattering factors ($f_1$).
+
+        f(E) = f0 + f'(E) + i*f''(E)
+        f(E) = f1(E) + i*f2(E)
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The real atomic scattering factors.
+        """
+        return self.factors
+
+    @property
+    def fdash(self) -> npt.NDArray[np.floating]:
+        r"""
+        The real energy-dependent atomic scattering factors ($f'$).
+
+        f(E) = f0 + f'(E) + i*f''(E)
+        f(E) = f1(E) + i*f2(E)
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The real energy-dependent atomic scattering factors.
+        """
+        return self.factors - self.f0
 
     @classmethod
     def from_deltas(
@@ -2280,6 +2336,37 @@ class asf_im(asf):
         )
 
     @property
+    def f2(self) -> npt.NDArray[np.floating]:
+        """
+        The imaginary energy-dependent atomic scattering factors ($f''$).
+
+        f(E) = f0 + f'(E) + i*f''(E)
+        f(E) = f1(E) + i*f2(E)
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The imaginary energy-dependent atomic scattering factors.
+        """
+        return self.factors
+
+    @property
+    def fdashdash(self) -> npt.NDArray[np.floating]:
+        """
+        The imaginary energy-dependent atomic scattering factors ($f''$).
+
+        This is equivalent to the `f2` property.
+        f(E) = f0 + f'(E) + i*f''(E)
+        f(E) = f1(E) + i*f2(E)
+
+        Returns
+        -------
+        npt.NDArray[np.floating]
+            The imaginary energy-dependent atomic scattering factors.
+        """
+        return self.f2
+
+    @property
     def betas(self) -> npt.NDArray[np.floating]:
         """
         Calculate the imaginary refractive absorption values ($\beta$) from the atomic scattering factors.
@@ -2795,6 +2882,82 @@ class asf_complex(asf_abstract, atomic_scattering):
                 raise ValueError(
                     "Factors must be a tuple of arrays or a complex ndarray."
                 )
+
+    @property
+    def f0(self) -> float:
+        """
+        The energy-independent atomic scattering factors ($f_0$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        np.ndarray
+            The energy-independent atomic scattering factors.
+        """
+        return self.re.f0
+
+    @property
+    def f1(self) -> npt.NDArray[np.floating]:
+        """
+        The real energy-dependent atomic scattering factors ($f'$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        np.ndarray
+            The real energy-dependent atomic scattering factors.
+        """
+        return self.re.f1
+
+    @property
+    def f2(self) -> npt.NDArray[np.floating]:
+        """
+        The imaginary energy-dependent atomic scattering factors ($f''$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        np.ndarray
+            The imaginary energy-dependent atomic scattering factors.
+        """
+        return self.im.f2
+
+    @property
+    def fdash(self) -> npt.NDArray[np.floating]:
+        """
+        The real energy-dependent atomic scattering factors ($f'$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        np.ndarray
+            The real energy-dependent atomic scattering factors.
+        """
+        return self.re.fdash
+
+    @property
+    def fdashdash(self) -> npt.NDArray[np.floating]:
+        """
+        The imaginary energy-dependent atomic scattering factors ($f''$).
+
+        This is equivalent to the `f2` property.
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        np.ndarray
+            The imaginary energy-dependent atomic scattering factors.
+        """
+        return self.im.fdashdash
 
     @property
     def abs(self) -> npt.NDArray[np.floating]:

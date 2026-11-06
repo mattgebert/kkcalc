@@ -1065,6 +1065,22 @@ class asp(asp_abstract, atomic_scattering):
             **common_kwargs,
         )
 
+    @property
+    def f0(self) -> float:
+        """
+        The energy-independent scattering factor calculated from the stoichiometry.
+
+        Returns
+        -------
+        float
+            The energy-independent scattering factor calculated from the stoichiometry.
+        """
+        if self.stoichiometry is None:
+            raise ValueError(
+                "Stoichiometry must be provided via the `asp_re.stoichiometry` attribute."
+            )
+        return self.stoichiometry.relativistic_correction
+
     def __add__(self, other: Self | float) -> Self:
         """
         Add two `asp` objects together.
@@ -1704,6 +1720,79 @@ class asp_im(asp):
         return conversions.ASF_to_NEXAFS(target_energies, factors)
 
     @overload
+    def eval_f2(
+        self, target_energies: npt.NDArray | None
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_f2(self, target_energies: float) -> float: ...  # numpydoc ignore=GL08
+
+    def eval_f2(
+        self, target_energies: npt.NDArray | npt.ArrayLike | float
+    ) -> npt.NDArray | float:
+        r"""
+        Determine the energy-dependent, imaginary, absorption refractive index component ($f_2$).
+
+        Calculated from the object atomic scattering polynomial coefficients at desired `target_energies`.
+
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.eval_refractive(target_energies=target_energies)
+
+    def eval_fdashdash(
+        self, target_energies: npt.NDArray | npt.ArrayLike | float
+    ) -> npt.NDArray | float:
+        r"""
+        Determine the energy-dependent, imaginary, absorption refractive index component ($f''$).
+
+        Calculated from the object atomic scattering polynomial coefficients at desired `target_energies`.
+
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.eval_f2(target_energies=target_energies)
+
+    @property
+    def f2(self) -> npt.NDArray:
+        """
+        The imaginary atomic scattering factor ($f_2$ == $f''$) evaluated at the object's `energies`.
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        npt.NDArray
+            The imaginary atomic scattering factor ($f_2$) at the object's `energies`.
+        """
+        return self.eval_f2(self.energies)
+
+    fdashdash = f2  # Alias for f2
+
+    @overload
     def eval_betas(
         self, target_energies: npt.NDArray | None
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
@@ -2213,6 +2302,102 @@ class asp_re(asp):
         return c_angle[0] if scalar_input else c_angle
 
     @overload
+    def eval_fdash(
+        self, target_energies: npt.NDArray
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_fdash(self, target_energies: float) -> float: ...  # numpydoc ignore=GL08
+
+    def eval_fdash(
+        self, target_energies: npt.NDArray | npt.ArrayLike | float
+    ) -> npt.NDArray | float:
+        r"""
+        Determine the real, energy-dependent atomic scattering factor ($f'$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The real part of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.eval_refractive(target_energies=target_energies) - self.f0
+
+    @property
+    def fdash(self) -> npt.NDArray:
+        """
+        The real energy-dependent atomic scattering factor ($f'$) evaluated at the object's `energies`.
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        npt.NDArray
+            The real energy-dependent atomic scattering factor ($f'$) at the object's `energies`.
+        """
+        return self.eval_fdash(target_energies=self.energies)
+
+    @overload
+    def eval_f1(
+        self, target_energies: npt.NDArray
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_f1(self, target_energies: float) -> float: ...  # numpydoc ignore=GL08
+
+    def eval_f1(
+        self, target_energies: npt.NDArray | npt.ArrayLike | float
+    ) -> npt.NDArray | float:
+        r"""
+        Determine the real, atomic scattering factor ($f_1$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The real part of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.eval_refractive(target_energies=target_energies)
+
+    @property
+    def f1(self) -> npt.NDArray:
+        """
+        The real energy-dependent atomic scattering factor ($f_1$) evaluated at the object's `energies`.
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        npt.NDArray
+            The real energy-dependent atomic scattering factor ($f_1$) at the object's `energies`.
+        """
+        return self.eval_f1(target_energies=self.energies)
+
+    @overload
     def eval_deltas(
         self, target_energies: npt.NDArray | None
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
@@ -2227,6 +2412,8 @@ class asp_re(asp):
     ) -> npt.NDArray | float | complex:
         r"""
         Determine the energy-dependent, real, dispersive refractive index component ($\delta$).
+
+        N(E) = 1 - δ(E) + iβ(E)
 
         Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
         Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
@@ -2725,10 +2912,192 @@ class asp_complex(asp_abstract, atomic_scattering):
         """
         return self.eval_refractive_index(self.energies)
 
+    @property
+    def f0(self) -> float:
+        """
+        The real, energy-independent atomic scattering factor ($f_0$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        float
+            The real, energy-independent atomic scattering factor ($f_0$).
+        """
+        stoich = self.stoichiometry
+        if stoich is None:
+            raise ValueError(
+                "A stoichiometry must be provided to calculate the energy-independent atomic scattering factor (f0)."
+            )
+        return stoich.relativistic_correction
+
     @overload
-    def eval_betas(
-        self, target_energies: npt.NDArray | None
+    def eval_f1(
+        self, target_energies: npt.NDArray
     ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_f1(self, target_energies: float) -> float: ...  # numpydoc ignore=GL08
+
+    def eval_f1(self, target_energies: npt.NDArray | float) -> npt.NDArray | float:
+        r"""
+        Determine the real, atomic scattering factor ($f_1$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The real part of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.re.eval_f1(target_energies=target_energies)
+
+    def eval_fdash(self, target_energies: npt.NDArray | float) -> npt.NDArray | float:
+        r"""
+        Determine the real, energy-dependent atomic scattering factor ($f'$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The real part of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.re.eval_fdash(target_energies=target_energies)
+
+    @property
+    def fdash(self) -> npt.NDArray:
+        """
+        The real energy-dependent atomic scattering factor ($f'$) evaluated at the object's `energies`.
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        npt.NDArray
+            The real energy-dependent atomic scattering factor ($f'$) at the object's `energies`.
+        """
+        return self.eval_fdash(target_energies=self.energies)
+
+    @property
+    def f1(self) -> npt.NDArray:
+        """
+        The real energy-dependent atomic scattering factor ($f_1$) evaluated at the object's `energies`.
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        npt.NDArray
+            The real energy-dependent atomic scattering factor ($f_1$) at the object's `energies`.
+        """
+        return self.eval_f1(target_energies=self.energies)
+
+    @overload
+    def eval_f2(
+        self, target_energies: npt.NDArray
+    ) -> npt.NDArray: ...  # numpydoc ignore=GL08
+
+    @overload
+    def eval_f2(self, target_energies: float) -> float: ...  # numpydoc ignore=GL08
+
+    def eval_f2(self, target_energies: npt.NDArray | float) -> npt.NDArray | float:
+        r"""
+        Determine the imaginary, atomic scattering factor ($f_2$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The imaginary part of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.im.eval_f2(target_energies=target_energies)
+
+    @property
+    def f2(self) -> npt.NDArray:
+        """
+        The imaginary energy-dependent atomic scattering factor ($f_2$) evaluated at the object's `energies`.
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Returns
+        -------
+        npt.NDArray
+            The imaginary energy-dependent atomic scattering factor ($f_2$) at the object's `energies`.
+        """
+        return self.eval_f2(target_energies=self.energies)
+
+    def eval_fdashdash(
+        self, target_energies: npt.NDArray | float
+    ) -> npt.NDArray | float:
+        r"""
+        Determine the imaginary, energy-dependent atomic scattering factor ($f''$).
+
+        f(E) = f0 + f'(E) + i f''(E)
+        f(E) = f1(E) + i f2(E)
+
+        Determined from the object atomic scattering polynomial coefficients at desired `target_energies`.
+        Uses `coefs_to_atomic_scattering_factors` to calculate the ASF values after matching energies to segments.
+
+        Parameters
+        ----------
+        target_energies : array_like | float
+            1D array (or singular float) of `M` energies in eV.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The imaginary part of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.im.eval_fdashdash(target_energies=target_energies)
+
+    @property
+    def fdashdash(self) -> npt.NDArray:
+        """
+        The imaginary energy-dependent atomic scattering factor ($f''$) evaluated at the object's `energies`.
+
+        Returns
+        -------
+        npt.NDArray
+            The imaginary energy-dependent atomic scattering factor ($f''$) at the object's `energies`.
+        """
+        return self.eval_fdashdash(target_energies=self.energies)
 
     @overload
     def eval_betas(
