@@ -371,16 +371,33 @@ class asp_abstract(atomic_scattering_abstract, metaclass=abc.ABCMeta):
             orders=self.orders,
         )
 
-    eval_asf = __call__  # Alias for __call__
+    @overload
+    def eval_asf(self, target_energies: float) -> float:  # numpydoc ignore=GL08
+        ...
 
-    # # @doc_copy(eval_asf)
-    # def __call__(
-    #     self, target_energies: npt.NDArray | float | None = None
-    # ) -> npt.NDArray | float:
-    #     """
-    #     Callable alias for `evaluate_energies`.
-    #     """
-    #     return self.eval_asf(target_energies)
+    @overload
+    def eval_asf(
+        self, target_energies: npt.NDArray
+    ) -> npt.NDArray:  # numpydoc ignore=GL08
+        ...
+
+    def eval_asf(self, target_energies: npt.NDArray | float) -> npt.NDArray | float:
+        """
+        Evaluate the atomic scattering factors at the specified energies.
+
+        Parameters
+        ----------
+        target_energies : array_like | npt.NDArray | float, optional
+            1D array (or singular float) of `M` energies in eV.
+            If None then the energies defined in the object are used.
+
+        Returns
+        -------
+        npt.NDArray | float
+            The magnitude of the atomic scattering factors at energy (or energies) `energies`.
+            Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
+        """
+        return self.__call__(target_energies=target_energies)
 
     def __iter__(self) -> Iterator[tuple[tuple[float, float], np.ndarray]]:
         """
@@ -1749,7 +1766,7 @@ class asp_im(asp):
             The magnitude of the atomic scattering factors at energy (or energies) `energies`.
             Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
         """
-        return self.eval_refractive(target_energies=target_energies)
+        return self.eval_asf(target_energies=target_energies)
 
     def eval_fdashdash(
         self, target_energies: npt.NDArray | npt.ArrayLike | float
@@ -2332,7 +2349,7 @@ class asp_re(asp):
             The real part of the atomic scattering factors at energy (or energies) `energies`.
             Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
         """
-        return self.eval_refractive(target_energies=target_energies) - self.f0
+        return self.eval_asf(target_energies=target_energies) - self.f0
 
     @property
     def fdash(self) -> npt.NDArray:
@@ -2380,7 +2397,7 @@ class asp_re(asp):
             The real part of the atomic scattering factors at energy (or energies) `energies`.
             Dimensions are `M` if `energies` is an array, otherwise a float if `energies` is a float value.
         """
-        return self.eval_refractive(target_energies=target_energies)
+        return self.eval_asf(target_energies=target_energies)
 
     @property
     def f1(self) -> npt.NDArray:
