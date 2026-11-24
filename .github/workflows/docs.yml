@@ -30,20 +30,21 @@ jobs:
           ref: ${{ inputs.sha || github.sha }}
 
 
-      - name: Action | et up Python
+      - name: Action | Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 
+      # The tutorials plot with the periodictable backend, and autodoc imports the gui modules.
       - name: Config | Install dependencies
         run: |
-          pip install . --group docs
+          pip install ".[gui,periodictable]" --group docs
 
       - name: Log | Get version (pyproject.toml)
         id: get-version
         run: |
-          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")"
-          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc'))")" >> $GITHUB_ENV
+          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc2'))")"
+          echo "MODULE_VERSION=$(python -c "from importlib.metadata import version; print(version('kkcalc2'))")" >> $GITHUB_ENV
 
       - name: Build | Sphinx html documentation
         run: |
@@ -81,14 +82,14 @@ jobs:
           for dir in ./docs/_build/*; do
             if [[ -d "$dir" ]]; then
               base=$(basename "$dir")
-              new_name="kkcalc-${{ env.MODULE_VERSION }}-docs-${base}"
+              new_name="kkcalc2-${{ env.MODULE_VERSION }}-docs-${base}"
               mv "$dir" "./docs/_build/${new_name}"
               echo "Renamed $dir to ./docs/_build/${new_name}"
             fi
           done
-          if [[ -f "./docs/_build/latex/kkcalc.pdf" ]]; then
-            mv "./docs/_build/latex/kkcalc.pdf" "./docs/_build/kkcalc-${{ env.MODULE_VERSION }}.pdf"
-            echo "Found and renamed kkcalc.pdf to kkcalc-${{ env.MODULE_VERSION }}-docs.pdf"
+          if [[ -f "./docs/_build/kkcalc2-${{ env.MODULE_VERSION }}-docs-latex/kkcalc.pdf" ]]; then
+            mv "./docs/_build/kkcalc2-${{ env.MODULE_VERSION }}-docs-latex/kkcalc.pdf" "./docs/_build/kkcalc2-${{ env.MODULE_VERSION }}-docs.pdf"
+            echo "Found and renamed kkcalc.pdf to kkcalc2-${{ env.MODULE_VERSION }}-docs.pdf"
             echo "PDF_GENERATED=true" >> $GITHUB_ENV
             echo "PDF_GENERATED=true" >> $GITHUB_OUTPUT
           else
@@ -102,8 +103,8 @@ jobs:
         uses: actions/upload-artifact@v7
         if: github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch'
         with:
-          name: kkcalc-${{ env.MODULE_VERSION }}-docs-html
-          path: docs/_build/kkcalc-${{ env.MODULE_VERSION }}-docs-html
+          name: kkcalc2-${{ env.MODULE_VERSION }}-docs-html
+          path: docs/_build/kkcalc2-${{ env.MODULE_VERSION }}-docs-html
           # Short term building
           retention-days: 1
 
@@ -113,8 +114,8 @@ jobs:
           (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch') &&
           env.PDF_GENERATED == 'true'
         with:
-          name: kkcalc-${{ env.MODULE_VERSION }}-docs-pdf
-          path: docs/_build/kkcalc-${{ env.MODULE_VERSION }}-docs.pdf
+          name: kkcalc2-${{ env.MODULE_VERSION }}-docs-pdf
+          path: docs/_build/kkcalc2-${{ env.MODULE_VERSION }}-docs.pdf
           retention-days: 1
 
       # - name: Upload Latex Documentation
