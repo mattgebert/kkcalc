@@ -29,20 +29,25 @@ dependencies = [
     "scipy>=1.17.1,<1.19.0", # Used for constants, interpolation and fitting.
     "numpy>=2.4,<2.6", # Basic array and matrix operations
 ]
-optional-dependencies.gui = [
-    "PyQt6~=6.10", # For GUI
-    "matplotlib~=3.10", # For plotting
-    "pandas~=3.0", # For loading data files
-]
-optional-dependencies.periodictable = [
-    "periodictable >= 2.0.2", # Alternative atomic scattering factor database backend.
-]
 
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+gui = [
+    "PyQt6~=6.10", # For GUI
+    "matplotlib~=3.10", # For plotting
+    "pandas~=3.0", # For loading data files
+]
+pt = [
+    "periodictable >= 2.0.2", # Alternative atomic scattering factor database backend.
+]
+all = [
+    "kkcalc2[gui,pt]"
 ]
 
 [project.urls]
@@ -73,13 +78,17 @@ all = [
 dev = [
     {include-group = "gui"}, # Include GUI dependencies in dev
     {include-group = "docs"}, # Include documentation dependencies in dev
+    {include-group = "pt"}, # Include periodictable dependencies in dev
     "pre-commit",
     "pytest",
     "python-semantic-release",
     "commitizen",
     "ruff",
-    "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
     "PyInstaller", # For building executables
+]
+
+pt = [ # alternative atomic scattering factor database backend.
+    "periodictable >= 2.0.2", # Due to changes in neutron element as zeroth element.
 ]
 
 gui = [
